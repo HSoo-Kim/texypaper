@@ -1,8 +1,8 @@
 import type { Environment } from '../contracts';
 export type ThemeMode='light'|'dark';
 export type ThemePalette={action:string;canvas:string;surface:string;sidebar:string};
-export type AppSettings={environments?:Environment[];recents?:{environmentId:string;root:string;label?:string}[];locale:'ko'|'en';theme:'system'|ThemeMode;palettes?:Partial<Record<ThemeMode,Partial<ThemePalette>>>;paletteRecents?:{mode:ThemeMode;palette:ThemePalette}[];updates?:{enabled:boolean;feedUrl:string};ai?:{provider:'codex'|'claude';models?:Partial<Record<'codex'|'claude',string>>;reasoningEfforts?:Partial<Record<'codex'|'claude',string>>};providerExecutables?:Partial<Record<'codex'|'claude',string>>;zoom:number;lowPower:boolean;showHidden:boolean;explorerWidth:number;inspectorWidth:number;};
-export const defaultSettings:AppSettings={updates:{enabled:true,feedUrl:''},locale:'ko',theme:'system',zoom:1,lowPower:false,showHidden:false,explorerWidth:240,inspectorWidth:420};
+export type AppSettings={environments?:Environment[];recents?:{environmentId:string;root:string;label?:string}[];locale:'ko'|'en';theme:'system'|ThemeMode;palettes?:Partial<Record<ThemeMode,Partial<ThemePalette>>>;paletteRecents?:{mode:ThemeMode;palette:ThemePalette}[];updates?:{enabled:boolean;feedUrl:string};ai?:{provider:'codex'|'claude';models?:Partial<Record<'codex'|'claude',string>>;reasoningEfforts?:Partial<Record<'codex'|'claude',string>>};aiDisclosureAccepted?:{codex?:true;claude?:true};providerExecutables?:Partial<Record<'codex'|'claude',string>>;zoom:number;editorFontSize:number;chatFontSize:number;lowPower:boolean;showHidden:boolean;explorerWidth:number;inspectorWidth:number;};
+export const defaultSettings:AppSettings={updates:{enabled:true,feedUrl:''},locale:'ko',theme:'system',zoom:1,editorFontSize:14,chatFontSize:13,aiDisclosureAccepted:{},lowPower:false,showHidden:false,explorerWidth:240,inspectorWidth:420};
 export const defaultPalettes:Record<ThemeMode,ThemePalette>={light:{action:'#91385f',canvas:'#f5f4f2',surface:'#ffffff',sidebar:'#eeedeb'},dark:{action:'#d78fb5',canvas:'#161b24',surface:'#1e2530',sidebar:'#1a202a'}};
 export function normalizeHex(value:string){const match=value.trim().match(/^#?([\da-f]{6})$/i);return match?`#${match[1].toLowerCase()}`:null;}
 function channels(hex:string){return [1,3,5].map(index=>Number.parseInt(hex.slice(index,index+2),16));}
@@ -34,11 +34,13 @@ export function derivePaletteTokens(palette:ThemePalette,mode:ThemeMode){
   const warning=semanticColor(text==='#edf1f5'?'#f5cb72':'#865400',text,backgrounds);
   let amber=palette.surface;
   for(let amount=.12;amount>0;amount-=.02){const candidate=blend(palette.surface,warning,amount);if(contrastRatio(text,candidate)>=4.5){amber=candidate;break;}}
+  // Syntax stays in a green family regardless of the user's action/accent color.
+  const texCommand=semanticColor(text==='#edf1f5'?'#78d6a0':'#187344',text==='#edf1f5'?'#d3ffe0':'#002b13',[palette.surface]);
   return {...palette,text,secondary,error,warning,selection,border:blend(palette.surface,text,.2),subtle:palette.canvas,
     'selected-background':selectedBackground,'selected-text':'#ffffff','action-fill':selectedBackground,'on-action':'#ffffff',
     amber,'amber-text':semanticColor(warning,text,[amber]),success:semanticColor(text==='#edf1f5'?'#4cc38a':'#137c4b',text,backgrounds),
     chrome,'chrome-text':chromeText,'chrome-secondary':'#bdc9db','chrome-border':'#415574','chrome-action':semanticColor(palette.action,chromeText,[chrome]),
-    'pdf-action':selectedBackground,'pdf-selection':`${selectedBackground}33`};
+    'pdf-action':selectedBackground,'pdf-selection':`${selectedBackground}33`,'tex-command':texCommand};
 }
 export function applyTheme(settings:AppSettings){
   const mode:ThemeMode=settings.theme==='dark'||(settings.theme==='system'&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';

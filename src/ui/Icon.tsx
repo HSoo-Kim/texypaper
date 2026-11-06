@@ -1,11 +1,13 @@
 import type { CSSProperties } from 'react';
 const paths = {
+  home: 'M3 11l9-8 9 8 M5 9v12h14V9 M9 21v-8h6v8',
   files: 'M4 3h10l4 4v14H4z M14 3v5h5 M8 12h6 M8 16h6',
   search: 'M20 20l-5-5 M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0',
   comments: 'M4 4h16v12H9l-5 4z M8 8h8 M8 12h5',
   ai: 'M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z',
   settings: 'M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
   help: 'M9 9a3 3 0 0 1 6 0c0 2-3 2-3 4 M12 17h.01 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',
+  keyboard: 'M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z M6 9h.01 M10 9h.01 M14 9h.01 M18 9h.01 M6 12h.01 M10 12h.01 M14 12h.01 M18 12h.01 M7 15h10',
   chevronDown: 'M6 9l6 6 6-6', chevronLeft: 'M15 6l-6 6 6 6', chevronRight: 'M9 6l6 6-6 6', close: 'M6 6l12 12 M18 6L6 18',
   plus: 'M12 5v14 M5 12h14', filePlus: 'M14 3H4v18h16V9z M14 3v6h6 M12 12v6 M9 15h6', folderPlus: 'M3 6h7l2 3h9v12H3z M12 12v6 M9 15h6',
   refresh: 'M20 8a8 8 0 1 0 0 8 M20 3v5h-5', collapse: 'M5 8h14 M5 16h14 M9 4l3 3 3-3 M9 20l3-3 3 3',

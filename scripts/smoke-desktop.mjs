@@ -189,15 +189,16 @@ async function desktopScenarios(session, fixture, output) {
   };
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByTestId('file-tree').waitFor({ timeout: 30000 });
-  await scenario('recent-project-modal-disclosure-and-continuation', async () => {
-    await page.getByTestId('workspace-switch').click();
+  await scenario('home-project-management-disclosure-and-resume', async () => {
+    await page.getByTestId('home-button').click();
+    await page.getByTestId('project-home').waitFor({ state: 'visible' });
     const evidence = await verifyPickerDisclosure(page);
-    const continuation = page.locator('.workspace-picker .recent-continue');
-    assert(await continuation.count() === 1, 'Recent projects need one clear primary continuation.');
-    await continuation.focus(); await page.keyboard.press('Enter');
-    await page.getByTestId('workspace-disclose').waitFor({ state: 'hidden' });
+    const current = page.getByTestId('current-project-row');
+    assert(await current.count() === 1, 'Home needs one clear way back to the open project.');
+    await current.focus(); await page.keyboard.press('Enter');
+    await page.getByTestId('project-home').waitFor({ state: 'hidden' });
     await page.getByTestId('file-tree').waitFor({ state: 'visible' });
-    return { ...evidence, recentContinuation: true };
+    return { ...evidence, resumeFromRecent: true };
   });
   await scenario('explorer-keyboard-and-paper-evidence', async () => {
     await keyboardTree(page);
@@ -210,7 +211,7 @@ async function desktopScenarios(session, fixture, output) {
     await page.getByRole('treeitem', { name: /^deep(?:,|$)/ }).click();
     await page.getByRole('treeitem', { name: /^paper(?:,|$)/ }).click();
     await waitFor(async () => (await ancestor.getAttribute('aria-label'))?.includes('하위 폴더'), { label: 'positive evidence ancestor propagation' });
-    assert(await ancestor.locator('.paper-dot').count(), 'Ancestor evidence needs an amber dot.');
+    assert(await ancestor.locator('.paper-badge.paper-badge-descendant').count(), 'Ancestor evidence needs a TeX badge.');
     return { direct: await direct.getAttribute('aria-label'), directStyle: evidenceStyle, ancestor: await ancestor.getAttribute('aria-label') };
   });
   await scenario('bounded-discovery-frontier-and-virtualized-stress-tree', async () => {
@@ -224,7 +225,7 @@ async function desktopScenarios(session, fixture, output) {
       await page.locator('.discovery-status button').click(); sweeps++;
     }
     assert(await page.locator('.discovery-status').getAttribute('data-state') === 'complete', 'The on-disk discovery frontier could not be continued to completion.');
-    const markedStress = await revealTreeRow(page, 'stress-tree'); assert(await markedStress.locator('.paper-dot').count(), 'Deep verified bibliography evidence did not propagate through the stress tree.');
+    const markedStress = await revealTreeRow(page, 'stress-tree'); assert(await markedStress.locator('.paper-badge.paper-badge-descendant').count(), 'Deep verified bibliography evidence did not propagate through the stress tree.');
     await markedStress.click(); const rows = await page.getByTestId('file-tree').getByRole('treeitem').count();
     assert(rows < 100, 'The explorer retained all offscreen DOM rows instead of virtualizing.');
     const directoryNames = await readdir(path.join(fixture.root, 'stress-tree'));
@@ -234,9 +235,9 @@ async function desktopScenarios(session, fixture, output) {
     await markedStress.click(); return { sweeps, actualStressEntries: entryCount, mountedRows: rows };
   });
   await scenario('root-picker-and-real-thirty-page-pdf', async () => {
-    const root = page.getByRole('combobox', { name: '주 문서', exact: true });
+    const root = page.getByTestId('root-document');
     assert(!(await root.inputValue()), 'Multiple documentclass candidates must require an explicit root choice.');
-    await root.selectOption('main.tex');
+    await selectMainDocument(page, 'main.tex');
     manifest = await buildPaper(page, fixture.root);
     assert(manifest.mappingReady === true, 'Stable synthetic source build must be edit-grade.');
     await showPdf(page);
@@ -300,7 +301,7 @@ async function desktopScenarios(session, fixture, output) {
     return { searchedPage: 17, rotatedDegrees: 90, referenceKeptDuringBuild: true };
   });
   await scenario('cancel-owned-real-compiler-tree', async () => {
-    const root = page.getByRole('combobox', { name: '주 문서', exact: true }); await root.selectOption('busy.tex');
+    await selectMainDocument(page, 'busy.tex');
     const before = await latestManifest(fixture.root);
     await page.getByRole('button', { name: '빌드', exact: true }).click();
     const running = await waitFor(async () => {
@@ -314,7 +315,7 @@ async function desktopScenarios(session, fixture, output) {
       return running.every(old => !all.some(current => current.ProcessId === old.ProcessId && current.CreationDate === old.CreationDate));
     }, { timeoutMs: 15000, label: 'all captured compiler/engine identities exited, including reparented children' });
     assert((await latestManifest(fixture.root)).buildId === before.buildId, 'Cancelled work published a generation.');
-    await root.selectOption('main.tex'); manifest = await buildPaper(page, fixture.root);
+    await selectMainDocument(page, 'main.tex'); manifest = await buildPaper(page, fixture.root);
     return { terminated: running };
   });
   await scenario('create-rename-trash-restore', async () => {
@@ -349,7 +350,7 @@ async function desktopScenarios(session, fixture, output) {
     assert(after.subarray(0, 3).equals(Buffer.from([239,187,191])), 'UTF-8 BOM was lost.');
     assert(!after.subarray(3).toString().replaceAll('\r\n', '').includes('\n'), 'Existing CRLF file was silently normalized to LF.');
     assert(after.subarray(0, before.length).equals(before), 'Saving an appended IME edit changed unaffected BOM/CRLF/combining-character bytes.');
-    await editor.click(); await page.keyboard.press('Control+Home'); await page.keyboard.press('Shift+End'); await page.keyboard.press('Control+Shift+a');
+    await editor.click(); await page.keyboard.press('Control+Home'); await page.keyboard.press('Shift+End'); await page.keyboard.press('Control+Shift+c');
     await page.locator('#comment-text').fill('Unicode BOM physical anchor.'); await page.getByRole('button', { name: '댓글 저장', exact: true }).click();
     const anchor = await waitFor(async () => {
       const value = JSON.parse(await readFile(path.join(fixture.root, '.texypaper', 'comments.json'), 'utf8'));
@@ -443,7 +444,7 @@ async function desktopScenarios(session, fixture, output) {
   });
   await scenario('comments-persist-and-resolve', async () => {
     await page.getByRole('button', { name: '소스', exact: true }).click(); await quickOpen(page, fixture.files.prose);
-    await page.locator('.cm-content').click(); await page.keyboard.press('Control+Home'); await page.keyboard.press('Control+ArrowDown'); await page.keyboard.press('Control+Shift+ArrowRight'); await page.keyboard.press('Control+Shift+a');
+    await page.locator('.cm-content').click(); await page.keyboard.press('Control+Home'); await page.keyboard.press('Control+ArrowDown'); await page.keyboard.press('Control+Shift+ArrowRight'); await page.keyboard.press('Control+Shift+c');
     await page.locator('#comment-text').fill('Synthetic persisted source comment.');
     await page.getByRole('button', { name: '댓글 저장', exact: true }).click();
     const commentsPath = path.join(fixture.root, '.texypaper', 'comments.json');
@@ -552,7 +553,7 @@ async function memoryWorkload(session, fixture, output, args) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByTestId('file-tree').waitFor({ state: 'visible' });
   await settings(page, async () => { await page.getByTestId('ui-locale').selectOption('ko'); await page.getByTestId('ui-zoom').selectOption('1'); });
-  const root = page.getByRole('combobox', { name: '주 문서', exact: true }); await root.selectOption('main.tex');
+  await selectMainDocument(page, 'main.tex');
   const manifest = await buildPaper(page, fixture.root); await showPdf(page);
   const files = ['main.tex', 'references.bib', 'sections/page-01.tex', 'sections/page-02.tex', 'sections/page-03.tex', 'sections/page-04.tex', 'code/analysis.py', 'results/metrics.csv'];
   async function sameState() {
@@ -768,7 +769,7 @@ export async function main(argv = process.argv.slice(2)) {
         session = await launchDesktop({ binary, output: restartOutput, dataDir: run.dataDir, project: fixture.root });
         await waitFor(async () => session.page.evaluate(() => document.documentElement.lang === 'en' && document.documentElement.dataset.theme === 'dark'), { label: 'English and night theme restored after real executable restart' });
         await session.page.getByRole('button', { name: 'Source', exact: true }).click();
-        await session.page.getByRole('button', { name: 'Comments', exact: true }).click();
+        if (!await session.page.locator('#comments-tab').isVisible()) await session.page.getByRole('button', { name: 'Comments', exact: true }).click();
         await session.page.locator('#comments-tab').click();
         await session.page.getByText('Synthetic persisted source comment.', { exact: true }).waitFor();
         await session.page.getByText('Synthetic persisted PDF comment.', { exact: true }).waitFor();

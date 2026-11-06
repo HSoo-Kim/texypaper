@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '../../ui/Icon';
 import { useI18n } from '../../ui/i18n';
 import { ProviderSettings, localizedAgentError } from './ProviderSettings';
@@ -6,6 +6,8 @@ import { ProposalReview } from './ProposalReview';
 import { ExecutionReview } from './ExecutionReview';
 import type { ChatReadingPosition, ChatSnapshot, ChatViewProps, HistoryRow } from './chatTypes';
 import { readingScrollTop } from './chatHistory';
+import { usePaneZoom, usePreventBrowserZoom, zoomKeyDirection } from '../../ui/paneZoom';
+import { clampChatFontSize, DEFAULT_CHAT_FONT_SIZE } from './chatPreferences';
 import './agents.css';
 
 // Keep family + version intact; the adjacent provider label already identifies Claude/Codex.
@@ -42,7 +44,7 @@ function MeasuredMessage({ row, measure, measurementEpoch }: { row: HistoryRow; 
   </article>;
 }
 
-function Transcript({ snapshot, onAction }: ChatViewProps) {
+function Transcript({ snapshot, onAction, fontSize = DEFAULT_CHAT_FONT_SIZE }: ChatViewProps) {
   const { t } = useI18n();
   const view = useRef<HTMLDivElement>(null); const heights = useRef(new Map<string, number>());
   const following = useRef(snapshot.readingPosition?.following ?? snapshot.historyPage === 'current.jsonl');
@@ -52,16 +54,28 @@ function Transcript({ snapshot, onAction }: ChatViewProps) {
   const latest = useRef({ snapshot, onAction }); latest.current = { snapshot, onAction };
   const [viewport, setViewport] = useState({ top: snapshot.readingPosition?.scrollTop ?? 0, height: 600 }); const [revision, setRevision] = useState(0);
   const [measurementEpoch, setMeasurementEpoch] = useState(0);
+  const measuredFontSize = useRef(fontSize);
   const [selection, setSelection] = useState<{ start: string; end: string } | null>(null);
   const measure = useCallback((id: string, height: number) => {
     if (Math.abs((heights.current.get(id) ?? 0) - height) < .5) return;
+    if (!following.current && anchor.current?.id === id && anchor.current.inset >= height) anchor.current = { id, inset: Math.max(0, height - 1) };
     heights.current.set(id, height); setRevision(value => value + 1);
   }, []);
+  useLayoutEffect(() => {
+    if (measuredFontSize.current === fontSize) return;
+    measuredFontSize.current = fontSize;
+    heights.current.clear();
+    setMeasurementEpoch(value => value + 1); setRevision(value => value + 1);
+  }, [fontSize]);
   const reportPosition = useCallback(() => {
     const node = view.current; const { snapshot: current, onAction: dispatch } = latest.current;
     if (!node || current.historyLoading) return;
     dispatch({ type: 'reading-position', value: { provider: current.provider, historyPage: current.historyPage, following: following.current, scrollTop: node.scrollTop, ...(anchor.current ? { anchor: anchor.current } : {}) } });
   }, []);
+  useEffect(() => {
+    const frame = requestAnimationFrame(reportPosition);
+    return () => cancelAnimationFrame(frame);
+  }, [fontSize, reportPosition]);
   useEffect(() => {
     const node = view.current; if (!node) return;
     let width = node.clientWidth;
@@ -102,9 +116,11 @@ function Transcript({ snapshot, onAction }: ChatViewProps) {
   const layout = useMemo(() => {
     let top = 0;
     const offsets = snapshot.history.map(row => { const offset = top; top += heights.current.get(row.id) ?? 120; return offset; });
-    const threshold = viewport.top - 600;
+    const anchorIndex = anchor.current && !following.current ? snapshot.history.findIndex(row => row.id === anchor.current!.id) : -1;
+    const visibleTop = anchorIndex >= 0 ? offsets[anchorIndex] + anchor.current!.inset : viewport.top;
+    const threshold = visibleTop - 600;
     let first = 0; while (first + 1 < offsets.length && offsets[first + 1] < threshold) first++;
-    let end = first; while (end < offsets.length && offsets[end] < viewport.top + viewport.height + 600) end++;
+    let end = first; while (end < offsets.length && offsets[end] < visibleTop + viewport.height + 600) end++;
     if (selection) {
       const start = snapshot.history.findIndex(row => row.id === selection.start);
       const finish = snapshot.history.findIndex(row => row.id === selection.end);
@@ -132,7 +148,7 @@ function Transcript({ snapshot, onAction }: ChatViewProps) {
     for (const id of heights.current.keys()) if (!retained.has(id)) heights.current.delete(id);
   }, [snapshot.history, snapshot.historyPage, snapshot.historyLoading, snapshot.workspace.id, snapshot.workspace.epoch, snapshot.proposals, snapshot.executions, layout.total, layout.offsets, selection]);
   const proposals = snapshot.proposals.filter(proposal => !proposal.provider || proposal.provider === snapshot.provider);
-  return <div data-testid="agent-history" className="agent-history" ref={view} tabIndex={0} role="log" aria-live="off" aria-busy={snapshot.historyLoading || undefined} aria-label={t('AI 대화 기록', 'AI conversation history')} onScroll={event => {
+  return <div data-testid="agent-history" className="agent-history" ref={view} tabIndex={0} role="log" aria-live="off" aria-busy={snapshot.historyLoading || undefined} title={t('Ctrl+휠 · Ctrl +/- 글자 크기', 'Ctrl+wheel · Ctrl +/- text size')} aria-label={t('AI 대화 기록 · Ctrl+휠 · Ctrl +/- 글자 크기', 'AI conversation history · Ctrl+wheel · Ctrl +/- text size')} onScroll={event => {
     const node = event.currentTarget;
     if (snapshot.historyLoading) return;
     if (programmaticTop.current !== null && Math.abs(node.scrollTop - programmaticTop.current) < 1) { programmaticTop.current = null; return; }
@@ -153,8 +169,38 @@ function Transcript({ snapshot, onAction }: ChatViewProps) {
   </div>;
 }
 
-export function ChatView({ snapshot, onAction, detached = false }: ChatViewProps) {
+function AttachmentChip({ kind, index, label, location, description, truncated, onAction }: { kind: 'source' | 'pdf'; index: number; label: string; location?: string; description: string; truncated?: boolean; onAction: ChatViewProps['onAction'] }) {
   const { t } = useI18n();
+  const preview = description.slice(0, 160);
+  const detail = `${preview}${truncated ? ` · ${t('선택 내용 앞부분만 첨부됨', 'Only the beginning of the selection is attached')}` : ''}`;
+  return <div className="agent-attachment" data-testid="agent-attachment" data-kind={kind}>
+    <button type="button" className="agent-attachment-open" title={`${location ?? label}\n${detail}`} aria-label={label} aria-description={detail} onClick={() => onAction({ type: 'context-open', kind, index })}><Icon name={kind === 'source' ? 'files' : 'document'} size={13} /><span>{label}</span></button>
+    <button type="button" className="agent-attachment-remove" data-testid="agent-attachment-remove" title={t('첨부 제거', 'Remove attachment')} aria-label={`${t('첨부 제거', 'Remove attachment')} · ${label}`} onClick={() => onAction({ type: 'context-remove', kind, index })}><Icon name="close" size={12} /></button>
+  </div>;
+}
+
+export function ChatView({ snapshot, onAction, detached = false, fontSize = DEFAULT_CHAT_FONT_SIZE }: ChatViewProps) {
+  const { t } = useI18n();
+  const panel = useRef<HTMLElement>(null);
+  const size = clampChatFontSize(fontSize);
+  const sizeRef = useRef(size); sizeRef.current = size;
+  const resizeText = (direction: 1 | -1) => {
+    const next = clampChatFontSize(sizeRef.current + direction);
+    if (next !== sizeRef.current) { sizeRef.current = next; onAction({ type: 'chat-font-size', value: next }); }
+  };
+  usePaneZoom({ root: panel, enabled: true, onZoom: resizeText });
+  usePreventBrowserZoom();
+  const composer = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (!snapshot.composerFocus) return;
+    let frame = 0; let attempts = 0;
+    const focus = () => {
+      if (composer.current && composer.current.getClientRects().length) { composer.current.focus({ preventScroll: true }); return; }
+      if (++attempts < 4) frame = requestAnimationFrame(focus);
+    };
+    frame = requestAnimationFrame(focus);
+    return () => cancelAnimationFrame(frame);
+  }, [snapshot.composerFocus]);
   const [sessionWarning, setSessionWarning] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
   useEffect(() => { setSessionWarning(false); setAcknowledged(false); }, [snapshot.workspace.id, snapshot.workspace.epoch, snapshot.executionPermission]);
@@ -166,8 +212,14 @@ export function ChatView({ snapshot, onAction, detached = false }: ChatViewProps
   const efforts = selectedModel?.reasoningEfforts ?? [];
   const defaultEffortLabel = efforts.find(row => row.value === selectedModel?.defaultReasoningEffort)?.label;
   const effortLabel = efforts.find(row => row.value === snapshot.reasoningEffort)?.label;
+  const sharingNote = t('이 작업은 프로젝트 환경에서 허용된 관련 파일을 읽을 수 있습니다. 실제로 읽은 경로는 도구 진행과 응답에 표시됩니다.', 'This task may read allowed relevant files in this project environment. Inspected paths appear in tool progress and responses.');
   const labels: Record<ChatSnapshot['status'], string> = { idle: t('준비', 'Ready'), running: t('작업 중', 'Working'), completed: t('응답 완료 · 변경은 별도 승인', 'Complete · changes require approval'), failed: t('작업 실패', 'Task failed'), cancelled: t('중지됨', 'Stopped'), cancelling: t('중지 중…', 'Stopping…') };
-  return <section className="agent-panel" aria-label={t('논문 AI 도우미', 'Paper AI assistant')}>
+  return <section ref={panel} className="agent-panel" data-chat-font-size={size} style={{ '--chat-font-size': `${size / 16}rem` } as CSSProperties} aria-label={t('논문 AI 도우미', 'Paper AI assistant')} onKeyDownCapture={event => {
+    // The shared pane hook leaves inputs alone; chat resizing also works while composing.
+    if (!(event.target instanceof Element) || !event.target.closest('input,textarea,select,[contenteditable="true"]') || panel.current?.closest('[inert]') || document.querySelector('[aria-modal="true"]')) return;
+    const direction = zoomKeyDirection(event.nativeEvent);
+    if (direction) { event.preventDefault(); event.stopPropagation(); resizeText(direction); }
+  }}>
     <header className="agent-chat-header">
       {snapshot.settingsOpen ? <button type="button" className="agent-icon-button" data-testid="chat-settings-back" aria-label={t('대화로 돌아가기', 'Back to chat')} title={t('대화로 돌아가기', 'Back to chat')} onClick={() => onAction({ type: 'settings', value: false })}><Icon name="chevronLeft" /></button> : <Icon name="ai" size={17} />}
       <div className="agent-header-title"><strong>{snapshot.settingsOpen ? t('AI 설정', 'AI settings') : t('AI 대화', 'AI chat')}</strong>{!snapshot.settingsOpen && <span title={`${provider} · ${modelLabel}`}>{provider === 'codex' ? 'Codex' : 'Claude'}{modelLabel && ` · ${modelLabel}`}</span>}</div>
@@ -181,11 +233,15 @@ export function ChatView({ snapshot, onAction, detached = false }: ChatViewProps
       {!ready && !busy && <div className="agent-connect-prompt"><span>{snapshot.configuration.loading ? t('연결 확인 중…', 'Checking connection…') : t('구독 계정과 모델을 연결하세요.', 'Connect a subscription account and model.')}</span><button type="button" onClick={() => onAction({ type: 'settings', value: true })}>{t('설정', 'Settings')}</button></div>}
       {snapshot.historyPage !== 'current.jsonl' && <div className="agent-connect-prompt"><span>{snapshot.historyPage}</span><button type="button" onClick={() => onAction({ type: 'history', page: 'current.jsonl' })}>{t('현재 대화', 'Current chat')}</button></div>}
       {snapshot.executionPermission === 'session' && <div className="agent-connect-prompt agent-session-permission"><span>{t('이 세션에서 명령 자동 실행 허용됨', 'Automatic command execution allowed for this session')}</span><button type="button" onClick={() => onAction({ type: 'execution-permission', value: 'ask' })}>{t('명령마다 승인으로 전환', 'Require approval')}</button></div>}
-      <Transcript snapshot={snapshot} onAction={onAction} />
+      <Transcript snapshot={snapshot} onAction={onAction} fontSize={size} />
       <form className="agent-composer" onSubmit={event => { event.preventDefault(); onAction({ type: 'send' }); }}>
-        <details className="agent-context"><summary>{t('공유 환경 및 선택 내용', 'Shared environment and selection')}{context.source && ` · ${context.source.path}`}{context.pdf && ` · PDF`}</summary><div><p><code>{workspace.environmentId}: {workspace.root}</code></p><ul>{[context.source?.path, ...(context.attachments ?? [])].filter(Boolean).map((path, index) => <li key={`${path}:${index}`}><code>{path}</code></li>)}</ul>{context.source?.text && <p className="agent-context-quote">{context.source.text}</p>}{context.pdf && <p className="agent-context-quote">{t('PDF 선택', 'PDF selection')}{context.pdf.page != null && ` · ${context.pdf.page}`}: {context.pdf.quote}</p>}<p className="agent-note">{t('이 작업은 위 환경에서 허용된 관련 파일을 읽을 수 있습니다. 실제로 읽은 경로는 도구 진행과 응답에 표시됩니다.', 'This task may read allowed relevant files in this environment. Inspected paths appear in tool progress and responses.')}</p></div></details>
-        <label className="agent-disclosure"><input type="checkbox" checked={disclosure} disabled={busy} onChange={event => onAction({ type: 'disclosure', value: event.target.checked })} /><span>{t('선택 내용·요청한 관련 파일을 ', 'I agree to send selected content and requested files to ')}{provider === 'codex' ? 'OpenAI' : 'Anthropic'}{t(' 클라우드로 전송하는 데 동의합니다.', ' cloud.')}</span></label>
-        <label className="agent-prompt-label" htmlFor="agent-prompt">{t('논문 작업 요청', 'Paper task')}</label><textarea id="agent-prompt" data-testid="agent-prompt" value={prompt} maxLength={65536} rows={2} placeholder={t('선택한 문장을 검토하거나 근거를 찾아 달라고 요청하세요…', 'Ask to review selected text or find supporting evidence…')} onChange={event => onAction({ type: 'prompt', value: event.target.value })} onKeyDown={event => { if (event.ctrlKey && event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); onAction({ type: 'send' }); } }} />
+        {((context.sources?.length ?? 0) > 0 || (context.pdfs?.length ?? 0) > 0) && <div className="agent-attachments" data-testid="agent-attachments" aria-label={t('이번 요청의 첨부', 'Attachments for this request')}>
+          {context.sources?.map((source, index) => <AttachmentChip key={`source:${index}`} kind="source" index={index} label={`${source.path.split(/[\\/]/).at(-1)}:${source.startLine}${source.endLine !== source.startLine ? `–${source.endLine}` : ''}`} location={source.path} description={source.text} truncated={source.truncated} onAction={onAction} />)}
+          {context.pdfs?.map((pdf, index) => <AttachmentChip key={`pdf:${index}`} kind="pdf" index={index} label={`PDF ${pdf.page}${t('쪽', '')}`} description={pdf.quote} truncated={pdf.truncated} onAction={onAction} />)}
+        </div>}
+        {snapshot.contextNotice && <p className="agent-attachment-notice" data-testid="agent-attachment-notice" role="status">{snapshot.contextNotice === 'invalid' ? t('첨부할 선택 내용을 확인하지 못했습니다. 소스나 PDF에서 다시 선택해 주세요.', 'Could not attach this selection. Select source or PDF text again.') : snapshot.contextNotice === 'source-limit' ? t('소스 첨부는 최대 8개입니다. 가장 오래된 첨부를 제외했습니다.', 'Up to 8 source selections can be attached. The oldest attachment was removed.') : t('PDF 첨부는 최대 8개입니다. 가장 오래된 첨부를 제외했습니다.', 'Up to 8 PDF selections can be attached. The oldest attachment was removed.')}</p>}
+        {snapshot.disclosureRemembered ? <div className="agent-disclosure-notice" data-testid="agent-disclosure-notice" title={sharingNote}><span>{provider === 'codex' ? 'OpenAI' : 'Anthropic'}{t(' 클라우드로 선택 내용·요청한 파일 전송', ' cloud receives selected content and requested files')}</span><span aria-hidden="true"> · </span><button type="button" data-testid="agent-disclosure-revoke" disabled={busy} onClick={() => onAction({ type: 'revoke-disclosure' })}>{t('동의 철회', 'Revoke consent')}</button></div> : <label className="agent-disclosure" title={sharingNote}><input type="checkbox" checked={disclosure} disabled={busy} onChange={event => onAction({ type: 'disclosure', value: event.target.checked })} /><span>{t('선택 내용·요청한 관련 파일을 ', 'I agree to send selected content and requested files to ')}{provider === 'codex' ? 'OpenAI' : 'Anthropic'}{t(' 클라우드로 전송하는 데 동의합니다.', ' cloud.')}</span></label>}
+        <label className="agent-prompt-label" htmlFor="agent-prompt">{t('논문 작업 요청', 'Paper task')}</label><textarea ref={composer} id="agent-prompt" data-testid="agent-prompt" value={prompt} maxLength={65536} rows={2} placeholder={t('논문 작업을 요청하세요 · 선택 내용 첨부 Ctrl+L', 'Ask about your paper · Attach selection with Ctrl+L')} onChange={event => onAction({ type: 'prompt', value: event.target.value })} onKeyDown={event => { if (event.ctrlKey && event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); onAction({ type: 'send' }); } }} />
         <div data-testid="agent-status" data-status={status} data-state={status} data-task-id={snapshot.taskId} data-session-id={snapshot.sessionId} role="status" className="agent-task-status">{busy && snapshot.executions.some(execution => execution.status === 'running') && status !== 'running' && status !== 'cancelling' ? t('명령 실행 중', 'Running command') : labels[status]}</div>
         <div className="agent-composer-footer">
           <label className="agent-quick-control agent-model-control" htmlFor="agent-model"><span>{t('모델', 'Model')}</span><select id="agent-model" value={selectedModel || !allowCustom ? model : '__custom'} title={modelLabel || t('연결 후 모델 선택', 'Connect to select a model')} disabled={busy || loading || !snapshot.account?.subscription || (!models.length && !allowCustom)} onChange={event => onAction({ type: 'model', value: event.target.value === '__custom' ? '' : event.target.value })}>{!selectedModel && !allowCustom && <option value={model}>{model ? `${modelLabel} · ${t('목록에 없음', 'Not listed')}` : t('모델 없음', 'No model')}</option>}{models.map(row => <option key={row.id} value={row.id}>{compactModelLabel(row.label || row.id)}</option>)}{allowCustom && <option value="__custom">{t('직접 입력', 'Custom ID')}</option>}</select></label>
@@ -195,7 +251,7 @@ export function ChatView({ snapshot, onAction, detached = false }: ChatViewProps
             if (value === 'session') { setAcknowledged(false); setSessionWarning(true); }
             else { setSessionWarning(false); onAction({ type: 'execution-permission', value }); }
           }}><option value="deny">{t('실행 안 함', 'Deny')}</option><option value="ask">{t('매번 승인', 'Ask each time')}</option><option value="session">{t('세션 허용', 'Allow session')}</option></select></label>
-          {busy ? <button type="button" data-testid="agent-cancel" disabled={status === 'cancelling'} onClick={() => onAction({ type: 'cancel' })}><Icon name="stop" size={13} />{t('중지', 'Stop')}</button> : <button type="submit" className="primary" data-testid="agent-send" disabled={!disclosure || !prompt.trim() || !ready} title={t('요청 보내기 (Ctrl+Enter)', 'Send request (Ctrl+Enter)')}><Icon name="play" size={13} />{t('보내기', 'Send')}<kbd>Ctrl↵</kbd></button>}
+          {busy ? <button type="button" data-testid="agent-cancel" disabled={status === 'cancelling'} onClick={() => onAction({ type: 'cancel' })}><Icon name="stop" size={13} />{t('중지', 'Stop')}</button> : <button type="submit" className="primary" data-testid="agent-send" disabled={!(disclosure || snapshot.disclosureRemembered) || !prompt.trim() || !ready} title={t('요청 보내기 (Ctrl+Enter)', 'Send request (Ctrl+Enter)')}><Icon name="play" size={13} />{t('보내기', 'Send')}<kbd>Ctrl↵</kbd></button>}
         </div>
         {model && <details className="agent-model-access" data-testid="model-catalog-note"><summary>{error?.code === 'PROVIDER_MODEL_UNAVAILABLE' ? t('이 요청에서 모델 접근 거부됨', 'Model access denied for this request') : t('모델 접근 안내', 'Model access')}</summary><p className="agent-note">{error?.code === 'PROVIDER_MODEL_UNAVAILABLE' ? t('선택한 모델을 공급자가 거부했습니다. 다른 모델을 직접 선택하거나 계정 상태를 확인하세요. 자동 전환하지 않습니다.', 'The provider rejected the selected model. Choose another model yourself or check the account. No automatic fallback is used.') : selectedModel?.catalogSource === 'official' ? t('공식 모델 목록의 선택지이며, 현재 CLI가 보고한 모델은 아닙니다. 목록만으로 이 계정의 접근 권한을 확인할 수 없습니다. 전송할 때 확인하며 추론은 공급자 기본값입니다.', 'An official catalog choice, not reported by the current CLI. The listing alone does not verify access for this account. It is checked when you send; reasoning uses the provider default.') : t('모델 선택이나 CLI 목록만으로 계정별 접근 권한을 보장하지 않습니다. 실제 요청의 공급자 응답으로 확인하며, 백그라운드 시험 요청이나 자동 모델·결제 전환은 하지 않습니다.', 'A model selection or CLI listing does not guarantee account access. The provider checks each real request. No background test requests or automatic model or billing fallback are used.')}</p></details>}
         {allowCustom && !selectedModel && <label className="agent-setting-row">{t('직접 입력 모델 ID', 'Custom model ID')}<input aria-label={t('모델 ID', 'Model ID')} value={model} maxLength={512} disabled={busy || loading} spellCheck={false} onChange={event => onAction({ type: 'model', value: event.target.value })} /></label>}

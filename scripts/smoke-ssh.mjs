@@ -269,14 +269,24 @@ async function main() {
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Control+Alt+J');
     await waitFor(() => host.events.filter((event) => event.kind === 'worker-reply' && event.op === 'synctex_view' && event.ok).length > forwardBefore, { timeoutMs: 30000, label: 'actual remote forward SyncTeX match on Unicode root' });
-    const span = pdfText.locator('span').filter({ hasText: 'TexyPaper remote evidence' }).first();
-    const bounds = await span.boundingBox();
-    assert(bounds && bounds.width > 20, 'Actual PDF prose text has no selectable geometry');
     const inverseBefore = host.events.filter((event) => event.kind === 'worker-reply' && event.op === 'synctex_edit' && event.ok).length;
-    await page.mouse.move(bounds.x + 1, bounds.y + bounds.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(bounds.x + Math.min(bounds.width - 2, 190), bounds.y + bounds.height / 2, { steps: 12 });
-    await page.mouse.up();
+    // Select a real range in the rendered text layer (as the local desktop smoke does). A pointer drag across the ~4px-high spans of this tiny PDF
+    // does not extend a selection, which was already true for 0.0.2, so it cannot prove anything about the application.
+    const selected = await pdfText.evaluateAll((layers, quote) => {
+      for (const layer of layers) {
+        for (const span of layer.querySelectorAll('span')) {
+          const text = span.firstChild, offset = text?.textContent?.indexOf(quote) ?? -1;
+          if (text?.nodeType !== Node.TEXT_NODE || offset < 0) continue;
+          const range = document.createRange(); range.setStart(text, offset); range.setEnd(text, offset + quote.length);
+          const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+          const box = range.getBoundingClientRect();
+          return { x: box.right - 1, y: box.top + box.height / 2, selected: selection.toString() };
+        }
+      }
+      return null;
+    }, 'TexyPaper remote evidence');
+    assert(selected?.selected === 'TexyPaper remote evidence', 'Actual remote PDF prose is not available as selectable text');
+    await page.locator('.pdf-scroll').dispatchEvent('pointerup', { button: 0, clientX: selected.x, clientY: selected.y });
     await page.getByTestId('pdf-selection-view-source').click();
     await waitFor(() => host.events.filter((event) => event.kind === 'worker-reply' && event.op === 'synctex_edit' && event.ok).length > inverseBefore, { timeoutMs: 30000, label: 'real selected PDF prose resolves through remote inverse SyncTeX' });
     report.scenarios.push({ name: 'remote-unicode-forward-and-inverse-synctex', records: host.events.filter((event) => event.kind === 'worker-reply' && ['synctex_view', 'synctex_edit'].includes(event.op)) });

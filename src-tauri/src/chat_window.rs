@@ -289,9 +289,20 @@ fn valid_action(action: &Value) -> bool {
     };
     match kind {
         "send" | "cancel" | "refresh" | "login" | "open-login" | "save-executable"
-        | "dismiss-error" | "detach" | "dock" | "focus" => keys(&["type"]),
+        | "dismiss-error" | "revoke-disclosure" | "detach" | "dock" | "focus" => keys(&["type"]),
         "prompt" => keys(&["type", "value"]) && bounded_text(action, "value", 262144),
         "disclosure" | "settings" => keys(&["type", "value"]) && action["value"].is_boolean(),
+        "chat-font-size" => {
+            keys(&["type", "value"])
+                && action["value"]
+                    .as_u64()
+                    .is_some_and(|size| (11..=24).contains(&size))
+        }
+        "context-remove" | "context-open" => {
+            keys(&["type", "kind", "index"])
+                && matches!(action["kind"].as_str(), Some("source" | "pdf"))
+                && action["index"].as_u64().is_some_and(|index| index < 8)
+        }
         "provider" => {
             keys(&["type", "value"]) && matches!(action["value"].as_str(), Some("claude" | "codex"))
         }
@@ -452,6 +463,34 @@ mod tests {
     }
 
     #[test]
+    fn chat_preferences_require_bounded_size_or_explicit_consent_intent() {
+        assert!(valid_action(
+            &json!({"type": "chat-font-size", "value": 13})
+        ));
+        assert!(valid_action(&json!({"type": "revoke-disclosure"})));
+        assert!(valid_action(&json!({"type": "disclosure", "value": true})));
+        assert!(valid_action(
+            &json!({"type": "context-remove", "kind": "source", "index": 0})
+        ));
+        assert!(valid_action(
+            &json!({"type": "context-open", "kind": "pdf", "index": 7})
+        ));
+        for action in [
+            json!({"type": "chat-font-size", "value": 25}),
+            json!({"type": "chat-font-size", "value": 13.5}),
+            json!({"type": "chat-font-size", "value": 14, "disclosure": true}),
+            json!({"type": "provider", "value": "claude", "aiDisclosureAccepted": {"claude": true}}),
+            json!({"type": "model", "value": "model", "disclosure": true}),
+            json!({"type": "revoke-disclosure", "value": true}),
+            json!({"type": "context-remove", "kind": "source", "index": 8}),
+            json!({"type": "context-open", "kind": "pdf", "index": -1}),
+            json!({"type": "context-remove", "kind": "source", "index": 0, "disclosure": true}),
+        ] {
+            assert!(!valid_action(&action));
+        }
+    }
+
+    #[test]
     fn reading_position_cannot_smuggle_authority_or_paths() {
         let mut action = json!({
             "type": "reading-position",
@@ -476,6 +515,12 @@ mod tests {
         action["value"]["scrollTop"] = json!(-1);
         assert!(!valid_action(&action));
         action["value"]["scrollTop"] = json!(320);
+        action["value"]["disclosure"] = json!(true);
+        assert!(!valid_action(&action));
+        action["value"]
+            .as_object_mut()
+            .unwrap()
+            .remove("disclosure");
         action["acknowledged"] = json!(true);
         assert!(!valid_action(&action));
     }

@@ -57,6 +57,18 @@ describe('custom theme contrast and isolation',()=>{
     expect(resolvePalette(settings,'dark')).toEqual(dark);
     expect(JSON.stringify(settings)).toBe(before);
   });
+  it('keeps TeX commands readable green independently of action colors',()=>{
+    for(const mode of ['light','dark'] as const){
+      const palette=defaultPalettes[mode],tokens=derivePaletteTokens(palette,mode);
+      const changed=derivePaletteTokens({...palette,action:mode==='light'?'#1553a3':'#83b9ff'},mode);
+      expect(changed['tex-command']).toBe(tokens['tex-command']);
+      expect(contrastRatio(tokens['tex-command'],palette.surface)).toBeGreaterThanOrEqual(4.5);
+      const color=tokens['tex-command'],[r,g,b]=[1,3,5].map(index=>Number.parseInt(color.slice(index,index+2),16));
+      expect(g).toBeGreaterThan(r);expect(g).toBeGreaterThan(b);
+      const custom=deriveBackground(mode==='light'?'#e6edf7':'#171e2b',palette.action);
+      expect(contrastRatio(derivePaletteTokens(custom,mode)['tex-command'],custom.surface)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
   it('follows the system theme without overwriting independently saved colors or preferences',()=>{
     const values=new Map<string,string>(),root={style:{setProperty:(name:string,value:string)=>values.set(name,value),fontSize:'',colorScheme:''},dataset:{} as Record<string,string>};
     let dark=false;

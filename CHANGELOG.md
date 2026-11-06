@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.0.3 — 2026-11-07
+
+### Home, panes and navigation
+
+- Added a **Home** button and a full-page project screen for choosing, adding and switching projects. Visiting Home keeps the open project's unsaved edits, undo history, selection, builds and AI work; **Return to project** resumes without reopening. Only an actual switch asks about running work and unsaved files, and rapid clicks cannot start two switches.
+- Source and PDF panes have a wider, visible divider grip with pointer-capture drag, arrow/Home/End keys, double-click to reset and persisted ratios. A collapsed pane keeps an arrow at the same edge that restores the previous ratio.
+- `Ctrl+wheel` and `Ctrl`+`+`/`-` zoom only the pane under the pointer or focus: source text size (persisted `editorFontSize`), PDF scale and AI chat text (persisted `chatFontSize`, docked and detached). Page-level WebView zoom is blocked everywhere else.
+- Source ↔ PDF: `Ctrl+click` in the PDF opens the matching source line (native results are normalized to project-relative paths of that build, and a PDF older than the source is flagged as approximate); `Ctrl+Alt+J` or the new editor toolbar button highlights and scrolls to the corresponding PDF spot. Source `Ctrl+click` stays Overleaf's multiple cursors.
+- The document outline numbers headings `1`, `1.1`, `1.1.1` with per-level indentation; starred headings stay unnumbered. Numbering follows source order and does not claim to reproduce compiled numbering.
+- Folders that contain TeX/bib/style files are marked with a **TeX** badge before they are expanded; a dimmer badge marks ancestors with verified descendants. The explorer, open tabs and quick open show original colorful file-type and blue folder icons (TeX, bib, packages, PDF, images, code, data, archives, build artifacts and special folders). Paths shown in Home and tooltips no longer carry the Windows `\\?\` prefix.
+
+### Editing and shortcuts
+
+- Source editing follows Overleaf's default shortcuts: `Ctrl+D` deletes the line, `Ctrl+/` toggles `%` comments, `Ctrl+B`/`I`, upper/lower case, indent/outdent, move/copy/duplicate lines, go to line, find next/previous, folding (`F2`, `Alt+Shift+0/1`), cumulative cursors, `Ctrl+click` multi-cursor and `Alt`+drag rectangular selection. Conflicting CodeMirror defaults are removed rather than overridden; read-only buffers and IME composition are protected.
+- `Ctrl+Enter` and `Ctrl+.` compile like `Ctrl+S`, `Ctrl+J` toggles the comments panel, and `Ctrl+Shift+C` comments on the selection. The former `Ctrl+Shift+A` is removed because Overleaf uses it for track changes.
+- LaTeX commands such as `\centering` use a fixed, readable green in light and dark themes, independent of the accent palette.
+- A categorized **Shortcuts** dialog with a vertical index, key caps and search opens from a corner button in the status bar and on Home.
+- Source and PDF selections have a context menu (cut/copy, attach to AI, comment, show in PDF / view source, edit text).
+
+### AI
+
+- The always-visible “shared environment and selection” block is gone. Selections are shared only when attached explicitly with `Ctrl+L` or the context menu; attachments appear as removable, clickable chips (up to eight sources and eight PDF quotes), are validated natively for read access and freshness, and are cleared after sending.
+- The cloud-transfer consent is remembered once per provider after the first explicit send and can be revoked from the composer. The native `agent_start` still refuses requests without `disclosureAccepted`; recovery data and detached-window patches cannot create consent.
+
+### Packaging and verification
+
+- Windows x64 NSIS and portable ZIP remain unsigned with the complete license/notices payload. New settings keys (`editorFontSize`, `chatFontSize`, `aiDisclosureAccepted`) are validated natively. File icons and other artwork are original; no third-party icon set was added.
+- New `pnpm smoke:usability` scenario suite; the desktop smoke now targets the Home page, root selection in build options and `Ctrl+Shift+C`. Evidence and limits are in `docs/VERIFICATION.md`.
+
 ## 0.0.2 — 2026-11-07
 
 ### Continuity and window behavior

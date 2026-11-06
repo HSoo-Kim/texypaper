@@ -66,9 +66,17 @@ pub fn get_manifest(workspace: &Workspace, id: &str) -> AppResult<BuildManifest>
 }
 pub fn sync(workspace: &Workspace, args: Value, forward: bool) -> AppResult<Value> {
     let build_id = args["buildId"].as_str().unwrap_or_default().to_string();
-    if workspace.local_root().is_some() {
-        let manifest = get_manifest(workspace, &build_id)?;
-        synctex::restore_validation(workspace, &manifest);
+    // The manifest is needed locally for fallback validation and for inverse results, which must be
+    // reported as project-relative paths of this build instead of host-specific TeX input strings.
+    let manifest = if workspace.local_root().is_some() || !forward {
+        Some(get_manifest(workspace, &build_id)?)
+    } else {
+        None
+    };
+    if let Some(manifest) = &manifest
+        && workspace.local_root().is_some()
+    {
+        synctex::restore_validation(workspace, manifest);
     }
     let response = workspace.execute(
         if forward {
@@ -84,6 +92,20 @@ pub fn sync(workspace: &Workspace, args: Value, forward: bool) -> AppResult<Valu
         response
     };
     result["buildId"] = json!(build_id);
+    if !forward
+        && let Some(manifest) = &manifest
+        && let Some(records) = result["records"].as_array_mut()
+    {
+        for record in records.iter_mut() {
+            let relative = record["input"]
+                .as_str()
+                .and_then(|input| prose_map::host_relative(manifest, input, workspace).ok())
+                .filter(|path| manifest.sources.iter().any(|source| &source.path == path));
+            if let Some(relative) = relative {
+                record["path"] = json!(relative);
+            }
+        }
+    }
     Ok(result)
 }
 fn descriptor(workspace: &Workspace, id: &str) -> AppResult<(String, u64, String)> {

@@ -74,6 +74,14 @@ describe('transcript reading restoration', () => {
     expect(readingScrollTop(position, rows, [0, 120, 300], 700, 200)).toBe(140);
     expect(readingScrollTop(position, rows, [0, 240, 600], 1200, 200)).toBe(260);
   });
+  it('keeps the same message and inset through zoom cache invalidation and remeasurement', () => {
+    const position = { following: false, scrollTop: 970, anchor: { id: 'anchor', inset: 22 } };
+    // Unknown heights after font-size invalidation, then the actual newly wrapped rows.
+    expect(readingScrollTop(position, rows, [0, 120, 240], 600, 200)).toBe(142);
+    expect(readingScrollTop(position, rows, [0, 480, 1040], 1600, 200)).toBe(502);
+    expect(readingScrollTop(position, rows, [0, 80, 200], 600, 200)).toBe(102);
+    expect(readingScrollTop({ ...position, following: true }, rows, [0, 480, 1040], 1600, 200)).toBe(1400);
+  });
   it('does not follow arriving output while reading an earlier message', () => {
     const position = { following: false, scrollTop: 140, anchor: { id: 'anchor', inset: 20 } };
     expect(readingScrollTop(position, rows, [0, 120, 300], 700, 200)).toBe(140);

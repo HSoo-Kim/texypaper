@@ -1,9 +1,9 @@
-export type OutlineHeading={line:number;level:1|2|3;title:string;starred:boolean};
+export type OutlineHeading={line:number;level:1|2|3;title:string;starred:boolean;number:string|null};
 export const MAX_OUTLINE_BYTES=4*1024*1024;
 export const MAX_OUTLINE_HEADINGS=500;
 const levels:Record<string,OutlineHeading['level']>={section:1,subsection:2,subsubsection:3};
 
-/** Reads only a UTF-8-bounded prefix; offsets are one-based source lines. */
+/** Current-file, source-order numbering only; no TeX expansion or document-class counters. Offsets are one-based source lines. */
 export function parseOutline(source:string):OutlineHeading[] {
   let end=0,bytes=0;
   while(end<source.length&&bytes<MAX_OUTLINE_BYTES){
@@ -13,6 +13,7 @@ export function parseOutline(source:string):OutlineHeading[] {
     bytes+=cost;end+=width;
   }
   const text=source.slice(0,end),headings:OutlineHeading[]=[];
+  const counters=[0,0,0];
   let cursor=0,line=1;
   const advance=()=>{
     if(text[cursor]==='\r'||text[cursor]==='\n'&&text[cursor-1]!=='\r')line++;
@@ -59,7 +60,13 @@ export function parseOutline(source:string):OutlineHeading[] {
     if(text[cursor]==='['){if(group('[',']')===null)break;skipTrivia();}
     const title=group('{','}');
     if(title===null)continue;
-    headings.push({line:headingLine,level,starred,title:title.replace(/\\([{}%&#_$])/g,'$1').replace(/\\[A-Za-z]+\*?/g,'').replace(/[{}]/g,'').replace(/\s+/g,' ').trim()});
+    let number:string|null=null;
+    if(!starred){
+      counters[level-1]++;
+      for(let index=level;index<counters.length;index++)counters[index]=0;
+      number=counters.slice(0,level).join('.');
+    }
+    headings.push({line:headingLine,level,starred,number,title:title.replace(/\\([{}%&#_$])/g,'$1').replace(/\\[A-Za-z]+\*?/g,'').replace(/[{}]/g,'').replace(/\s+/g,' ').trim()});
   }
   return headings;
 }

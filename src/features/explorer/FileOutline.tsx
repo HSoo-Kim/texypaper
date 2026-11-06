@@ -24,12 +24,17 @@ export function FileOutline({store,onNavigate}:Props) {
     return()=>window.clearTimeout(timer);
   },[store,path,isTex,buffer?.version,buffer?.document]);
   const headings=isTex&&outline.path===path?outline.headings:[];
+  const scopeHint=t('현재 파일의 소스 순서로 매긴 번호입니다. 컴파일된 문서의 번호와 다를 수 있습니다.','Numbers follow source order in the current file and may differ from the compiled document.');
   return <section className="file-outline" aria-label={t('문서 개요','File outline')}>
-    <button className="outline-heading" type="button" aria-expanded={expanded} aria-controls={contentId} onClick={()=>setExpanded(value=>!value)}>
+    <button className="outline-heading" type="button" aria-expanded={expanded} aria-controls={contentId} aria-description={scopeHint} title={scopeHint} onClick={()=>setExpanded(value=>!value)}>
       <Icon name={expanded?'chevronDown':'chevronRight'} size={14}/><span>{t('문서 개요','File outline')}</span>
     </button>
     <div id={contentId} hidden={!expanded}>
-      {headings.length>0?<ol className="outline-list">{headings.map(heading=><li key={`${heading.line}-${heading.level}`}><button className="outline-item" type="button" style={{paddingInlineStart:12+(heading.level-1)*12}} title={t(`${heading.line}줄로 이동`,`Go to line ${heading.line}`)} onClick={()=>onNavigate(heading.line)}><span>{heading.title||t('제목 없는 절','Untitled section')}</span></button></li>)}</ol>:<p className="outline-empty">{isTex?t('절 제목을 추가하면 여기에 표시됩니다.','Section headings appear here.'):t('TeX 파일을 열면 개요가 표시됩니다.','Open a TeX file to see its outline.')}</p>}
+      {headings.length>0?<ol className="outline-list">{headings.map(heading=>{
+        const title=heading.title||t('제목 없는 절','Untitled section');
+        const label=heading.number?`${heading.number} ${title}`:title;
+        return <li key={`${heading.line}-${heading.level}`}><button className="outline-item" type="button" style={{paddingInlineStart:12+(heading.level-1)*12}} title={`${label} — ${t(`${heading.line}줄로 이동`,`Go to line ${heading.line}`)}`} onClick={()=>onNavigate(heading.line)}>{heading.number&&<span className="outline-number">{heading.number}</span>}<span className="outline-title">{title}</span></button></li>;
+      })}</ol>:<p className="outline-empty">{isTex?t('절 제목을 추가하면 여기에 표시됩니다.','Section headings appear here.'):t('TeX 파일을 열면 개요가 표시됩니다.','Open a TeX file to see its outline.')}</p>}
     </div>
   </section>;
 }

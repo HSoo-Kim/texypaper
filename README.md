@@ -2,7 +2,7 @@
 
 # TexyPaper
 
-**The Sexy LaTeX Editor · v0.0.2**
+**The Sexy LaTeX Editor · v0.0.3**
 
 **로컬과 SSH 서버의 논문을 원래 위치에서 편집하는 Windows용 개인 논문 IDE.** TeX 편집기, 호스트 측 LaTeX 빌드, PDF 미리 보기·원문 탐색, 댓글, 승인 기반 Codex/Claude 작업을 제공합니다. AI 대화는 오른쪽 패널이나 분리한 전용 창에서 사용할 수 있습니다.
 
@@ -10,7 +10,7 @@ Tauri 2 + Rust + React 19 + CodeMirror 6 + PDF.js로 구성한 독립 애플리�
 
 **지원 플랫폼: Windows x64.** macOS 데스크톱 앱은 아직 빌드하거나 검증하지 않았습니다. 소스를 Mac으로 넘겨 작업할 수는 있지만 macOS 실행 파일·설치 파일·지원 기능을 제공한다고 주장하지 않습니다. SSH 서버로 사용하는 macOS/POSIX 호스트와 macOS 데스크톱 지원은 별개입니다. 자체 클라우드 로그인·문서 동기화·실시간 공동 편집은 제공하지 않습니다.
 
-소스: [HSoo-Kim/texypaper](https://github.com/HSoo-Kim/texypaper) · Windows 다운로드: [v0.0.2 릴리스](https://github.com/HSoo-Kim/texypaper/releases/tag/v0.0.2). 실제 실행으로 확인한 범위와 미검증 항목은 [`docs/VERIFICATION.md`](docs/VERIFICATION.md)의 **현재 릴리스**에 구분해 기록했습니다.
+소스: [HSoo-Kim/texypaper](https://github.com/HSoo-Kim/texypaper) · Windows 다운로드: [v0.0.3 릴리스](https://github.com/HSoo-Kim/texypaper/releases/tag/v0.0.3). 실제 실행으로 확인한 범위와 미검증 항목은 [`docs/VERIFICATION.md`](docs/VERIFICATION.md)의 **현재 릴리스**에 구분해 기록했습니다.
 
 이 문서는 구현된 동작과 사용 방법을 설명합니다. **빌드 성공만으로 데스크톱·SSH·실제 모델·설치·메모리 검증이 끝난 것은 아닙니다.** 실행별 증거와 미충족 조건은 별도 [`docs/VERIFICATION.md`](docs/VERIFICATION.md)에 기록하는 것을 기준으로 하며, 이 README는 해당 실행 결과를 대신하지 않습니다. 내부 경계와 저장 구조는 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)를 참고하세요.
 
@@ -27,7 +27,7 @@ Tauri 2 + Rust + React 19 + CodeMirror 6 + PDF.js로 구성한 독립 애플리�
 
 TeX·Python·SSH·AI CLI는 앱에 포함되지 않으며 TexyPaper가 전역 패키지나 서버 패키지를 자동 설치하지 않습니다. SSH 서버에는 Codex·Claude·Node나 상시 데몬이 필요하지 않습니다. TeX가 없는 서버에서도 파일 편집은 가능하지만 빌드는 `TEX_TOOL_MISSING`으로 실패합니다.
 
-Windows 배포는 현재 사용자용 [NSIS 설치 파일](https://github.com/HSoo-Kim/texypaper/releases/download/v0.0.2/TexyPaper_0.0.2_x64-setup.exe)과 [portable ZIP](https://github.com/HSoo-Kim/texypaper/releases/download/v0.0.2/TexyPaper_0.0.2_windows_x64_portable.zip)입니다. ZIP에는 `texypaper.exe`, 루트 `LICENSE`, `THIRD_PARTY_NOTICES.md`와 전체 `licenses/` 트리가 함께 들어갑니다. [SHA-256 체크섬](https://github.com/HSoo-Kim/texypaper/releases/download/v0.0.2/SHA256SUMS.txt)도 제공합니다. **두 배포 파일 모두 코드 서명이 없어 Windows SmartScreen 경고가 나올 수 있습니다.** 설치·업데이트 검증 범위는 `docs/VERIFICATION.md`를 확인하세요. 새 PC의 WebView2 부트스트랩은 별도 전제입니다.
+Windows 배포는 현재 사용자용 [NSIS 설치 파일](https://github.com/HSoo-Kim/texypaper/releases/download/v0.0.3/TexyPaper_0.0.3_x64-setup.exe)과 [portable ZIP](https://github.com/HSoo-Kim/texypaper/releases/download/v0.0.3/TexyPaper_0.0.3_windows_x64_portable.zip)입니다. ZIP에는 `texypaper.exe`, 루트 `LICENSE`, `THIRD_PARTY_NOTICES.md`와 전체 `licenses/` 트리가 함께 들어갑니다. [SHA-256 체크섬](https://github.com/HSoo-Kim/texypaper/releases/download/v0.0.3/SHA256SUMS.txt)도 제공합니다. **두 배포 파일 모두 코드 서명이 없어 Windows SmartScreen 경고가 나올 수 있습니다.** 설치·업데이트 검증 범위는 `docs/VERIFICATION.md`를 확인하세요. 새 PC의 WebView2 부트스트랩은 별도 전제입니다.
 
 일상적으로 사용할 때는 **설치 파일(NSIS)을 권장**합니다. 현재 Windows 사용자에게 설치하고 시작 메뉴 바로가기와 제거 프로그램을 등록하며, 바탕 화면 바로가기는 설치 마지막 단계에서 선택할 수 있습니다. 설치 없이 쓰려면 portable ZIP 전체를 풀고 그 안의 `texypaper.exe`를 실행하세요. 라이선스·고지 파일도 같은 묶음으로 보관하세요. 앱 기능은 같고, 기본 실행에서는 두 형태 모두 `%APPDATA%\dev.texypaper.desktop`에 설정을 저장합니다. Portable은 profile까지 실행 파일 옆에 둔다는 뜻은 아닙니다. 실행 파일을 옮겨도 같은 Windows 계정의 설정은 유지되지만, 다른 PC와 자동으로 동기화되지는 않습니다. 업데이트 전에는 작업을 저장하고 **파일 → TexyPaper 완전 종료** 또는 트레이의 **종료**로 기존 앱을 완전히 닫으세요. v0.0.1에서는 트레이의 종료를 사용합니다. 자동 업데이트 설치는 지원하지 않습니다.
 
@@ -35,12 +35,12 @@ Windows 배포는 현재 사용자용 [NSIS 설치 파일](https://github.com/HS
 
 ### 이 컴퓨터
 
-1. 시작 화면은 **최근 프로젝트**가 먼저 나옵니다. **계속하기**로 가장 최근의 사용 가능한 프로젝트를 열거나, **프로젝트 열기**를 눌러 **이 컴퓨터 → 폴더 선택**을 고릅니다. 폴더 입력과 SSH 환경 추가는 요청할 때 펼쳐집니다. 프로젝트는 선택한 디렉터리에서 직접 읽고 씁니다. SSH 최근 항목도 연결 전에 도움 프로그램 동의를 다시 받습니다.
-2. 화면 구성은 Overleaf와 비슷합니다. 상단에는 파일·편집·보기·도움말 메뉴와 프로젝트 이름이 있고, 왼쪽 레일에서 **파일·프로젝트 검색·댓글·AI**를 고릅니다. 파일 탐색기는 왼쪽, 댓글과 AI는 오른쪽에 열립니다. 넓은 화면에서는 파일과 AI를 동시에 볼 수 있습니다. 파일 패널에서 `.tex` 파일을 엽니다. 아래쪽 **문서 개요**의 `\section` 제목을 누르면 해당 위치로 이동합니다. 주 문서를 수동 지정해야 할 때만 상단 **빌드 옆 화살표 → 주 문서**를 사용합니다.
+1. **홈**(상단 홈 버튼, `Ctrl+O`)은 프로젝트를 고르고 추가하고 바꾸는 **전용 화면**입니다. 최근 프로젝트가 먼저 나오고 현재 열린 프로젝트에는 **프로젝트로 돌아가기**가 붙습니다. **프로젝트 열기**를 눌러 **이 컴퓨터 → 폴더 선택**을 고르거나 SSH 환경을 추가합니다. 폴더 입력과 SSH 환경 추가는 요청할 때 펼쳐집니다. 홈을 보는 동안에도 열린 프로젝트의 편집 내용·빌드·AI 작업은 그대로 유지되고, 같은 프로젝트로 돌아갈 때는 다시 열지 않습니다. 다른 프로젝트로 실제로 전환할 때만 미저장 변경과 실행 중인 작업을 확인합니다. 프로젝트는 선택한 디렉터리에서 직접 읽고 씁니다. SSH 최근 항목도 연결 전에 도움 프로그램 동의를 다시 받습니다.
+2. 화면 구성은 Overleaf와 비슷합니다. 상단에는 **홈** 버튼과 파일·편집·보기·도움말 메뉴, 프로젝트 이름이 있고, 왼쪽 레일에서 **파일·프로젝트 검색·댓글·AI**를 고릅니다. 파일 탐색기는 왼쪽, 댓글과 AI는 오른쪽에 열립니다. 넓은 화면에서는 파일과 AI를 동시에 볼 수 있습니다. 파일 패널에서 `.tex` 파일을 엽니다. 아래쪽 **문서 개요**는 현재 파일의 `\section`·`\subsection`·`\subsubsection`을 `1`, `1.1`, `1.1.1` 번호와 단계별 들여쓰기로 보여 주고, 항목을 누르면 해당 줄로 이동합니다. 별표(`\section*`)는 번호가 없으며, 번호는 소스 순서 기준이라 문서 클래스·사용자 매크로·`\input` 파일을 반영한 컴파일 결과의 번호와 다를 수 있습니다. 주 문서를 수동 지정해야 할 때만 상단 **빌드 옆 화살표 → 주 문서**를 사용합니다.
 3. `.tex` 파일을 열어 둔 상태면 바로 컴파일할 수 있습니다. **`Ctrl+S`는 저장 후 컴파일**하고(설정의 `저장 후 자동 빌드`를 끄면 저장만), 입력을 멈춰도 자동 저장 뒤 컴파일됩니다. PDF 쪽 **다시 컴파일**, 상단 **빌드**, `Ctrl+Shift+B`도 같습니다. 주 문서는 따로 지정하지 않아도 이 순서로 찾습니다: 열린 파일의 `% !TeX root = ...` → 직접 고른 주 문서 → `\documentclass`가 있는 열린 파일 → 열린 파일의 폴더와 그 상위 폴더 중 `\documentclass` 파일이 하나뿐인 가장 가까운 폴더. 같은 폴더에 후보가 여럿이면 추측하지 않고 **빌드 옵션 → 주 문서**나 **다시 컴파일** 옆 메뉴에서 고르게 합니다. 직접 고른 주 문서는 `.texypaper/project.json`에 저장됩니다. 로그 버튼의 숫자는 오류·경고 수이며, 누르면 PDF 자리에 **로그 및 출력**이 열립니다. 빌드가 실패하면 마지막으로 성공한 PDF를 '갱신 필요' 상태로 계속 보여 줍니다. 로그는 표시할 PDF가 없을 때만 자동으로 열립니다.
-4. 소스·PDF·분할 보기로 전환합니다. 편집기 도구 막대에서 굵게·기울임·절·인용·참조·목록·수식을 선택 영역에 넣을 수 있습니다. 작은 창에서는 가운데 패널 하나와 오버레이 사이드 패널을 사용합니다.
+4. 소스·PDF·분할 보기로 전환합니다. 편집기 도구 막대에서 굵게·기울임·절·인용·참조·목록·수식을 선택 영역에 넣을 수 있습니다. 작은 창에서는 가운데 패널 하나와 오버레이 사이드 패널을 사용합니다. 소스와 PDF 사이 구분선을 끌거나 방향키로 움직여 두 창의 폭을 따로 조절하고(더블클릭하면 반반), 가운데 화살표로 한쪽을 접으면 같은 가장자리의 화살표로 이전 비율대로 다시 펼칩니다. `Ctrl+휠`이나 `Ctrl`+`+`/`-`로 소스 글자 크기와 PDF 배율을 각각 조절합니다(앱 전체 확대는 설정의 UI 확대이며 PDF 자체는 편집하지 않습니다).
 
-탐색기의 굵은 이름과 황색 밴드는 해당 폴더에 `.tex`, `.ltx`, `.bib`, `.cls`, `.sty`, `.bst`, `.bbx`, `.cbx`가 **직접** 있다는 뜻입니다. 하위 폴더에서만 증거를 찾으면 작은 황색 점을 표시합니다. 미검색 상태는 논문 파일이 없다는 뜻이 아닙니다. 선택 강조와 논문 표식은 별개이며, 주 TeX에는 `Main` 배지가 붙습니다. PDF 하나만 있다고 LaTeX 프로젝트로 분류하지 않습니다.
+탐색기는 파일 종류별 컬러 아이콘(TeX·bib·PDF·이미지·코드 등)과 파란 폴더 아이콘을 보여 줍니다. 아이콘은 이 프로젝트의 원본 SVG 작업물입니다. `.tex`, `.ltx`, `.bib`, `.cls`, `.sty`, `.bst`, `.bbx`, `.cbx`가 **직접** 있는 폴더는 굵은 이름, 황색 밴드와 **TeX** 배지로 표시하고, 하위 폴더에서만 증거를 찾으면 흐린 **TeX** 배지를 붙입니다. 폴더를 펼치기 전에도 보이며 폴더 이름만으로 추측하지 않습니다. 미검색 상태는 논문 파일이 없다는 뜻이 아닙니다. 선택 강조와 논문 표식은 별개이며, 주 TeX에는 `Main` 배지가 붙습니다. PDF 하나만 있다고 LaTeX 프로젝트로 분류하지 않습니다.
 
 자동 검색은 `.git`, `.texypaper`, `node_modules`, `.venv`, `venv`, `__pycache__`를 제외합니다. 설정에서 제외 목록을 볼 수 있고 탐색기에서 명시적으로 열 수 있습니다. 한 번에 최대 20,000개 항목을 조사하고 남은 검색은 **계속 찾기**로 이어갑니다. 파일 생성·이름 변경·이동·삭제를 지원하며, 삭제는 확인 후 프로젝트의 `.texypaper/trash/`로 이동합니다. 프로젝트 휴지통에서 복원할 수 있습니다.
 
@@ -57,7 +57,7 @@ Windows 배포는 현재 사용자용 [NSIS 설치 파일](https://github.com/HS
 
 ## 편집, 충돌과 복구
 
-- TeX 구문 강조, 괄호 짝, 들여쓰기, 줄 번호, 찾기/바꾸기와 로드한 TeX/Bib 의존성의 citation·label 완성을 제공합니다. 코드 파일은 필요한 언어 모드를 지연 로드하고 알 수 없는 텍스트는 일반 텍스트로 엽니다. 언어 서버는 자동 기동하지 않습니다.
+- TeX 구문 강조, 괄호 짝, 들여쓰기, 줄 번호, 찾기/바꾸기와 로드한 TeX/Bib 의존성의 citation·label 완성을 제공합니다. LaTeX 명령(`\section`, `\centering` 등)은 팔레트와 무관하게 초록색으로 표시합니다. 단축키는 Overleaf 기본값을 따릅니다: 줄 삭제 `Ctrl+D`, 주석 전환 `Ctrl+/`, 굵게·기울임 `Ctrl+B`/`Ctrl+I`, 대소문자 변환, 줄 이동·복사, 접기, `Ctrl+클릭` 다중 커서, `Alt`+드래그 직사각형 선택. 코드 파일은 필요한 언어 모드를 지연 로드하고 알 수 없는 텍스트는 일반 텍스트로 엽니다. 언어 서버는 자동 기동하지 않습니다.
 - 입력이 700ms 쉬면 자동 저장합니다. IME 조합 중에는 저장을 미룹니다. `Ctrl+S`는 대기 중인 소스를 즉시 저장하고 바로 컴파일합니다. 자동 저장 뒤의 자동 빌드는 별도로 800ms debounce됩니다.
 - 저장 직전에 SHA-256을 비교하고 같은 파일시스템의 임시 파일을 flush한 뒤 교체합니다. UTF-8 BOM과 기존 줄바꿈을 보존합니다. 파일 크기·수정 시각만으로 충돌 여부를 결정하지 않습니다.
 - 외부에서 수정한 파일이 깨끗한 버퍼면 다시 읽고, 미저장 편집이 있으면 `FILE_CONFLICT`를 표시합니다. **비교 / 다시 불러오기 / 복사본 저장** 중에서 선택하세요. 다시 불러오기는 내 변경을 버리는 동작이므로 확인이 필요합니다.
@@ -110,7 +110,7 @@ CLI의 축약 목록에서 빠진 공식 모델도 선택할 수 있습니다. �
 
 두 공급자 CLI는 **Windows 클라이언트에서만** 실행합니다. SSH URI를 CLI cwd로 넘기지 않습니다. 개인 제어 디렉터리와 TexyPaper의 일곱 MCP 도구(`list_files`, `read_text`, `search_text`, `get_build_status`, `propose_changes`, `propose_command`, `get_command_status`)를 통해 선택한 로컬/SSH 프로젝트에 접근합니다. 공급자 자체의 shell·직접 파일 쓰기 도구는 비활성화하며, 명령 실행은 아래의 앱 권한 절차를 거칩니다.
 
-프롬프트를 보내기 전 선택된 내용과 전송 경로를 확인하세요. 관련 소스·코드·결과 일부가 선택한 클라우드 공급자에게 전송됩니다. 기본 읽기 도구는 비밀 키·`.env*`·credential·앱 인증/복구 저장소를 제외합니다. `propose_changes`의 쓰기 대상은 TeX/Bib/style 계열로 제한합니다. 별도로 승인한 명령은 이 파일 읽기·쓰기 제한과 동일한 샌드박스 안에서 실행되는 것이 아닙니다.
+프롬프트를 보내기 전 첨부와 전송 경로를 확인하세요. **소스·PDF에서 드래그한 글(또는 현재 줄)은 `Ctrl+L`이나 우클릭 → AI에 첨부로 명시적으로 첨부한 것만** 입력창의 칩으로 쌓이고(칩에서 제거하거나 해당 위치로 이동), 선택만 해서는 공유되지 않습니다. 클라우드 전송 동의는 **공급자(OpenAI·Anthropic)별로 처음 한 번** 체크하면 기억되며, 입력창에 작은 안내와 **동의 철회**가 남습니다. 관련 소스·코드·결과 일부가 선택한 클라우드 공급자에게 전송됩니다. 기본 읽기 도구는 비밀 키·`.env*`·credential·앱 인증/복구 저장소를 제외합니다. `propose_changes`의 쓰기 대상은 TeX/Bib/style 계열로 제한합니다. 별도로 승인한 명령은 이 파일 읽기·쓰기 제한과 동일한 샌드박스 안에서 실행되는 것이 아닙니다. AI 대화 글자 크기는 대화 창 위에서 `Ctrl+휠`·`Ctrl`+`+`/`-`로 조절하며 도킹·분리 창 모두 저장됩니다.
 
 **모델 응답 또는 제안 생성은 저장 완료가 아닙니다.** `propose_changes`는 변경 제안만 만들고 **승인 대기**로 남깁니다. diff와 근거 파일/줄을 확인한 뒤 사람이 **적용(Apply)**해야 저장됩니다. 거절·취소는 소스를 바꾸지 않습니다. 적용 직전에 모든 base hash를 재검사하며 충돌이면 제안을 보존하고 새 원본으로 다시 작성해야 합니다. 한 번에 AI 작업 하나만 실행하고, 프로세스는 필요할 때만 시작합니다. 세션 ID를 보존해 대화를 재개하며 항상 켜 둔 모델 서버는 없습니다.
 
@@ -141,18 +141,24 @@ Claude 구독 연동은 개인 사용 전제입니다. 다른 사용자에게 �
 
 설정에서 **한국어 / English**, **시스템 / 밝게 / 어둡게**와 100–200% UI 확대를 선택합니다. UI 언어만 바뀌며 논문 원문이나 AI 출력 언어를 강제로 번역하지 않습니다. 선택은 앱 데이터에 저장합니다.
 
-기본 화면은 네이비 chrome(낮 `#14243f`, 밤 `#0c1629`)과 절제한 버건디·로즈 강조(낮 `#91385f`, 밤 `#d78fb5`)를 사용합니다. 낮에는 따뜻한 회백색 배경과 흰 편집 영역, 밤에는 저채도 남색 면색을 사용합니다. 앱 아이콘은 원본 로고의 바깥 남색 배경을 투명하게 처리했습니다. 낮(light)과 밤(dark)의 **강조색·배경·편집 영역·사이드바** 색상을 각각 저장할 수 있습니다. 기존 사용자 팔레트는 그대로 두며, 초록색은 의미상 성공 표시나 선택형 프리셋에서 사용할 수 있습니다. HEX 또는 색상 선택기를 사용하고, 배경색을 바꾸면 관련 면색을 함께 제안합니다. 프리셋, 최근 사용한 최대 8개 팔레트, 기본값 초기화가 있습니다. 글자 대비와 오류/경고색 구분 조건을 충족하지 못하는 팔레트는 적용하지 않습니다.
+기본 화면은 네이비 chrome(낮 `#14243f`, 밤 `#0c1629`)과 절제한 버건디·로즈 강조(낮 `#91385f`, 밤 `#d78fb5`)를 사용합니다. 낮에는 따뜻한 회백색 배경과 흰 편집 영역, 밤에는 저채도 남색 면색을 사용합니다. 앱 아이콘은 원본 로고의 바깥 남색 배경을 투명하게 처리했습니다. 낮(light)과 밤(dark)의 **강조색·배경·편집 영역·사이드바** 색상을 각각 저장할 수 있습니다. 기존 사용자 팔레트는 그대로 두며, LaTeX 명령의 초록색은 팔레트와 별개의 고정색이고 초록색은 의미상 성공 표시나 선택형 프리셋에서도 사용할 수 있습니다. HEX 또는 색상 선택기를 사용하고, 배경색을 바꾸면 관련 면색을 함께 제안합니다. 프리셋, 최근 사용한 최대 8개 팔레트, 기본값 초기화가 있습니다. 글자 대비와 오류/경고색 구분 조건을 충족하지 못하는 팔레트는 적용하지 않습니다.
 
 사용자 팔레트에서도 **PDF 용지는 흰색**이고, 오류·경고·논문 폴더 표식은 의미를 유지합니다. OS의 reduced motion/high contrast와 저전력·투명 효과 끄기 설정을 고려합니다. 화면색 변경은 PDF 자체를 반전하거나 편집하지 않습니다.
 
+상태 표시줄 오른쪽 아래(홈에서는 오른쪽 위)의 **단축키** 버튼과 도움말 메뉴에서 분류별 전체 목록을 검색해 볼 수 있습니다. 아래는 자주 쓰는 앱 단축키입니다. 소스 편집 단축키는 위 편집 설명과 앱 안 도움말을 참고하세요.
+
 | 단축키 | 동작 |
 | --- | --- |
+| `Ctrl+O` | 홈: 프로젝트 선택·추가·전환 |
 | `Ctrl+P` | 빠른 파일 열기; `>`로 시작하면 프로젝트 본문 검색 |
-| `Ctrl+S` | 저장 후 컴파일 (자동 빌드를 끄면 저장만) |
+| `Ctrl+S` / `Ctrl+Enter` / `Ctrl+.` | 저장 후 컴파일 (자동 빌드를 끄면 저장만). AI 입력창의 `Ctrl+Enter`는 전송 |
 | `Ctrl+Shift+B` | 즉시 빌드 |
-| `Ctrl+Alt+J` | 현재 소스 위치에서 PDF 탐색 |
-| `Ctrl+Shift+A` | 선택에 댓글 |
-| `Ctrl+Enter` | AI 입력창에 포커스가 있을 때만 전송 |
+| `Ctrl+Alt+J` | 현재 소스 위치에서 PDF 탐색(소스 도구 막대 버튼도 있음). PDF에 위치를 강조 표시 |
+| PDF에서 `Ctrl+클릭` | 클릭한 위치의 소스로 이동. 소스의 `Ctrl+클릭`은 Overleaf처럼 다중 커서 |
+| `Ctrl+L` | 선택한 글(없으면 현재 줄)을 AI 대화에 첨부 |
+| `Ctrl+J` | 댓글 패널 열기·닫기 |
+| `Ctrl+Shift+C` | 선택에 댓글 (이전 버전의 `Ctrl+Shift+A`는 Overleaf의 변경 추적 단축키와 겹쳐 제거) |
+| `Ctrl+휠` / `Ctrl`+`+` / `Ctrl`+`-` | 포인터 아래 또는 선택한 소스·PDF·AI 대화의 글자·배율 조절 |
 | `Ctrl+Shift+Q` | 작업·미저장 변경을 확인한 뒤 앱 완전 종료 |
 | `Escape` | 팝업·선택 닫기, 열린 SSH 인증 요청 취소 |
 
@@ -162,7 +168,7 @@ Claude 구독 연동은 개인 사용 전제입니다. 다른 사용자에게 �
 
 - 운영 피드 대상은 [HSoo-Kim/texypaper](https://github.com/HSoo-Kim/texypaper)입니다. 배포 빌드에 기본 피드를 주입하며, 아직 게시되지 않은 릴리스를 성공한 업데이트로 표시하지 않습니다.
 - GitHub 저장소 주소 `https://github.com/HSoo-Kim/texypaper`를 지정하면 GitHub의 `/releases/latest` 메타데이터를 읽습니다. 해당 API의 HTTPS latest URL도 사용할 수 있습니다.
-- 자체 HTTPS JSON 피드는 `{ "version": "0.0.2", "url": "https://example.org/releases/0.0.2", "notes": "변경 설명" }` 형식입니다. 이는 **형식 예시이며 실제 TexyPaper 배포 주소가 아닙니다**. `notes`는 선택 사항입니다.
+- 자체 HTTPS JSON 피드는 `{ "version": "0.0.3", "url": "https://example.org/releases/0.0.3", "notes": "변경 설명" }` 형식입니다. 이는 **형식 예시이며 실제 TexyPaper 배포 주소가 아닙니다**. `notes`는 선택 사항입니다.
 - 버전은 SemVer로 비교하며 stable 새 버전만 알립니다. URL은 인증 정보·query·fragment 없는 HTTPS여야 합니다. 리다이렉트를 자동 추적하지 않습니다.
 - 자동 확인은 마지막 확인 후 **24시간** 간격으로 제한합니다. **지금 확인**은 간격 제한을 우회하지만 알림을 꺼 놓은 상태를 우회하지는 않습니다. 실패도 상태로 남기고 기존에 확인한 새 버전 알림을 지우지 않습니다.
 - 배포 빌드 시 `TEXYPAPER_UPDATE_FEED_URL` 환경 변수로 기본 피드를 넣을 수 있습니다. 이는 **컴파일 시점** 설정이며, 저장된 `updates.feedUrl`이 있으면 그 값이 우선합니다. 저장된 빈 문자열도 자동으로 운영 주소가 되지 않습니다.
@@ -195,7 +201,7 @@ pnpm tauri build --ci --target x86_64-pc-windows-msvc --bundles nsis -- --locked
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows-build.ps1
 ```
 
-실행 파일은 `src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.exe`, NSIS 패키지는 같은 release 아래 `bundle/nsis/TexyPaper_0.0.2_x64-setup.exe`에 생성하도록 구성되어 있습니다. `CARGO_TARGET_DIR`을 지정하면 그 경로를 사용합니다. 실제 생성 여부와 설치 결과는 별도로 확인해야 합니다.
+실행 파일은 `src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.exe`, NSIS 패키지는 같은 release 아래 `bundle/nsis/TexyPaper_0.0.3_x64-setup.exe`에 생성하도록 구성되어 있습니다. `CARGO_TARGET_DIR`을 지정하면 그 경로를 사용합니다. 실제 생성 여부와 설치 결과는 별도로 확인해야 합니다.
 
 ```powershell
 $app = (Resolve-Path 'src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.exe').Path
@@ -213,6 +219,7 @@ $app = (Resolve-Path 'src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.
 $run = Join-Path $env:TEMP ('texypaper-evidence-' + [guid]::NewGuid().ToString('N'))
 
 pnpm smoke:preferences --binary $app --output (Join-Path $run 'preferences')
+pnpm smoke:usability --binary $app --output (Join-Path $run 'usability')
 pnpm smoke:desktop --binary $app --output (Join-Path $run 'desktop')
 pnpm smoke:ssh --binary $app --output (Join-Path $run 'ssh')
 pnpm smoke:agents --binary $app --live --auth-timeout-seconds 600 --output (Join-Path $run 'agents')
@@ -226,10 +233,10 @@ pnpm measure:memory -AppPath $app -DurationSeconds 120 -Provider codex -Authenti
 설치까지 검사하려면 생성한 NSIS 실행 파일을 정확히 지정합니다. 기존 TexyPaper 설치가 있으면 격리 설치 검사는 덮어쓰지 않고 거부합니다.
 
 ```powershell
-pnpm smoke:desktop --binary $app --installer 'C:\Builds\TexyPaper_0.0.2_x64-setup.exe' --output (Join-Path $run 'installer-desktop')
+pnpm smoke:desktop --binary $app --installer 'C:\Builds\TexyPaper_0.0.3_x64-setup.exe' --output (Join-Path $run 'installer-desktop')
 ```
 
-위 설치 파일 경로는 사용자가 실제 생성한 파일로 바꾸어야 하는 입력 예시입니다. 다음 통합 실행도 보이는 앱 창을 실행하므로 사용자 허가가 필요하며, 설치된 도구와 이름이 정확히 `TexyPaper_0.0.2_x64-setup.exe`인 NSIS 산출물을 요구합니다.
+위 설치 파일 경로는 사용자가 실제 생성한 파일로 바꾸어야 하는 입력 예시입니다. 다음 통합 실행도 보이는 앱 창을 실행하므로 사용자 허가가 필요하며, 설치된 도구와 이름이 정확히 `TexyPaper_0.0.3_x64-setup.exe`인 NSIS 산출물을 요구합니다.
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows-build.ps1 -RunSmoke -LiveAgents -MeasureMemory -OutputDirectory (Join-Path $env:TEMP ('texypaper-full-' + [guid]::NewGuid().ToString('N')))
@@ -243,7 +250,7 @@ fixture만 만들려면 별도의 새 디렉터리를 사용합니다.
 node scripts/create-smoke-fixtures.mjs --output (Join-Path $env:TEMP ('texypaper-fixtures-' + [guid]::NewGuid().ToString('N')))
 ```
 
-저메모리 설계는 단일 editor·PDF document/worker, 최대 3개 canvas, 깨끗한 비활성 editor state 최대 8개/소스 cache 8MiB 등을 사용합니다. **앱+전용 WebView2의 private working set 최대 300MiB는 측정 목표이지 하드 한도가 아닙니다.** 리브랜딩 이전 개발 빌드의 Windows 배율 125% 측정에서는 표준 작업 최대 282.7MiB, 20회 전환 후 같은 상태 증가 12.0MiB였습니다. 이는 현재 TexyPaper v0.0.2나 분리 채팅 창을 포함한 최신 빌드의 측정값이 아니며, 100% 배율 표준 판정도 아닙니다([`docs/VERIFICATION.md`](docs/VERIFICATION.md)의 이전 기준선). 메모리 스크립트는 워밍업 후 120초 동안 1초 간격 표본, 반복 전환과 별도 high-DPI/실제 AI 단계를 수행하며 TeX·SSH·AI 프로세스를 별도 항목과 전체 합계로 보고합니다. commit을 private working set으로 바꾸어 보고하지 않으며 원격 호스트 비용을 0으로 간주하지 않습니다.
+저메모리 설계는 단일 editor·PDF document/worker, 최대 3개 canvas, 깨끗한 비활성 editor state 최대 8개/소스 cache 8MiB 등을 사용합니다. **앱+전용 WebView2의 private working set 최대 300MiB는 측정 목표이지 하드 한도가 아닙니다.** 리브랜딩 이전 개발 빌드의 Windows 배율 125% 측정에서는 표준 작업 최대 282.7MiB, 20회 전환 후 같은 상태 증가 12.0MiB였습니다. 이는 현재 TexyPaper v0.0.3이나 분리 채팅 창을 포함한 최신 빌드의 측정값이 아니며, 100% 배율 표준 판정도 아닙니다([`docs/VERIFICATION.md`](docs/VERIFICATION.md)의 이전 기준선). 메모리 스크립트는 워밍업 후 120초 동안 1초 간격 표본, 반복 전환과 별도 high-DPI/실제 AI 단계를 수행하며 TeX·SSH·AI 프로세스를 별도 항목과 전체 합계로 보고합니다. commit을 private working set으로 바꾸어 보고하지 않으며 원격 호스트 비용을 0으로 간주하지 않습니다.
 
 ### Mac 개발자에게 소스 넘기기
 

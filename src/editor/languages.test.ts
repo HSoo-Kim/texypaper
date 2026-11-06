@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { StreamLanguage, syntaxTree } from '@codemirror/language';
+import {classHighlighter,highlightTree} from '@lezer/highlight';
 import { languageFor } from './SourceEditor';
 
 describe('TeX language lifetime',()=>{
@@ -21,5 +22,14 @@ describe('TeX language lifetime',()=>{
       for(let cycle=0;cycle<40;cycle++)expect(await languageFor(`project-${cycle}/main.tex`)).toBe(first);
       expect(define).toHaveBeenCalledTimes(1);
     }finally{define.mockRestore();}
+  });
+  it('exposes TeX control sequences as type-name tokens without recoloring prose or comments',async()=>{
+    const doc='\\centering\n\\section{Title}\n\\textbf{Bold}\n\\begin{document}\nOrdinary text % comment';
+    const state=EditorState.create({doc,extensions:[await languageFor('main.tex')]});
+    const highlighted:{text:string;classes:string}[]=[];
+    highlightTree(syntaxTree(state),classHighlighter,(from,to,classes)=>highlighted.push({text:doc.slice(from,to),classes}));
+    for(const command of ['\\centering','\\section','\\textbf','\\begin'])expect(highlighted.find(token=>token.text===command)?.classes.split(' ')).toContain('tok-typeName');
+    expect(highlighted.find(token=>token.text.includes('% comment'))?.classes).toBe('tok-comment');
+    expect(highlighted.some(token=>token.text.includes('Ordinary')&&token.classes.includes('tok-typeName'))).toBe(false);
   });
 });

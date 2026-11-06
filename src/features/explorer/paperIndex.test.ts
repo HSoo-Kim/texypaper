@@ -16,6 +16,20 @@ describe('paper folder evidence',()=>{
   it('propagates verified positive evidence through deep ancestors, not negative assumptions',()=>{
     const index=new PaperIndex();index.update('a/b/c/d/e',[entry('a/b/c/d/e/main.tex'),entry('a/b/c/d/e/references.bib')]);expect(index.mark('a/b/c/d/e')).toBe('direct');expect(index.evidence.get('a/b/c/d/e')).toEqual(['main.tex','references.bib']);expect(index.mark('a')).toBe('descendant');expect(index.mark('other')).toBe('unknown');
   });
+  it('shows verified nested-paper folders from the first listing before expansion',()=>{
+    const index=new PaperIndex();
+    index.update('',[{...entry('research','directory'),paper:'descendant'},entry('paper','directory')]);
+    expect(index.mark('research')).toBe('descendant');expect(index.mark('')).toBe('descendant');
+    expect(index.mark('paper')).toBe('unknown');
+    index.update('',[entry('research','directory'),entry('paper','directory')]);
+    expect(index.mark('research')).toBe('unknown');expect(index.mark('')).toBe('none');
+  });
+  it('propagates cached nested evidence without replacing a verified direct-paper parent',()=>{
+    const index=new PaperIndex();
+    index.update('research',[entry('research/main.tex'),{...entry('research/archive','directory'),paper:'descendant'}]);
+    expect(index.mark('research/archive')).toBe('descendant');expect(index.mark('research')).toBe('direct');
+    expect(index.evidence.get('research')).toEqual(['main.tex']);expect(index.mark('')).toBe('descendant');
+  });
   it('invalidates descendants and evidence after rename/delete',()=>{
     const index=new PaperIndex();index.update('a',[entry('a/main.tex')]);expect(index.mark('')).toBe('descendant');index.invalidate('a/main.tex');expect(index.mark('a')).toBe('unknown');expect(index.mark('')).not.toBe('descendant');
   });

@@ -2,7 +2,7 @@ import type { WorkspaceRef } from '../../contracts';
 import type { Provider, ProviderStatus, Model } from './ProviderSettings';
 import type { Proposal } from './ProposalReview';
 
-export type AgentContext = { source?: { path: string; startLine?: number; endLine?: number; text?: string }; pdf?: { buildId: string; quote: string; page?: number }; attachments?: string[] };
+export type AgentContext = { sources?: { path: string; startLine: number; endLine: number; text: string; truncated?: boolean }[]; pdfs?: { buildId: string; page: number; quote: string; truncated?: boolean }[]; attachments?: string[] };
 export type HistoryRow = { id: string; role: 'user' | 'assistant' | 'tool'; text: string; provider?: string; taskId?: string };
 export type AgentStatus = 'idle' | 'running' | 'completed' | 'failed' | 'cancelled' | 'cancelling';
 // View state only: never carries execution permission, disclosure or session credentials.
@@ -46,6 +46,7 @@ export type ChatSnapshot = {
   configuration: ProviderConfiguration;
   prompt: string;
   disclosure: boolean;
+  disclosureRemembered?: boolean;
   busy: boolean;
   status: AgentStatus;
   taskId: string;
@@ -56,6 +57,8 @@ export type ChatSnapshot = {
   proposals: Proposal[];
   proposalBusy: string[];
   context: AgentContext;
+  contextNotice?: 'invalid' | 'source-limit' | 'pdf-limit';
+  composerFocus?: number;
   pages: string[];
   historyPage: string;
   historyLoading?: boolean;
@@ -68,6 +71,9 @@ export type ChatSnapshot = {
 export type ChatAction =
   | { type: 'prompt'; value: string }
   | { type: 'disclosure'; value: boolean }
+  | { type: 'revoke-disclosure' }
+  | { type: 'chat-font-size'; value: number }
+  | { type: 'context-remove' | 'context-open'; kind: 'source' | 'pdf'; index: number }
   | { type: 'provider'; value: Provider }
   | { type: 'model'; value: string }
   | { type: 'reasoning'; value: string }
@@ -82,4 +88,4 @@ export type ChatAction =
   | { type: 'execution-cancel'; id: string }
   | { type: 'send' | 'cancel' | 'refresh' | 'login' | 'open-login' | 'save-executable' | 'dismiss-error' | 'detach' | 'dock' | 'focus' };
 
-export type ChatViewProps = { snapshot: ChatSnapshot; onAction: (action: ChatAction) => void; detached?: boolean };
+export type ChatViewProps = { snapshot: ChatSnapshot; onAction: (action: ChatAction) => void; detached?: boolean; fontSize?: number };

@@ -1,5 +1,5 @@
 import { EditorSelection, Text, type EditorState, type TransactionSpec } from '@codemirror/state';
-import { undo, redo } from '@codemirror/commands';
+import { undo, redo, isolateHistory } from '@codemirror/commands';
 import { openSearchPanel } from '@codemirror/search';
 import type { EditorView } from '@codemirror/view';
 
@@ -25,11 +25,24 @@ export function texInsertion(state:EditorState,name:TexInsertion):TransactionSpe
       return {changes:{from:range.from,to:range.to,insert:Text.of((before+selected+after).split('\n'))},range:range.anchor<=range.head?EditorSelection.range(from,to):EditorSelection.range(to,from)};
     }),
     scrollIntoView:true,
-    userEvent:'input',
+    userEvent:'input',annotations:isolateHistory.of('full'),
+  };
+}
+
+export function selectionCase(state:EditorState,uppercase:boolean):TransactionSpec|null {
+  if(state.readOnly||state.selection.ranges.every(range=>range.empty))return null;
+  return {
+    ...state.changeByRange(range=>{
+      const selected=state.doc.sliceString(range.from,range.to,'\n'),insert=uppercase?selected.toUpperCase():selected.toLowerCase();
+      const to=range.from+insert.length;
+      return {changes:{from:range.from,to:range.to,insert:Text.of(insert.split('\n'))},range:range.anchor<=range.head?EditorSelection.range(range.from,to):EditorSelection.range(to,range.from)};
+    }),
+    scrollIntoView:true,userEvent:'input',annotations:isolateHistory.of('full'),
   };
 }
 
 export function runEditorCommand(view:EditorView,name:EditorCommand):void {
+  if(view.composing||view.compositionStarted)return;
   if(name==='find'||name==='replace'){
     if(name==='replace'&&view.state.readOnly)return;
     openSearchPanel(view);

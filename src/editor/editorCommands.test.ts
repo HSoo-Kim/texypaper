@@ -1,6 +1,6 @@
 import { EditorSelection, EditorState } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
-import { texInsertion, type TexInsertion } from './editorCommands';
+import { selectionCase, texInsertion, type TexInsertion } from './editorCommands';
 
 describe('TeX toolbar transactions',()=>{
   it.each<[TexInsertion,string]>([
@@ -37,5 +37,19 @@ describe('TeX toolbar transactions',()=>{
     const state=EditorState.create({doc:'protected',extensions:[EditorState.readOnly.of(true)]});
     expect(texInsertion(state,'bold')).toBeNull();
     expect(state.doc.toString()).toBe('protected');
+  });
+});
+
+describe('selection case transactions',()=>{
+  it('preserves all reversed selections when Unicode changes their length',()=>{
+    const state=EditorState.create({doc:'straße foo',extensions:[EditorState.allowMultipleSelections.of(true)],selection:EditorSelection.create([EditorSelection.range(6,0),EditorSelection.range(7,10)])});
+    const transaction=state.update(selectionCase(state,true)!);
+    expect(transaction.newDoc.toString()).toBe('STRASSE FOO');
+    expect(transaction.newSelection.ranges.map(range=>[range.anchor,range.head])).toEqual([[7,0],[8,11]]);
+    expect(transaction.isUserEvent('input')).toBe(true);
+  });
+  it('does nothing for an empty selection or a read-only document',()=>{
+    expect(selectionCase(EditorState.create({doc:'word'}),true)).toBeNull();
+    expect(selectionCase(EditorState.create({doc:'word',selection:{anchor:0,head:4},extensions:[EditorState.readOnly.of(true)]}),false)).toBeNull();
   });
 });

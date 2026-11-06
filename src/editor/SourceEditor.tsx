@@ -1,22 +1,24 @@
 import { t, useI18n } from '../ui/i18n';
 import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { Compartment, EditorState, type Extension } from '@codemirror/state';
-import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, rectangularSelection } from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { EditorView, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection } from '@codemirror/view';
+import { history } from '@codemirror/commands';
 import { bracketMatching, indentOnInput, StreamLanguage, syntaxHighlighting } from '@codemirror/language';
 import { classHighlighter } from '@lezer/highlight';
-import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
-import { autocompletion, completionKeymap, type CompletionContext } from '@codemirror/autocomplete';
+import { highlightSelectionMatches } from '@codemirror/search';
+import { autocompletion, type CompletionContext } from '@codemirror/autocomplete';
 import { stex } from '@codemirror/legacy-modes/mode/stex';
 import { BufferStore, byteToUtf16, selectionAnchor, type SourceSelection } from './buffers';
 import { clampEditorPosition } from '../state/readingPosition';
 import { Icon } from '../ui/Icon';
 import { runEditorCommand, type EditorCommand } from './editorCommands';
+import { texShortcutExtensions } from './texShortcuts';
+import {clampEditorFontSize,usePaneZoom} from '../ui/paneZoom';
 export type { EditorCommand } from './editorCommands';
 import { undoDepth, redoDepth } from '@codemirror/commands';
 
 export type SourceEditorHandle = { captureReadingPosition:()=>void;focus:()=>void; position:()=>{line1:number;column1:number}; selectBytes:(start:number,end:number)=>void; selection:()=>SourceSelection|null; navigate:(line:number,column?:number)=>void; command:(name:EditorCommand)=>void; };
-type Props = {store:BufferStore;loading?:boolean;visible?:boolean;onSelection?:(selection:SourceSelection|null)=>void;onReady?:(handle:SourceEditorHandle|null)=>void;};
+type Props = {store:BufferStore;fontSize:number;onFontSizeChange:(size:number)=>void;loading?:boolean;visible?:boolean;onSelection?:(selection:SourceSelection|null)=>void;onReady?:(handle:SourceEditorHandle|null)=>void;};
 const language = new Compartment(), editable = new Compartment(), phrases=new Compartment();
 // StreamLanguage registers its Document node globally; reuse one instance without constructing it at launch.
 let texLanguage:Extension|undefined;
@@ -39,20 +41,32 @@ export async function languageFor(path:string):Promise<Extension> {
   if(extension==='md'){const {markdown}=await import('@codemirror/lang-markdown');return markdown();}
   return [];
 }
-export function SourceEditor({store,onSelection,onReady,loading=false,visible=true}:Props) {
+export function SourceEditor({store,fontSize,onFontSizeChange,onSelection,onReady,loading=false,visible=true}:Props) {
   const {locale}=useI18n();
   const host=useRef<HTMLDivElement>(null),view=useRef<EditorView|null>(null),pathRef=useRef<string|null>(null);
+  const frame=useRef<HTMLDivElement>(null),fontSizeRef=useRef(clampEditorFontSize(fontSize));
+  const logicalFontSize=clampEditorFontSize(fontSize);
+  usePaneZoom({root:frame,wheelRoot:host,enabled:visible&&!loading,onZoom:direction=>{const next=clampEditorFontSize(fontSizeRef.current+direction);if(next!==fontSizeRef.current){fontSizeRef.current=next;onFontSizeChange(next);}},wheelTarget:target=>!!target.closest('.cm-scroller')});
   const navigation=useRef(0),capture=useRef<()=>void>(()=>{}),shown=useRef(false);
   const callbacks=useRef({onSelection,onReady});callbacks.current={onSelection,onReady};
   useSyncExternalStore(store.subscribe,store.snapshot);
   useLayoutEffect(()=>{
     if(!host.current)return;
     const editor=new EditorView({parent:host.current,state:EditorState.create({extensions:[editorTheme]})});view.current=editor;
-    const remember=()=>{const path=pathRef.current;if(!path||!store.records.has(path))return;const {anchor,head}=editor.state.selection.main,previous=store.readingPositions.get(path);if(!editor.scrollDOM.getClientRects().length){store.rememberPosition(path,{anchor,head,top:previous?.top??0,inset:previous?.inset??0,left:previous?.left??0});return;}const top=editor.lineBlockAtHeight(editor.scrollDOM.scrollTop);store.rememberPosition(path,{anchor,head,top:top.from,inset:editor.scrollDOM.scrollTop-top.top,left:editor.scrollDOM.scrollLeft});};capture.current=remember;editor.scrollDOM.addEventListener('scroll',remember,{passive:true});
+    const remember=()=>{const path=pathRef.current;if(!path||!store.records.has(path)||!editor.scrollDOM.getClientRects().length)return;const {anchor,head}=editor.state.selection.main;const top=editor.lineBlockAtHeight(editor.scrollDOM.scrollTop);store.rememberPosition(path,{anchor,head,top:top.from,inset:editor.scrollDOM.scrollTop-top.top,left:editor.scrollDOM.scrollLeft});};capture.current=remember;editor.scrollDOM.addEventListener('scroll',remember,{passive:true});
     const handle:SourceEditorHandle={captureReadingPosition:remember,command:name=>{if(pathRef.current)runEditorCommand(editor,name);},focus:()=>editor.focus(),position:()=>{const head=editor.state.selection.main.head,line=editor.state.doc.lineAt(head);return {line1:line.number,column1:head-line.from+1};},selectBytes:(start,end)=>{navigation.current++;const path=pathRef.current,record=path?store.records.get(path):undefined;if(!record)return;const raw=store.text(record),bom=record.document.encoding==='utf8Bom'?3:0;const toEditor=(byte:number)=>raw.slice(0,byteToUtf16(raw,Math.max(0,byte-bom))).replaceAll('\r\n','\n').replaceAll('\r','\n').length;const anchor=toEditor(start),head=toEditor(end);editor.dispatch({selection:{anchor,head},effects:EditorView.scrollIntoView(anchor,{y:'center'})});editor.focus();},selection:()=>{const path=pathRef.current,buffer=path?store.records.get(path):undefined;if(!buffer)return null;const {from,to}=editor.state.selection.main;return from===to?null:selectionAnchor(buffer,from,to);},navigate:(line,column=1)=>{navigation.current++;const target=editor.state.doc.line(Math.max(1,Math.min(line,editor.state.doc.lines)));const position=Math.min(target.to,target.from+Math.max(0,column-1));editor.dispatch({selection:{anchor:position},effects:EditorView.scrollIntoView(position,{y:'center'})});editor.focus();}};
     callbacks.current.onReady?.(handle);
     return()=>{remember();editor.scrollDOM.removeEventListener('scroll',remember);capture.current=()=>{};callbacks.current.onReady?.(null);pathRef.current=null;editor.destroy();view.current=null;};
   },[store]);
+  useLayoutEffect(()=>{
+    fontSizeRef.current=logicalFontSize;
+    const editor=view.current;if(!editor)return;
+    const shown=visible&&!loading&&editor.scrollDOM.getClientRects().length>0;
+    const top=shown?editor.lineBlockAtHeight(editor.scrollDOM.scrollTop):null;
+    const fraction=top?(editor.scrollDOM.scrollTop-top.top)/Math.max(1,top.height):0,left=editor.scrollDOM.scrollLeft;
+    editor.scrollDOM.style.fontSize=`${logicalFontSize/16}rem`;
+    if(top){const path=pathRef.current;editor.requestMeasure({read:()=>editor.lineBlockAt(Math.min(top.from,editor.state.doc.length)),write:block=>{if(pathRef.current!==path||!editor.scrollDOM.getClientRects().length)return;editor.scrollDOM.scrollTop=block.top+fraction*block.height;editor.scrollDOM.scrollLeft=left;capture.current();}});}
+  },[logicalFontSize,store]);
   const buffer=store.activePath?store.records.get(store.activePath):undefined;
   useLayoutEffect(()=>{
     // Workspace restoration may activate several cached buffers; only install the final visible document.
@@ -65,7 +79,7 @@ export function SourceEditor({store,onSelection,onReady,loading=false,visible=tr
       const keys=new Set<string>();for(const record of store.records.values()){const text=store.text(record);for(const match of text.matchAll(/(?:\\label\{([^}]+)\}|@[\w]+\s*\{\s*([^,\s]+))/g))keys.add(match[1]??match[2]);}
       return {from:token.from,options:[...keys].slice(0,2000).map(label=>({label,type:'constant'}))};
     };
-    if(!buffer.state)buffer.state=EditorState.create({doc:buffer.document.text,extensions:[phrases.of(EditorState.phrases.of(locale==='ko'?koreanPhrases:{})),...(buffer.document.newline==='crlf'?[EditorState.lineSeparator.of('\r\n')]:[]),lineNumbers(),highlightActiveLineGutter(),highlightSpecialChars(),history(),drawSelection(),rectangularSelection(),bracketMatching(),indentOnInput(),syntaxHighlighting(classHighlighter),highlightSelectionMatches(),autocompletion({override:[complete]}),keymap.of([...defaultKeymap,...historyKeymap,...searchKeymap,...completionKeymap,indentWithTab]),editorTheme,language.of([]),editable.of([EditorState.readOnly.of(buffer.document.readOnly),EditorView.editable.of(!buffer.document.readOnly)]),EditorView.lineWrapping,EditorView.domEventHandlers({compositionstart:()=>{if(pathRef.current)store.composition(pathRef.current,true);return false;},compositionend:()=>{if(pathRef.current)store.composition(pathRef.current,false);return false;}}),EditorView.updateListener.of(update=>{
+    if(!buffer.state)buffer.state=EditorState.create({doc:buffer.document.text,extensions:[phrases.of(EditorState.phrases.of(locale==='ko'?koreanPhrases:{})),...(buffer.document.newline==='crlf'?[EditorState.lineSeparator.of('\r\n')]:[]),...texShortcutExtensions(),lineNumbers(),highlightActiveLineGutter(),highlightSpecialChars(),history(),drawSelection(),bracketMatching(),indentOnInput(),syntaxHighlighting(classHighlighter),highlightSelectionMatches(),autocompletion({override:[complete]}),editorTheme,language.of([]),editable.of([EditorState.readOnly.of(buffer.document.readOnly),EditorView.editable.of(!buffer.document.readOnly)]),EditorView.lineWrapping,EditorView.domEventHandlers({compositionstart:()=>{if(pathRef.current)store.composition(pathRef.current,true);return false;},compositionend:()=>{if(pathRef.current)store.composition(pathRef.current,false);return false;}}),EditorView.updateListener.of(update=>{
       const path=pathRef.current;if(!path)return;const record=store.records.get(path);if(!record)return;
       if(update.docChanged)store.update(path,update.state,update.changes);else record.state=update.state;
       if(update.selectionSet||update.docChanged){const {from,to}=update.state.selection.main;callbacks.current.onSelection?.(from===to?null:selectionAnchor(record,from,to));}
@@ -89,7 +103,7 @@ export function SourceEditor({store,onSelection,onReady,loading=false,visible=tr
     {name:'itemize',icon:'list',label:t('글머리 목록 삽입','Insert bulleted list'),syntax:'\\begin{itemize}'},
     {name:'math',icon:'math',label:t('인라인 수식 삽입','Insert inline math'),syntax:'$…$'},
   ] as const;
-  return <div className="source-editor-frame" hidden={loading}>
+  return <div className="source-editor-frame" hidden={loading} ref={frame} data-font-size={logicalFontSize}>
     <div className="editor-toolbar" role="toolbar" aria-label={t('소스 편집 도구','Source editing tools')}>
       <div className="editor-toolbar-group">
         <button className="icon-button" type="button" disabled={readOnly||!buffer?.state||undoDepth(buffer.state)===0} aria-label={t('실행 취소','Undo')} title={t('실행 취소 (Ctrl+Z)','Undo (Ctrl+Z)')} onClick={()=>command('undo')}><Icon name="undo" size={16}/></button>
@@ -100,7 +114,9 @@ export function SourceEditor({store,onSelection,onReady,loading=false,visible=tr
       <div className="editor-toolbar-group">
         {tools.map(tool=><button key={tool.name} className="icon-button" type="button" disabled={readOnly} aria-label={tool.label} title={`${tool.label} · ${tool.syntax}`} onClick={()=>command(tool.name)}><Icon name={tool.icon} size={16}/></button>)}
       </div>
+      <button className="editor-sync-button" type="button" disabled={!buffer||loading} style={{display:'inline-flex',alignItems:'center',gap:'.25rem'}} aria-label={t('PDF에서 위치 보기 · Ctrl+Alt+J','Show position in PDF · Ctrl+Alt+J')} title={t('PDF에서 위치 보기 · Ctrl+Alt+J','Show position in PDF · Ctrl+Alt+J')} onClick={()=>{const editor=view.current,path=pathRef.current;if(!editor||!path||!visible||loading)return;const offset=editor.state.selection.main.head,line=editor.state.doc.lineAt(offset);window.dispatchEvent(new CustomEvent('texypaper:sync-source-requested',{detail:{path,line1:line.number,column1:offset-line.from+1}}));}}><Icon name="document" size={14}/><span>{t('PDF에서 위치 보기','Show in PDF')}</span></button>
+      <output className="editor-font-size" aria-label={t('소스 글자 크기','Source font size')} title={t('Ctrl+휠 또는 Ctrl+더하기/빼기: 소스 글자 크기','Ctrl+wheel or Ctrl+plus/minus: source font size')}>{logicalFontSize}px</output>
     </div>
-    <div className="source-editor" data-testid="source-editor" data-path={buffer?.path??''} aria-busy={loading} hidden={loading} ref={host} aria-label={buffer?t(`소스 편집기: ${buffer.path}`,`Source editor: ${buffer.path}`):t('소스 편집기','Source editor')} />
+    <div className="source-editor" data-testid="source-editor" data-path={buffer?.path??''} data-language={/\.(tex|ltx|sty|cls|bib|bst|bbx|cbx)$/i.test(buffer?.path??'')?'tex':undefined} aria-busy={loading} hidden={loading} ref={host} aria-label={buffer?t(`소스 편집기: ${buffer.path}`,`Source editor: ${buffer.path}`):t('소스 편집기','Source editor')} />
   </div>;
 }

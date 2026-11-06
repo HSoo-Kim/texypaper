@@ -443,7 +443,11 @@ fn verify(workspace: &Workspace, m: &BuildManifest) -> AppResult<bool> {
         )
     })
 }
-fn host_relative(m: &BuildManifest, input: &str, workspace: &Workspace) -> AppResult<String> {
+pub(super) fn host_relative(
+    m: &BuildManifest,
+    input: &str,
+    workspace: &Workspace,
+) -> AppResult<String> {
     if let Some(root) = workspace.local_root() {
         let path = Path::new(&m.cwd).join(input).canonicalize()?;
         artifacts::relative(&root.canonicalize()?, &path)

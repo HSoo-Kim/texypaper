@@ -47,10 +47,13 @@ export class PaperIndex {
     for(const [path,entries] of this.listings) {
       const evidence=entries.filter(entry=>entry.kind!=='directory'&&isPaperFile(entry.name)).map(entry=>entry.name);
       this.marks.set(path,evidence.length?'direct':this.marks.get(path)==='descendant'?'descendant':'none');this.evidence.set(path,evidence);
-      for(const entry of entries)if(entry.kind==='directory'&&entry.paper==='direct'){this.marks.set(entry.path,'direct');this.evidence.set(entry.path,entry.evidence??[]);}
+      for(const entry of entries)if(entry.kind==='directory'){
+        if(entry.paper==='direct'){this.marks.set(entry.path,'direct');this.evidence.set(entry.path,entry.evidence??[]);}
+        else if(entry.paper==='descendant'&&this.marks.get(entry.path)!=='direct')this.marks.set(entry.path,'descendant');
+      }
     }
     for(const [path,evidence]of this.scannedEvidence){this.marks.set(path,'direct');this.evidence.set(path,evidence);}
-    for(const [path,mark] of [...this.marks])if(mark==='direct'){
+    for(const [path,mark] of [...this.marks])if(mark==='direct'||mark==='descendant'){
       let parent=path;while(parent.includes('/')){parent=parent.slice(0,parent.lastIndexOf('/'));if(this.marks.get(parent)!=='direct')this.marks.set(parent,'descendant');}
       if(path&&this.marks.get('')!=='direct')this.marks.set('','descendant');
     }

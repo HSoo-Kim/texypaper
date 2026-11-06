@@ -1,0 +1,97 @@
+.file-type-icon {
+  --file-icon-fill:#e0e5eb;
+  --file-icon-edge:#788999;
+  --file-icon-ink:#455b6e;
+  display:block;
+  flex:none;
+  overflow:visible;
+  pointer-events:none;
+}
+.file-icon-mark { color:var(--file-icon-ink); }
+.file-icon--tex { --file-icon-fill:#cef0e4; --file-icon-edge:#3a9d83; --file-icon-ink:#146e56; }
+.file-icon--bib { --file-icon-fill:#ffe0a3; --file-icon-edge:#bc812b; --file-icon-ink:#88521a; }
+.file-icon--latex { --file-icon-fill:#e5d9fa; --file-icon-edge:#9972c9; --file-icon-ink:#6e439d; }
+.file-icon--pdf { --file-icon-fill:#ffd5d8; --file-icon-edge:#cd6973; --file-icon-ink:#b02d43; }
+.file-icon--image { --file-icon-fill:#f5d6ed; --file-icon-edge:#b975ad; --file-icon-ink:#94437f; }
+.file-icon--python { --file-icon-fill:#304b69; --file-icon-edge:#6989ac; }
+.file-icon--javascript { --file-icon-fill:#f8dd73; --file-icon-edge:#ad8c30; --file-icon-ink:#574717; }
+.file-icon--typescript { --file-icon-fill:#d0e6ff; --file-icon-edge:#5794cd; --file-icon-ink:#226cb0; }
+.file-icon--react { --file-icon-fill:#d5edf9; --file-icon-edge:#5894b3; --file-icon-ink:#256d93; }
+.file-icon--rust { --file-icon-fill:#f3d9cb; --file-icon-edge:#b97a58; --file-icon-ink:#8b482c; }
+.file-icon--json { --file-icon-fill:#f8e8ac; --file-icon-edge:#ad9444; --file-icon-ink:#80651d; }
+.file-icon--config { --file-icon-fill:#e5e2dd; --file-icon-edge:#a29381; --file-icon-ink:#9b6029; }
+.file-icon--markdown,.file-icon--info { --file-icon-fill:#d8e9fa; --file-icon-edge:#709ac4; --file-icon-ink:#306d9f; }
+.file-icon--table { --file-icon-fill:#d3eddb; --file-icon-edge:#6caa7d; --file-icon-ink:#347348; }
+.file-icon--text { --file-icon-fill:#e4e7eb; --file-icon-edge:#8c98a5; --file-icon-ink:#586775; }
+.file-icon--archive { --file-icon-fill:#f6df9a; --file-icon-edge:#b79a4b; --file-icon-ink:#816023; }
+.file-icon--terminal { --file-icon-fill:#344353; --file-icon-edge:#7f92a6; --file-icon-ink:#e0eee8; }
+.file-icon--binary { --file-icon-fill:#dce2e9; --file-icon-edge:#8694a4; --file-icon-ink:#596c82; }
+.file-icon--build { --file-icon-fill:#e0e2e5; --file-icon-edge:#9da5ad; --file-icon-ink:#78818b; }
+.file-icon--git { --file-icon-fill:#ffe0d5; --file-icon-edge:#c7846a; --file-icon-ink:#bc502d; }
+.file-icon--env { --file-icon-fill:#e6ebc7; --file-icon-edge:#98a35e; --file-icon-ink:#66752c; }
+.file-icon--license { --file-icon-fill:#e5e0f4; --file-icon-edge:#9c8fba; --file-icon-ink:#74608d; }
+
+.file-icon--folder {
+  --folder-top:#4aa3f0;
+  --folder-bottom:#1f78d8;
+  --folder-tab:#81c3f6;
+  --folder-edge:#226bb2;
+  --folder-badge:#e0f0ff;
+  --file-icon-ink:#d8eeff;
+}
+.file-icon--folder.file-icon--figures { --folder-badge:#f9d9ee; --file-icon-ink:#984c86; }
+.file-icon--folder.file-icon--code,.file-icon--folder.file-icon--tests { --folder-badge:#d6f2de; --file-icon-ink:#28774d; }
+.file-icon--folder.file-icon--results { --folder-badge:#ffe3bf; --file-icon-ink:#9d5d22; }
+.file-icon--folder.file-icon--sections { --folder-badge:#cef3ec; --file-icon-ink:#287c70; }
+.file-icon--folder.file-icon--paper,.file-icon--folder.file-icon--docs { --file-icon-ink:#236394; }
+.file-icon--folder.file-icon--references { --folder-badge:#ffebbc; --file-icon-ink:#92651f; }
+.file-icon--folder:is(.file-icon--excluded,.file-icon--muted) {
+  --folder-top:#92a9bb;
+  --folder-bottom:#70899f;
+  --folder-tab:#a6bac9;
+  --folder-edge:#6e8395;
+  --file-icon-ink:#dce5ed;
+  opacity:.72;
+}
+
+/* Keep the existing 1rem symbol column and label position; the chevron lives in its gutter. */
+.file-symbol:has(>.file-type-icon) { position:relative; }
+.file-symbol>.tree-chevron { position:absolute; right:100%; width:.75rem; }
+.file-type-icon.file-icon-excluded { opacity:.65; }
+.tree-row.selected .file-type-icon {
+  filter:drop-shadow(0 1px 1px #17243e55);
+  opacity:1;
+}
+.tree-row.selected .file-type-icon .file-icon-body { stroke:#fff; stroke-width:.9; }
+:root[data-theme=dark] .file-type-icon .file-icon-body { stroke-width:.85; }
+:root[data-theme=dark] .file-icon--build { --file-icon-fill:#77828d; --file-icon-edge:#a9b4be; --file-icon-ink:#242f3a; }
+
+.file-tabs button[role=tab] { display:flex; align-items:center; gap:.375rem; min-width:0; }
+.file-tabs button[role=tab]>.file-tab-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.quick-result-file { display:flex; align-items:flex-start; gap:.375rem; min-width:0; }
+.quick-result-file>.file-type-icon { margin-top:.125rem; }
+.quick-result-file>span { min-width:0; }
+
+@media (forced-colors:active) {
+  .file-type-icon {
+    forced-color-adjust:none;
+    color:CanvasText;
+    --file-icon-ink:currentColor;
+    opacity:1;
+    filter:none;
+  }
+  .tree-row.selected .file-type-icon { color:HighlightText; filter:none; }
+  .file-type-icon .file-icon-body,
+  .file-type-icon .file-icon-tab,
+  .file-type-icon .file-icon-sheet,
+  .file-type-icon .file-icon-fold,
+  .file-type-icon .file-icon-badge { fill:Canvas; fill-opacity:1; stroke:currentColor; stroke-width:.8; }
+  .file-type-icon .file-icon-mark { color:inherit; }
+  .file-type-icon .file-icon-highlight { display:none; }
+  .file-type-icon .file-icon-mark [fill]:not([fill=none]) { fill:currentColor; }
+  .file-icon--git .file-icon-mark path:not([fill]) { stroke:Canvas; }
+  .file-icon--git .file-icon-mark circle { fill:Canvas!important; }
+  .file-icon-link rect { fill:Canvas; stroke:CanvasText; }
+  .file-icon-link path { stroke:CanvasText; }
+  .tree-row.selected .file-type-icon .file-icon-body { stroke:HighlightText; }
+}

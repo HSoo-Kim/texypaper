@@ -92,7 +92,7 @@ Windows의 `activation.rs`는 같은 사용자 SID와 canonical profile 경로�
 
 ## 4. 탐색기와 검색
 
-직접 증거는 확장자 목록만으로 분류합니다. 폴더 강조를 위해 파일 본문을 열지 않습니다. `direct`는 굵기+황색 label band, `descendant`는 작은 점, `unknown`은 미검색 상태입니다. 선택 강조는 사용자 accent와 읽기 가능한 텍스트로 표현하고 논문 의미 표식은 유지합니다. Main은 실제 선택된 root TeX에만 붙습니다.
+직접 증거는 확장자 목록만으로 분류합니다. 폴더 강조를 위해 파일 본문을 열지 않습니다. `direct`는 굵기+황색 label band와 **TeX** 배지, `descendant`는 흐린 **TeX** 배지(디렉터리 목록의 검증된 하위 증거는 폴더를 펼치기 전에도 전파), `unknown`은 미검색 상태입니다. 폴더 이름만으로 논문 폴더를 추측하지 않습니다. 선택 강조는 사용자 accent와 읽기 가능한 텍스트로 표현하고 논문 의미 표식은 유지합니다. Main은 실제 선택된 root TeX에만 붙습니다. 파일·폴더 아이콘(`fileIcons.tsx`)은 확장자·정확한 파일명·폴더 별칭 표로 정하는 순수 함수이며 논문 증거 판정과 독립입니다. 아이콘은 이 프로젝트의 원본 SVG이고 제3자 아이콘 세트를 포함하지 않습니다.
 
 index와 scan frontier는 디스크에 저장하며 한 sweep의 20,000 항목 제한이 깊이 제한으로 바뀌지 않습니다. 256개 단위 결과와 250ms yield를 사용하고 열린/보이는 디렉터리를 우선합니다. excluded 디렉터리를 명시적으로 펼치는 것은 별개입니다. local notify와 active polling은 관련 경로를 무효화하고 모든 서버 파일 내용을 cache하지 않습니다. 열린 파일 검사는 활성 2초/비활성 15초 간격과 focus refresh를 사용합니다.
 
@@ -187,6 +187,8 @@ PDF 교체는 선택 무효화 → 진행 render/text 작업 cancel 및 대기 �
 
 `latex/synctex.rs`는 native CLI 결과 구간과 모든 record를 파싱하고 Windows drive colon·unknown column을 보존합니다. Unicode 대체 구현 `synctex_parser.rs`는 MIT notice를 가진 독립 parser adaptation입니다. native ASCII와 동등 fixture 및 Unicode 검증 게이트 없이 edit-grade mapping에 사용하지 않습니다. 이 게이트가 존재한다는 것과 특정 PC에서 통과했다는 것은 별개입니다.
 
+소스↔PDF 이동은 편집 권한을 만들지 않습니다. `sync_inverse`의 각 record는 native가 빌드 manifest의 `cwd` 기준으로 프로젝트 상대 `path`로 정규화하고, 이 빌드의 source 목록에 없거나 작업 공간 밖이면 `path`를 붙이지 않아 UI가 열지 못합니다. UI는 요청 시점의 workspace epoch·build ID를 다시 확인하고, PDF가 현재 소스보다 오래되면 줄이 어긋날 수 있음을 알립니다. 소스의 `Ctrl+클릭`은 Overleaf 호환 다중 커서이며 동기화는 도구 막대와 `Ctrl+Alt+J`가 맡습니다.
+
 ## 9. 댓글의 identity
 
 `.texypaper/comments.json`은 version/revision/threads를 가지며 실제 project host에 저장합니다. 소스 anchor는 path·byte range·base hash·quote와 앞뒤 문맥, PDF anchor는 build ID·PDF hash·page·rects를 사용합니다. message author는 단일 사용자 `me`이며 협업 presence를 만들지 않습니다.
@@ -225,6 +227,8 @@ MCP 파일 읽기는 private key·`.env*`·credential·`.git` 내부·auth/histo
 
 
 작업 전 UI는 저장을 flush하고 선택 문맥·공급자·모델을 고정하며 cloud disclosure를 확인받습니다. 보이는 진행/답변만 제한된 history로 남기고 숨겨진 chain-of-thought는 저장하지 않습니다. 현재 실행은 턴 종료 시 transport를 닫고 session/thread ID를 저장해 다음 실행에서 resume하므로 idle prewarm 서버가 없습니다. 취소는 interrupt 후 2초 grace와 owned tree 종료를 사용합니다.
+
+선택 문맥은 암묵적으로 공유되지 않습니다. 사용자가 우클릭이나 `Ctrl+L`로 첨부한 소스 구간(`sources`)과 PDF 인용(`pdfs`)만 `agent_start`의 `context`로 전달합니다(종류별 최대 8개, 전체 JSON 128KiB). native는 각 소스의 읽기 허용과 선택 텍스트의 현재 파일 포함 여부를 검증하고 소스별 base hash를 붙입니다. 클라우드 전송 동의는 공급자별로 설정 `aiDisclosureAccepted`에 한 번 저장할 수 있지만 native는 계속 `disclosureAccepted:true` 없는 시작을 거부하며, 복구·읽기 위치 기록과 분리 창 patch는 동의를 만들거나 되살리지 못합니다.
 
 ## 11. 설정, 색상과 업데이트
 

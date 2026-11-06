@@ -7,6 +7,7 @@ import { setLocale, useI18n } from '../../ui/i18n';
 import { ChatView } from './ChatView';
 import type { ChatAction, ChatSnapshot } from './chatTypes';
 import { applyChatPatch, isChatAction, sameChatScope, type ChatActionFrame, type ChatStateFrame } from './chatBridge';
+import { readChatPreferences } from './chatPreferences';
 import '../../ui/tokens.css';
 
 type PendingValue<T> = { sequence: number; value: T };
@@ -20,6 +21,7 @@ export default function DetachedChat() {
   const [error, setError] = useState<string | null>(null);
   const [pendingPrompt, setPendingPrompt] = useState<PendingValue<string> | null>(null);
   const [pendingDisclosure, setPendingDisclosure] = useState<PendingValue<boolean> | null>(null);
+  const [pendingFontSize, setPendingFontSize] = useState<PendingValue<number> | null>(null);
   const stateRef = useRef<ChildState | null>(null);
   const session = useRef<string | null>(null);
   const sequence = useRef(0);
@@ -35,6 +37,7 @@ export default function DetachedChat() {
     const next = ++sequence.current;
     if (action.type === 'prompt') setPendingPrompt({ sequence: next, value: action.value });
     if (action.type === 'disclosure') setPendingDisclosure({ sequence: next, value: action.value });
+    if (action.type === 'chat-font-size') setPendingFontSize({ sequence: next, value: action.value });
     const frame: ChatActionFrame = { session: id, sequence: next, workspaceId: current.snapshot.workspace.id, epoch: current.snapshot.workspace.epoch, action };
     // In particular, prompt-before-send and prompt-before-dock preserve ordering.
     // A failed action is never replayed, so approvals cannot be executed twice.
@@ -46,6 +49,7 @@ export default function DetachedChat() {
         setError(normalizeError(problem).message);
         setPendingPrompt(null);
         setPendingDisclosure(null);
+        setPendingFontSize(null);
       }
     });
   }, []);
@@ -79,9 +83,11 @@ export default function DetachedChat() {
         if (changedWorkspace) {
           setPendingPrompt(null);
           setPendingDisclosure(null);
+          setPendingFontSize(null);
         } else {
           setPendingPrompt(pending => pending && pending.sequence > frame.acknowledged ? pending : null);
           setPendingDisclosure(pending => pending && pending.sequence > frame.acknowledged ? pending : null);
+          setPendingFontSize(pending => pending && pending.sequence > frame.acknowledged ? pending : null);
         }
         const next = { snapshot, settings, revision: frame.revision, acknowledged: frame.acknowledged };
         session.current = frame.session;
@@ -129,6 +135,6 @@ export default function DetachedChat() {
   };
   return <main className="detached-chat" style={{ height: '100dvh', display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
     {error && <div className="agent-error" role="alert"><p>{error}</p>{snapshot ? <button type="button" onClick={() => onAction({ type: 'dock' })}>{t('주 창에 붙이기', 'Return to main window')}</button> : <button type="button" onClick={() => { setError(null); void readyRef.current().catch(problem => setError(normalizeError(problem).message)); }}>{t('다시 연결', 'Reconnect')}</button>}</div>}
-    {snapshot ? <ChatView snapshot={snapshot} onAction={onAction} detached /> : <div className="empty-state" role="status" aria-live="polite">{t('AI 대화를 연결하는 중…', 'Connecting AI chat…')}</div>}
+    {snapshot ? <ChatView snapshot={snapshot} onAction={onAction} fontSize={pendingFontSize?.value ?? readChatPreferences(state?.settings).chatFontSize} detached /> : <div className="empty-state" role="status" aria-live="polite">{t('AI 대화를 연결하는 중…', 'Connecting AI chat…')}</div>}
   </main>;
 }

@@ -51,6 +51,80 @@ async fn app_bootstrap(state: State<'_, Arc<AppState>>) -> AppResult<Value> {
         json!({"dataDir":state.data_dir,"openPath":state.open_path,"settings":settings,"environments":settings.get("environments").cloned().unwrap_or_else(||json!([])),"recents":settings.get("recents").cloned().unwrap_or_else(||json!([])),"aliases":aliases}),
     )
 }
+fn validate_chat_settings(settings: &Value) -> AppResult<()> {
+    if let Some(size) = settings.get("chatFontSize")
+        && !size.as_u64().is_some_and(|size| (11..=24).contains(&size))
+    {
+        return Err(AppError::new(
+            "INVALID_SETTINGS",
+            "Chat font size must be an integer from 11 to 24",
+        ));
+    }
+    if let Some(accepted) = settings.get("aiDisclosureAccepted") {
+        let valid = accepted.as_object().is_some_and(|providers| {
+            providers.iter().all(|(provider, accepted)| {
+                matches!(provider.as_str(), "codex" | "claude") && accepted.as_bool() == Some(true)
+            })
+        });
+        if !valid {
+            return Err(AppError::new(
+                "INVALID_SETTINGS",
+                "AI disclosure acceptance must contain only codex/claude entries with value true",
+            ));
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod chat_settings_tests {
+    use super::*;
+
+    #[test]
+    fn disclosure_settings_accept_only_explicit_provider_opt_ins() {
+        for settings in [
+            json!({}),
+            json!({"aiDisclosureAccepted": {}}),
+            json!({"aiDisclosureAccepted": {"codex": true}}),
+            json!({"aiDisclosureAccepted": {"codex": true, "claude": true}}),
+        ] {
+            assert!(validate_chat_settings(&settings).is_ok());
+        }
+        for accepted in [
+            Value::Null,
+            json!(true),
+            json!([]),
+            json!({"codex": false}),
+            json!({"claude": "true"}),
+            json!({"codex": 1}),
+            json!({"other": true}),
+            json!({"codex": true, "disclosure": true}),
+        ] {
+            assert_eq!(
+                validate_chat_settings(&json!({"aiDisclosureAccepted": accepted}))
+                    .unwrap_err()
+                    .code,
+                "INVALID_SETTINGS"
+            );
+        }
+    }
+
+    #[test]
+    fn chat_font_size_settings_are_bounded_integers() {
+        for size in [11, 13, 24] {
+            assert!(validate_chat_settings(&json!({"chatFontSize": size})).is_ok());
+        }
+        for size in [Value::Null, json!("13"), json!(10), json!(25), json!(13.5)] {
+            assert_eq!(
+                validate_chat_settings(&json!({"chatFontSize": size}))
+                    .unwrap_err()
+                    .code,
+                "INVALID_SETTINGS"
+            );
+        }
+    }
+}
+
 #[tauri::command]
 async fn app_settings(
     app: tauri::AppHandle,
@@ -70,6 +144,7 @@ async fn app_settings(
         ));
     }
     updates::validate_settings(&settings)?;
+    validate_chat_settings(&settings)?;
     let mut stored = state.settings.lock().map_err(|_| lock_error())?;
     let mut merged = stored.as_object().cloned().unwrap_or_default();
     for (key, value) in settings.as_object().expect("validated settings object") {

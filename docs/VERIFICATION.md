@@ -1,8 +1,29 @@
-# Verification — TexyPaper 0.0.2
+# Verification — TexyPaper 0.0.3
 
 Evidence is generated under ignored `artifacts/` directories. The scripts use isolated synthetic papers and app-data; no user paper is a writable fixture. A passing unit suite is not presented as proof of a desktop, SSH, model or installer interaction.
 
-## Current release — TexyPaper 0.0.2 / 현재 릴리스
+## Current release — TexyPaper 0.0.3 / 현재 릴리스
+
+Observed on Windows x64, 2026-11-07 (KST). Runtime checks used a separately compiled hidden-start verification binary of the 0.0.3 source (no baked-in update feed); the distributed binaries are normal-start builds. All fixtures and profiles were synthetic and isolated; no real paper or normal account store was used.
+
+| Exercise | Observed result | Evidence |
+| --- | --- | --- |
+| Frontend | TypeScript check passed; 284 tests across 24 files passed | `pnpm typecheck`, `pnpm test` |
+| Native | Formatting and strict Clippy passed; 118 tests across 6 suites passed | Cargo command output |
+| New usability suite | 14 scenarios passed in the real WebView2 app: TeX folder badges and file/folder icons (no duplicate DOM ids), outline numbering/indentation/click, fixed green commands in light and dark, Overleaf editing shortcuts (`Ctrl+D`, `Ctrl+/`, `Ctrl+B`, `Ctrl+Enter` compile event without a newline, go to line, `Ctrl+click` second cursor, fold gutter), Home round trip preserving an unsaved draft and epoch, Home project switching through the running-work and unsaved-file guards and back, divider keyboard/drag resize with collapse and ratio-preserving restore, independent `Ctrl+wheel`/`Ctrl+-` zoom of source, PDF and AI chat without changing the page zoom or root font, `Ctrl+Alt+J` highlight on the PDF page and PDF `Ctrl+click` landing on the source line, explicit AI attachments from the context menu, `Ctrl+L` and the PDF menu (chips, removal, no old shared-context block), and the categorized shortcut dialog with search | `scripts/smoke-usability.mjs`; `artifacts/usability-003-09/usability-results.json` and renders |
+| Existing desktop suite | All 23 scenarios passed against a real 30-page local LaTeX build, including create/rename/trash, BOM/CRLF/IME, conflicts, PDF prose review, comments, SyncTeX comparison, stale-event isolation, crash recovery and restart persistence. The suite was updated for the Home page, the root selector inside build options, `Ctrl+Shift+C` and restored panel layout | `artifacts/desktop-003-06/desktop-results.json` |
+| SSH suite | All 12 scenarios passed over native OpenSSH to a loopback host and actual WSL Python/LaTeX, including remote build, forward and inverse SyncTeX with project-relative path normalization, same-size conflict, disconnect/reconnect without replaying a committed write, ProxyJump, build interruption and host-key/auth refusals | `artifacts/ssh-003-04/ssh.json` |
+| Production distribution | Normal visible-start release and NSIS build with the production release feed. Executable and installer report TexyPaper 0.0.3 and are unsigned | `artifacts/texypaper-release-0.0.3/release-manifest.json`, `SHA256SUMS.txt` |
+| Package integrity | 651 files in the portable ZIP; every license/notices file matches source and the ZIP executable equals the normal release executable. After installation the installed executable differs from it only in Tauri's three-byte bundle marker | `package-proof.json` |
+| Local installation | The current user's TexyPaper was updated from 0.0.2 with the silent installer while no TexyPaper process was running; nothing was terminated and the app was not launched. `settings.json` and the profile file list were unchanged, and the installed license payload matches source | `artifacts/texypaper-release-0.0.3/local-installation.json` |
+
+Runtime and static checks found and fixed these defects in the new work: reconnecting a disconnected project asked to “save all” before it could reconnect (it now keeps edits through the recovery journal as 0.0.2 did); the hidden Home page duplicated the Settings control and error notices while a project was open; the Windows `\\?\` prefix leaked into displayed project paths; two label objects in the shortcut data lacked their `en` key, a syntax error caught by the type check. Earlier harness mistakes (stale selectors, a gutter class shared with the fold gutter, a pointer drag over the collapse arrows, a smoke step that switched projects before a slow running-work dialog appeared, checking a PDF scale before fit-width layout settled) are not counted as passes.
+
+The SSH suite's real-mouse drag across the tiny PDF text spans does not extend a text selection in the 0.0.2 baseline either (a baseline binary was built from the release commit and traced), so that step now selects a real text-layer range and sends the same `pointerup` as the local suite. A real pointer drag over very small PDF text is therefore **not** proven by this suite.
+
+**Not exercised:** detached-window chat zoom at runtime; the one-time cloud consent against a real provider (covered by unit and native tests only, and by the first-use checkbox in the real app); live Codex/Claude inference (`smoke:agents` and `smoke:chat` require `--live` and an official login); physical tray Open/double-click/Exit; a visible (non-hidden) startup; memory aggregates; uninstall or fresh-machine WebView2 bootstrap. macOS, signing, cloud accounts and cross-device sync are not supplied. Reduced-motion and forced-color behavior is styled but was not re-verified as an accessibility certification.
+
+## Previous release — TexyPaper 0.0.2
 
 Observed on Windows x64, 2026-11-07 (KST). The normal distribution is separate from the hidden-start verification binary. No real paper or normal account store was used as a development fixture.
 
