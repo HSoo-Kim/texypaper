@@ -1,0 +1,15 @@
+export type WorkspaceRef = { id:string; environmentId:string; root:string; epoch:number };
+export type Environment = {id:string;label:string;kind:'local'|'ssh';hostAlias?:string;hostname?:string;user?:string;port?:number;identityFile?:string;sshConfigFile?:string};
+export type FileRef = {workspaceId:string;path:string};
+export type Revision = {sha256:string;byteLength:number;modifiedNs:string};
+export type TextDocument = {file:FileRef;text:string;revision:Revision;encoding:'utf8'|'utf8Bom'|'unsupported';newline:'lf'|'crlf'|'mixed';readOnly:boolean;truncated?:boolean;warning?:AppError};
+export type PaperMark = 'unknown'|'none'|'direct'|'descendant';
+export type Entry = {path:string;name:string;kind:'file'|'directory'|'symlink';byteLength?:number;paper:PaperMark;main:boolean;evidence?:string[]};
+export type AppError = {code:string;message:string;path?:string;retryable:boolean;details?:unknown};
+export type AppEvent = {workspaceId:string;epoch:number;sequence:number;kind:string;payload:unknown};
+export type Diagnostic = {path?:string;line?:number;message:string;severity:'error'|'warning'|'info';inferred?:boolean};
+export type BuildManifest = {version:1;buildId:string;workspaceId:string;rootTex:string;engine:string;cwd:string;jobName:string;startedAt:string;finishedAt:string;pdfSha256:string;syncSha256:string;sources:{path:string;sha256:string;snapshotPath:string}[];mappingReady:boolean;pdfLength:number};
+export type CommentThread = {id:string;status:'open'|'resolved'|'orphaned';source?:{path:string;startByte:number;endByte:number;baseSha256:string;quote:string;before:string;after:string};pdf?:{buildId:string;pdfSha256:string;page:number;rects:number[][];quote:string};messages:{id:string;author:'me';text:string;createdAt:string;updatedAt:string}[]};
+export type ProposedFile = {action:'edit';path:string;baseSha256:string;replacements:{oldText:string;newText:string}[]}|{action:'create';path:string;baseSha256:null;content:string};
+export type EvidenceRef = {path:string;sha256:string;startLine:number;endLine:number};
+export type Proposal = {id:string;summary:string;files:ProposedFile[];evidence:EvidenceRef[];status:'pending'|'applied'|'rejected'|'conflict'};

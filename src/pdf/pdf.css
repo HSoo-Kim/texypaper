@@ -1,0 +1,71 @@
+.pdf-preview{display:flex;flex-direction:column;min-width:0;min-height:0;height:100%;background:var(--canvas,#f1f2f3);color:var(--text,#24292e);font-size:.8125rem;container-type:inline-size}
+.pdf-preview .pdf-toolbar{display:flex;align-items:center;flex-wrap:wrap;flex:none;gap:.25rem .5rem;min-height:2.75rem;padding:.375rem .625rem;border-bottom:1px solid var(--border,#d9dce0);background:var(--surface,#fff)}
+.pdf-build-actions{display:flex;align-items:center;flex-wrap:wrap;gap:.375rem;min-width:0;margin-right:auto}
+.pdf-navigation,.pdf-zoom,.pdf-view-options{display:flex;align-items:center;flex:none;gap:.125rem}
+.pdf-navigation{margin-left:auto}
+.pdf-zoom{padding-left:.375rem;border-left:1px solid var(--border,#d9dce0)}
+.pdf-preview :is(.pdf-export,.pdf-navigation button,.pdf-zoom button,.pdf-view-options button,.pdf-search button,.pdf-context-actions button,.pdf-password button,.pdf-error button){display:inline-flex;align-items:center;justify-content:center;gap:.375rem;min-height:1.875rem;padding:.25rem .5rem;border:1px solid transparent;border-radius:6px;background:transparent;color:inherit;font:inherit;line-height:1.25;cursor:pointer;white-space:nowrap}
+.pdf-preview :is(.pdf-navigation,.pdf-zoom,.pdf-view-options,.pdf-search) .icon-button{width:1.875rem;padding:.25rem;flex:none}
+.pdf-preview :is(.pdf-export,.pdf-context-actions button,.pdf-password button,.pdf-error button){border-color:var(--border,#d9dce0);background:var(--surface,#fff)}
+.pdf-preview :is(.pdf-export,.pdf-navigation button,.pdf-zoom button,.pdf-view-options button,.pdf-search button,.pdf-context-actions button,.pdf-password button,.pdf-error button):hover:not(:disabled){background:var(--sidebar,#f1f2f3)}
+.pdf-preview .pdf-view-options button[aria-pressed=true]{background:var(--selection,#f3e2e9);color:var(--text,#24292e)}
+.pdf-toolbar label{display:flex;align-items:center;gap:.25rem;white-space:nowrap}
+.pdf-preview :is(.pdf-toolbar select,.pdf-toolbar input,.pdf-search input,.pdf-password input){box-sizing:border-box;min-height:1.875rem;padding:.25rem .375rem;border:1px solid var(--border,#d9dce0);border-radius:6px;background:var(--surface,#fff);color:inherit;font:inherit;line-height:1.25;accent-color:var(--action,#a72f65)}
+.pdf-preview .pdf-toolbar input{width:2.75rem;text-align:center;font-variant-numeric:tabular-nums;appearance:textfield;-moz-appearance:textfield}
+.pdf-toolbar input::-webkit-inner-spin-button,.pdf-toolbar input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.pdf-toolbar select{width:4.375rem;cursor:pointer}
+.pdf-page-count{min-width:1.625rem;color:var(--secondary,#60676e);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pdf-secondary-toolbar{display:flex;align-items:center;flex-wrap:wrap;flex:none;gap:.25rem .75rem;padding:.25rem .625rem;border-bottom:1px solid var(--border,#d9dce0);background:var(--surface,#fff)}
+.pdf-view-options button{font-size:.75rem}
+.pdf-view-options button:last-child{gap:.25rem;font-variant-numeric:tabular-nums}
+.pdf-search{display:flex;align-items:center;flex:1;flex-wrap:wrap;gap:.125rem;min-width:10rem;margin-left:auto}
+.pdf-search input{flex:1;min-width:5rem;width:7rem;max-width:16rem}
+.pdf-search input::placeholder{color:var(--secondary,#60676e);opacity:1}
+.pdf-search-status{color:var(--secondary,#60676e);font-size:.75rem;white-space:nowrap}
+.pdf-search-status:empty{display:none}
+.pdf-context-actions{display:flex;align-items:center;flex-wrap:wrap;gap:.375rem;flex:none;padding:.375rem .625rem;border-bottom:1px solid var(--border,#d9dce0);background:var(--surface,#fff)}
+.pdf-content{position:relative;flex:1;min-width:0;min-height:0;overflow:hidden}
+.pdf-document-view{position:absolute;inset:0;display:flex;flex-direction:column;min-width:0;min-height:0}
+/* Preserve the viewer's dimensions, scroll position, document and page resources in logs mode. */
+.pdf-document-view.is-hidden{visibility:hidden;pointer-events:none}
+.pdf-preview .pdf-scroll{overflow:auto;flex:1;min-width:0;min-height:0;padding:12px 20px;scrollbar-gutter:stable;background:var(--canvas,#ebedee);scrollbar-color:var(--secondary,#7a8187) transparent}
+.pdf-page-slot{position:relative;margin:0 auto 24px;background:#fff;color:#000;outline:1px solid #d9dce0;flex-shrink:0}
+.pdf-page-slot>.pdf-page{position:absolute;inset:0;margin:0;background:#fff}
+.pdf-page canvas{display:block;background:#fff}
+.pdf-page .textLayer{position:absolute;inset:0;overflow:hidden;line-height:1;text-align:initial;opacity:1;forced-color-adjust:none;transform-origin:0 0}
+.pdf-page .textLayer :is(span,br){position:absolute;white-space:pre;transform-origin:0 0;color:transparent;cursor:text}
+.pdf-page .textLayer ::selection{background:var(--pdf-selection,#a72f6533);color:transparent}
+.pdf-search-results{display:flex;gap:.375rem;flex:none;overflow:auto;max-height:5rem;padding:.375rem .625rem;border-bottom:1px solid var(--border,#d9dce0);background:var(--surface,#fff)}
+.pdf-search-results button{min-width:10rem;max-width:20rem;flex-shrink:0;padding:.375rem .5rem;text-align:left;overflow:hidden;background:var(--surface,#fff);color:inherit;font:inherit;border:1px solid var(--border,#d9dce0);border-radius:3px;cursor:pointer}
+.pdf-search-results button:hover{background:var(--sidebar,#f1f2f3)}
+.pdf-error{padding:.75rem;border-bottom:1px solid var(--error,#b4473b);background:var(--surface,#fff);overflow-wrap:anywhere}
+.pdf-error details{margin:.375rem 0}
+.pdf-document-view>p[role=status]{margin:0;padding:1rem;color:var(--secondary,#60676e)}
+.pdf-empty{margin:0;padding:2rem 1.5rem;text-align:center;color:var(--secondary,#60676e);line-height:1.6}
+.pdf-password{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem;padding:1rem;background:var(--surface,#fff)}
+.pdf-password label{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem}
+.pdf-logs-view{position:absolute;inset:0;overflow:auto;background:var(--surface,#fff);color:var(--text,#24292e);scrollbar-color:var(--secondary,#7a8187) transparent}
+.pdf-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.pdf-preview :focus-visible,.source-edit-review :focus-visible,.pdf-selection-popover :focus-visible{outline:2px solid var(--action,#a72f65);outline-offset:2px}
+.pdf-preview button:disabled,.source-edit-review button:disabled{opacity:.45;cursor:default}
+.pdf-sync-marker{position:absolute;pointer-events:none;z-index:5;outline:2px solid var(--pdf-action,#a72f65);background:var(--pdf-selection,#a72f6533);border-radius:2px}
+.pdf-comment-mark{position:absolute;z-index:7;display:flex;align-items:flex-start;justify-content:flex-end;background:#fff1bd88;color:#735600;min-width:12px;min-height:12px;max-height:3rem;border:1px solid #b68b25;border-radius:2px;cursor:pointer;padding:0 2px}
+.pdf-link-action{position:absolute;z-index:6;display:flex;align-items:flex-start;justify-content:flex-end;border:0;background:transparent;color:transparent;cursor:pointer;padding:0;min-width:8px;min-height:8px}
+.pdf-link-action:is(:hover,:focus-visible){color:var(--pdf-action,#a72f65);background:var(--pdf-selection,#a72f6533);outline:1px solid var(--pdf-action,#a72f65)}
+.pdf-selection-popover{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);z-index:40;display:flex;flex-wrap:wrap;gap:.35rem;padding:.5rem;border:1px solid var(--border,#d9d9df);border-radius:8px;background:var(--surface,#fff);color:var(--text,#1d1d1f);box-shadow:0 6px 24px #0002;max-width:calc(100vw - 2rem)}
+.pdf-selection-popover button,.source-edit-review button{font:inherit;border:1px solid var(--border,#d9d9df);border-radius:6px;padding:.3rem .55rem;background:var(--surface,#fff);color:inherit;cursor:pointer}
+.pdf-selection-popover button:active{transform:scale(.97)}
+.source-edit-review{max-width:min(56rem,calc(100vw - 3rem));max-height:calc(100vh - 3rem);overflow:auto;background:var(--surface,#fff);color:var(--text,#1d1d1f);border:1px solid var(--border,#d9d9df);border-radius:12px;padding:1.25rem}
+.source-edit-review::backdrop{background:#0005}
+.source-edit-review header,.source-edit-review footer{display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.source-edit-review h2{font-size:1.15rem}
+.source-edit-review h3{font-size:1rem}
+.source-edit-diff{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.source-edit-diff section{min-width:0}
+.source-edit-diff pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:.75rem;border:1px solid var(--border,#d9d9df);border-radius:6px;max-height:40vh;overflow:auto}
+.source-edit-diff textarea{display:block;box-sizing:border-box;width:100%;min-height:12rem;font:inherit;background:var(--surface,#fff);color:inherit;border:1px solid var(--border,#d9d9df);border-radius:6px;padding:.75rem}
+@media(max-width:960px){.pdf-preview .pdf-toolbar{gap:.25rem .375rem}.pdf-build-actions{flex:1 1 auto}.pdf-secondary-toolbar{gap:.25rem .375rem}.pdf-search{min-width:9rem}}
+@media(max-width:480px){.pdf-build-actions{flex-basis:100%;margin-right:0}.pdf-navigation{margin-left:0}.pdf-zoom{margin-left:auto}.pdf-search{flex-basis:100%;margin-left:0}.pdf-search input{max-width:none}}
+@media(max-width:800px){.source-edit-diff{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.pdf-selection-popover button:active{transform:none}}
+@media(forced-colors:active){.pdf-page-slot,.pdf-preview .pdf-toolbar button,.source-edit-review{border:1px solid CanvasText}.pdf-selection-popover{box-shadow:none}.pdf-comment-mark,.pdf-sync-marker{border:1px solid Highlight}.pdf-page .textLayer ::selection{background:Highlight}.pdf-link-action:is(:hover,:focus-visible){color:LinkText;outline-color:LinkText}}

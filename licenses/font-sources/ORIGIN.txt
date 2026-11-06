@@ -1,0 +1,77 @@
+Liberation Sans 1.07.4 corresponding source
+=========================================
+
+The four unmodified LiberationSans TTFs bundled by pdfjs-dist 6.5.438 have
+SFNT name ID 5 "Version 1.07.4". The PDF.js release provenance identifies
+these files as the unmodified upstream Liberation Sans 1.07.4 release:
+https://raw.githubusercontent.com/mozilla/pdf.js/v6.5.438/external/standard_fonts/README.md
+See PDFJS-FONT-PROVENANCE.txt for that retrieved statement.
+
+Complete upstream source release (SFD sources, build scripts, Makefile,
+README, AUTHORS, ChangeLog, COPYING and License.txt) is provided alongside
+this file as fonts-liberation_1.07.4.orig.tar.gz. It was obtained from the
+Ubuntu archive's preserved upstream-original source tarball, not from an
+unrelated Liberation 2.x/OFL release or from a binary-font package.
+
+Source URL:
+https://archive.ubuntu.com/ubuntu/pool/main/f/fonts-liberation/fonts-liberation_1.07.4.orig.tar.gz
+Retrieved: 2026-11-05
+Size: 2937949 bytes
+SHA-256: ad98b7498dc2992f7f0868f79b65ce4a720a3acdb63ab3f1f1cb6881117a5406
+The digest and size agree with the archive's fonts-liberation_1.07.4-11.dsc,
+also included here. Its PGP signature has NOT been independently verified.
+
+After extraction, the source root is liberation-fonts-1.07.4/. The Makefile
+sets VER = 1.07.4 and includes Sans-{Regular,Bold,Italic,BoldItalic} in
+VARIANTS. Install FontForge and make separately if rebuilding; running make
+uses scripts/fontexport.pe on src/*.sfd and writes the versioned TTF directory.
+See the included upstream README and Makefile. No font source modifications
+were made. The font release was not rebuilt or claimed bit-reproducible here.
+
+Fonts are covered by GPL version 2 with the exact Liberation exceptions,
+not by SIL OFL. The complete applicable notice and GPLv2 text are in
+../pdfjs-dist-6.5.438/standard_fonts/LICENSE_LIBERATION, and in the archive's
+License.txt and COPYING. Recipients can modify and rebuild the supplied font
+source; preserve those notices and comply with its naming/trademark terms.
+The document-embedding exception is not used to excuse distribution of TTFs.
+Do not remove this source archive from an installer that redistributes them.
+
+Observed bundled TTF identities (SHA-256 and SFNT name records):
+[
+  {
+    "file": "LiberationSans-Regular.ttf",
+    "sha256": "f8ace1f892b2bd9dc1792ba7f097fa7588f84fed48321480e04de5390828221f",
+    "nameRecords": [
+      "Copyright (c) 2007 Red Hat, Inc. All rights reserved. LIBERATION is a trademark of Red Hat, Inc.",
+      "Ascender - Liberation Sans",
+      "Version 1.07.4"
+    ]
+  },
+  {
+    "file": "LiberationSans-Bold.ttf",
+    "sha256": "361c61b82d575c5c35fd9157fda8b0194bcfcd0d88ea8521a4fb5dd53d33dddc",
+    "nameRecords": [
+      "Copyright (c) 2007 Red Hat, Inc. All rights reserved. LIBERATION is a trademark of Red Hat, Inc.",
+      "Ascender - Liberation Sans Bold",
+      "Version 1.07.4"
+    ]
+  },
+  {
+    "file": "LiberationSans-Italic.ttf",
+    "sha256": "832b4406dbef23628800d3aaad21048534ac84d7e3ad955be83b8172ed8ef512",
+    "nameRecords": [
+      "Copyright (c) 2007 Red Hat, Inc. All rights reserved. LIBERATION is a trademark of Red Hat, Inc.",
+      "Ascender - Liberation Sans Italic",
+      "Version 1.07.4"
+    ]
+  },
+  {
+    "file": "LiberationSans-BoldItalic.ttf",
+    "sha256": "a224075ac17495ad0a3af3bc0a419ac0704a8b3fd1095456201fb9b095fc281d",
+    "nameRecords": [
+      "Copyright (c) 2007 Red Hat, Inc. All rights reserved. LIBERATION is a trademark of Red Hat, Inc.",
+      "Ascender - Liberation Sans Bold Italic",
+      "Version 1.07.4"
+    ]
+  }
+]

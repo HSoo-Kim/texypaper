@@ -1,0 +1,28 @@
+node_modules/
+dist/
+src-tauri/target/
+artifacts/
+
+# Local execution evidence and generated tooling state
+.ouroboros/
+src-tauri/gen/
+__pycache__/
+*.py[cod]
+*.log
+.DS_Store
+
+# Local app/project profiles and credentials are never public source
+.paperdock/
+.texypaper/
+.ssh/
+.env*
+!.env.example
+auth.json
+credentials.json
+*.pem
+*.key
+*.pfx
+*.p12
+*.p8
+id_rsa*
+id_ed25519*

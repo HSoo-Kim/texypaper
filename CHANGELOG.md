@@ -1,0 +1,64 @@
+# Changelog
+
+## 0.0.1 — 2026-11-06
+
+### TexyPaper identity
+
+- Renamed the product to **TexyPaper — The Sexy LaTeX Editor**, version 0.0.1, with public source at `https://github.com/HSoo-Kim/texypaper` and Windows NSIS/portable ZIP distributions. Exercised verification and remaining limits are recorded in `docs/VERIFICATION.md`.
+- New machine name `texypaper`, Rust library `texypaper_lib`, bundle ID `dev.texypaper.desktop`, internal scheme/events/environment prefix, `TEXYPAPER/1` remote protocol, `.texypaper` project metadata and `~/.cache/texypaper` worker code cache.
+- One-time legacy profile/project directory migration preserves settings, comments, recovery, trash and workspace identity; refuses conflicting metadata directories and unsafe links rather than merging/deleting. Profile migration renames the directory without reading/copying credential files; old app must be closed. Recognized private paths are adapted without replacing user prose, and legacy PDF source mapping requires a new build.
+- Navy surfaces and reddish/pink brand accents; user palettes and semantic warning/paper-folder colors remain independent.
+- Own code uses MIT; retained third-party notices and license resources remain separately applicable. Windows x64 is the supported desktop; no macOS build, cloud account or realtime collaboration is claimed.
+
+
+### Application
+
+- Standalone Windows x64 paper workspace built with Tauri, React and CodeMirror; no dependency on OpenPaper, Orca or VS Code.
+- Local folders and native OpenSSH environments with a versioned, standard-library Python workspace helper. Workspace identity and epochs scope filesystem operations and late events.
+- Paper-aware virtualized explorer, explicit main-document selection, on-demand source languages, project search and bibliography/label completion.
+- Hash-checked saves, recoverable multi-file transactions, conflict comparison, private dirty-buffer recovery, project trash/restore and guarded undo. Saves preserve UTF-8 BOM and existing newline encoding.
+- Host-side LaTeX compilation, explicit trusted-project mode, owned cancellation, immutable PDF/SyncTeX manifests and stale-document detection.
+- Bounded PDF.js rendering, authenticated native byte ranges, PDF search/rotation/export and reference-document viewing. Conservative PDF prose edits require unique, current source proofs; unsupported mappings remain explicit source-edit operations.
+- Portable source/PDF comments with replies, resolve/reopen and orphan handling.
+- Official subscription-authenticated Codex and Claude integrations with scoped MCP evidence tools. Proposed changes are separate from source writes and require explicit application approval; no automatic API-billing fallback.
+- User-controlled local/SSH command execution: deny, per-command approval by default, or explicitly acknowledged permission for the current workspace connection. Immutable command cards show the actual environment, cwd, argv, output and exit status; cancellation and permission revocation stop owned process trees. Commands are not OS-sandboxed.
+- GPT-6/6.1 series selection keeps the newest numeric version within each family: Sol 6.1 replaces Sol 6, while Astra 6 and Luna 6 remain. Claude is limited to Opus, Sonnet and Haiku 5.5; Fable, older releases and custom-ID bypasses are excluded from both the picker and native request validation. Published model IDs supplement missing CLI entries with an explicit account-access notice; GPT-5.6 and duplicate aliases remain excluded. CLI-advertised reasoning levels are validated and passed to real requests, including resumed conversations; documented-only models use the provider default. No automatic model or billing fallback.
+- Main-window close now hides the app and detached chat to the Windows system tray without stopping AI, commands or builds. Tray Open/double-click restores existing windows; explicit Exit retains work/dirty-buffer guards and waits for native cleanup. No Windows autostart configuration is added.
+- External links (official sign-in, release pages) open through the Windows default URL handler; `explorer.exe` previously opened a folder window for long sign-in URLs.
+- Saves retry briefly when a TeX engine, indexer or scanner holds the target file without delete sharing, instead of failing with `IO_ERROR` 1175.
+- PDF pages render on hardware-composited canvases, removing a per-render compositor image copy measured in real allocator dumps.
+- Switching AI providers no longer shows the previous provider's sign-in state while the new status is loading.
+- A failed build keeps the last good PDF on screen as stale; the logs view opens automatically only when no PDF exists and closes after a successful build.
+- After a build, the stale-PDF marker is decided from the native comparison of the published manifest with current files, so an applied AI proposal or a reload no longer leaves a freshly compiled PDF marked stale.
+- A second launch on the same profile explains that TexyPaper is already running and exits cleanly instead of aborting with a WebView2 creation error.
+- Open files are polled by native revision; their text is re-read only when the file actually changed.
+- Lower renderer memory churn: retained PDF canvases are not repainted when only the visible page changes, the explorer merges discovery batches into one filename map, main-document candidates are computed once per listing, restoring tabs installs only the final active editor state, the TeX language is registered once, and the agent panel no longer wakes every 80 ms while idle.
+- Saves performed by a build's own pre-build flush no longer queue a second, redundant build.
+- The PDF preview exposes which build it is displaying and when a page's text layer is ready for selection mapping.
+- Overleaf-style compiling: an open `.tex` file is enough to compile, and `Ctrl+S` saves and compiles (only saves when "build after save" is off). The main document is found from the opened file's `% !TeX root`, an explicit choice, the opened file's own `\documentclass`, or the nearest folder with exactly one `\documentclass` file; ambiguous folders ask instead of guessing.
+- The main-document list now offers TeX files that discovery found inside unexpanded folders (for example `paper/TR-C/main.tex`); previously nested papers could not be chosen until their folders were expanded.
+
+### Workspace layout
+
+- Overleaf-inspired layout: dark app bar with working File/Edit/View/Help menus and a centered project switcher; activity rail for Files, project Search, Comments and AI; Help and Settings at the bottom.
+- Independent right-hand transcript-first AI panel, with resizable width and an on-demand native detached chat window. Main-owned state preserves drafts, streamed responses, active work and approvals across docking; the child has no direct workspace/provider/command authority.
+- Compact model, reasoning and execution-permission controls sit to the left of Send/Stop. Provider sign-in and executable configuration remain in a separate settings view.
+- File panel with a collapsible document outline from the open TeX buffer; editor tab strip with undo/redo, find and selection-wrapping TeX insert commands.
+- PDF pane with a primary Recompile split button, main-document options, a diagnostics badge, an in-pane "Logs and output" view, export, page navigation and zoom.
+- Project dashboard with real recent projects, and a sectioned settings sheet. Navy surfaces and reddish/pink accents are the defaults; alternate palettes remain available.
+- Removed the always-visible main-document selector from the top bar. Automatic root detection remains primary; manual selection is available through Build options, including in source-only view.
+
+### Language and appearance
+
+- Persisted Korean and English interface selection. Source files and provider replies are not translated implicitly.
+- System, light and dark themes, with independent accent/background/surface/sidebar palettes for day and night.
+- Color presets, recent combinations, HEX/color-picker inputs, readable-contrast checks and reset. PDF paper remains white and paper-folder evidence retains its semantic color.
+- Persistent bottom update notices and release-page actions. Automatic checks are throttled to once per 24 hours; manual checks and disabling notifications are supported.
+- HTTPS GitHub release or custom JSON feeds are configurable. Production builds may inject the HSoo-Kim/texypaper feed through `TEXYPAPER_UPDATE_FEED_URL`; saved user settings retain precedence. No signing key or automatic installer execution is supplied.
+
+### Packaging and evidence
+
+- Per-user bilingual `TexyPaper_0.0.1_x64-setup.exe` NSIS installer and a portable ZIP containing `texypaper.exe`, root `LICENSE`, `THIRD_PARTY_NOTICES.md` and the full `licenses/` tree. The standalone exe is not a notices-free public release asset.
+- Isolated real-WebView2 desktop, SSH, provider, preferences and private-working-set measurement harnesses. The memory sampler reads `PROCESS_MEMORY_COUNTERS_EX2.PrivateWorkingSetSize` natively (checked equal to the `WorkingSetPrivate` performance counter) so it can keep a one-second cadence. Consult `docs/VERIFICATION.md` for actually exercised results and missing prerequisites; implementation entries here do not assert that every acceptance gate passed.
+- Physical tray automation now refuses by default; explicit headed permission is required before it can expose shell surfaces or move the cursor. Background-only verification uses a separate hidden-start configuration, never the delivered application's startup settings.
+- Preserved upstream notices and corresponding Liberation font source in `licenses/`; resources are included in the installer.

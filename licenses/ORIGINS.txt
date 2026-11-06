@@ -1,0 +1,52 @@
+LICENSE TEXT SOURCES
+====================
+
+DEPENDENCIES.tsv records exact resolved versions and manifest license
+expressions from the installed pnpm dependency tree and Cargo's locked
+Windows x86_64-pc-windows-msvc normal/build dependency resolution. It lists
+338 third-party Cargo packages including build tools and 35 installed npm
+production-tree manifests. An entry does not assert that every package is
+linked into the executable or emitted into JavaScript. Native Node canvas
+binaries are optional PDF.js Node support, not browser assets to redistribute.
+Development dependencies other than the explicitly attributed ssh2 example
+are outside this inventory. Absent non-Windows optional npm packages are not
+represented as installed or bundled.
+
+licenses/rust/<crate>-<version> contains root LICENSE*/COPYING*/NOTICE* files
+provided in the exact local Cargo source archives; no contributor names are
+invented from package metadata. licenses/npm/<name>-<version> contains the
+installed package's applicable root license notices. Scoped names use __ in
+place of /. Line endings can be normalized to LF; notice text is retained.
+
+Some Cargo archives omit their upstream root license. For those packages,
+these license texts were retrieved from the upstream Git commit identified
+by the archive's .cargo_vcs_info.json, not from an unpinned default branch:
+licenses/rust/alloc-stdlib-0.3.0/LICENSE
+  https://raw.githubusercontent.com/dropbox/rust-alloc-no-stdlib/0a81fd6928ea3b33c8cd484aa4575d50ffb98012/LICENSE
+licenses/rust/jsonschema-regex-0.46.10/LICENSE
+  https://raw.githubusercontent.com/Stranger6667/jsonschema/ecaeceac2340908a8fbf71404442296bd1536520/LICENSE
+licenses/rust/uuid-simd-0.8.0/LICENSE
+  https://raw.githubusercontent.com/Nugine/simd/d74c030d9dc4f3cae02146d1f497ff62726ef09a/LICENSE
+licenses/rust/vsimd-0.8.0/LICENSE
+  https://raw.githubusercontent.com/Nugine/simd/d74c030d9dc4f3cae02146d1f497ff62726ef09a/LICENSE
+licenses/rust/webview2-com-0.39.1/LICENSE
+  https://raw.githubusercontent.com/wravery/webview2-rs/edc2caf886175ccaebe86078c9cfe1ae2a187328/LICENSE
+licenses/rust/webview2-com-macros-0.8.1/LICENSE
+  https://raw.githubusercontent.com/wravery/webview2-rs/dffa41a8a46d3f5565eefbff2de57d38d399f158/LICENSE
+licenses/rust/webview2-com-sys-0.39.1/LICENSE
+  https://raw.githubusercontent.com/wravery/webview2-rs/edc2caf886175ccaebe86078c9cfe1ae2a187328/LICENSE
+
+plist 1.10.3 supplies LICENCE (British spelling), preserved as such.
+selectors 0.38.0 declares MPL-2.0 but omits a full license file from its crate;
+its LICENSE-MPL-2.0 here is the unmodified standard MPL 2.0 text supplied by
+cssparser in the same resolved dependency closure, not an invented upstream
+copyright notice. Exact selectors source is linked in DEPENDENCIES.tsv.
+
+PDF.js asset license originals are from pdfjs-dist 6.5.438's LICENSE, cmaps/,
+standard_fonts/ and wasm/ directories. Font and Microsoft loader provenance
+and source/checksum details are in their respective ORIGIN.txt files.
+
+This inventory preserves known dependency license material. It is not an
+exhaustive legal audit of all source-level embedded notices, generated
+code, compiler runtimes, installer tooling or later package changes.
+Do not treat it as signed-off distribution authorization.

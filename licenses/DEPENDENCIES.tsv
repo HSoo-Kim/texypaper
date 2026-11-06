@@ -1,0 +1,374 @@
+ecosystem	name	version	manifestLicenseExpression	role	licenseFiles	exactSource
+cargo	adler2	2.0.1	0BSD OR MIT OR Apache-2.0	transitive runtime graph	licenses/rust/adler2-2.0.1/LICENSE-0BSD;licenses/rust/adler2-2.0.1/LICENSE-APACHE;licenses/rust/adler2-2.0.1/LICENSE-MIT	https://crates.io/api/v1/crates/adler2/2.0.1/download
+cargo	ahash	0.8.12	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/ahash-0.8.12/LICENSE-APACHE;licenses/rust/ahash-0.8.12/LICENSE-MIT	https://crates.io/api/v1/crates/ahash/0.8.12/download
+cargo	aho-corasick	1.1.5	Unlicense OR MIT	transitive runtime graph	licenses/rust/aho-corasick-1.1.5/COPYING;licenses/rust/aho-corasick-1.1.5/LICENSE-MIT	https://crates.io/api/v1/crates/aho-corasick/1.1.5/download
+cargo	alloc-no-stdlib	3.0.0	BSD-3-Clause	transitive runtime graph	licenses/rust/alloc-no-stdlib-3.0.0/LICENSE	https://crates.io/api/v1/crates/alloc-no-stdlib/3.0.0/download
+cargo	alloc-stdlib	0.3.0	BSD-3-Clause	transitive runtime graph	licenses/rust/alloc-stdlib-0.3.0/LICENSE	https://crates.io/api/v1/crates/alloc-stdlib/0.3.0/download
+cargo	allocator-api2	0.2.21	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/allocator-api2-0.2.21/LICENSE-APACHE;licenses/rust/allocator-api2-0.2.21/LICENSE-MIT	https://crates.io/api/v1/crates/allocator-api2/0.2.21/download
+cargo	anyhow	1.0.104	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/anyhow-1.0.104/LICENSE-APACHE;licenses/rust/anyhow-1.0.104/LICENSE-MIT	https://crates.io/api/v1/crates/anyhow/1.0.104/download
+cargo	atomic-waker	1.1.2	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/atomic-waker-1.1.2/LICENSE-APACHE;licenses/rust/atomic-waker-1.1.2/LICENSE-MIT;licenses/rust/atomic-waker-1.1.2/LICENSE-THIRD-PARTY	https://crates.io/api/v1/crates/atomic-waker/1.1.2/download
+cargo	autocfg	1.5.1	Apache-2.0 OR MIT	transitive build graph	licenses/rust/autocfg-1.5.1/LICENSE-APACHE;licenses/rust/autocfg-1.5.1/LICENSE-MIT	https://crates.io/api/v1/crates/autocfg/1.5.1/download
+cargo	base64	0.22.1	MIT OR Apache-2.0	direct runtime graph	licenses/rust/base64-0.22.1/LICENSE-APACHE;licenses/rust/base64-0.22.1/LICENSE-MIT	https://crates.io/api/v1/crates/base64/0.22.1/download
+cargo	base64	0.23.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/base64-0.23.1/LICENSE-APACHE;licenses/rust/base64-0.23.1/LICENSE-MIT	https://crates.io/api/v1/crates/base64/0.23.1/download
+cargo	bit-set	0.8.0	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/bit-set-0.8.0/LICENSE-APACHE;licenses/rust/bit-set-0.8.0/LICENSE-MIT	https://crates.io/api/v1/crates/bit-set/0.8.0/download
+cargo	bit-vec	0.8.0	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/bit-vec-0.8.0/LICENSE-APACHE;licenses/rust/bit-vec-0.8.0/LICENSE-MIT	https://crates.io/api/v1/crates/bit-vec/0.8.0/download
+cargo	bitflags	1.3.2	MIT/Apache-2.0	transitive runtime graph	licenses/rust/bitflags-1.3.2/LICENSE-APACHE;licenses/rust/bitflags-1.3.2/LICENSE-MIT	https://crates.io/api/v1/crates/bitflags/1.3.2/download
+cargo	bitflags	2.13.2	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/bitflags-2.13.2/LICENSE-APACHE;licenses/rust/bitflags-2.13.2/LICENSE-MIT	https://crates.io/api/v1/crates/bitflags/2.13.2/download
+cargo	block-buffer	0.10.4	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/block-buffer-0.10.4/LICENSE-APACHE;licenses/rust/block-buffer-0.10.4/LICENSE-MIT	https://crates.io/api/v1/crates/block-buffer/0.10.4/download
+cargo	borrow-or-share	0.2.4	MIT-0	transitive runtime graph	licenses/rust/borrow-or-share-0.2.4/LICENSE	https://crates.io/api/v1/crates/borrow-or-share/0.2.4/download
+cargo	brotli	9.1.1	BSD-3-Clause AND MIT	transitive runtime graph	licenses/rust/brotli-9.1.1/LICENSE.BSD-3-Clause;licenses/rust/brotli-9.1.1/LICENSE.MIT	https://crates.io/api/v1/crates/brotli/9.1.1/download
+cargo	brotli-decompressor	6.2.0	BSD-3-Clause/MIT	transitive runtime graph	licenses/rust/brotli-decompressor-6.2.0/LICENSE	https://crates.io/api/v1/crates/brotli-decompressor/6.2.0/download
+cargo	bs58	0.5.1	MIT/Apache-2.0	transitive runtime graph	licenses/rust/bs58-0.5.1/LICENSE-APACHE;licenses/rust/bs58-0.5.1/LICENSE-MIT	https://crates.io/api/v1/crates/bs58/0.5.1/download
+cargo	bytecount	0.6.9	Apache-2.0/MIT	transitive runtime graph	licenses/rust/bytecount-0.6.9/LICENSE.Apache2;licenses/rust/bytecount-0.6.9/LICENSE.MIT	https://crates.io/api/v1/crates/bytecount/0.6.9/download
+cargo	byteorder	1.5.0	Unlicense OR MIT	transitive runtime graph	licenses/rust/byteorder-1.5.0/COPYING;licenses/rust/byteorder-1.5.0/LICENSE-MIT	https://crates.io/api/v1/crates/byteorder/1.5.0/download
+cargo	bytes	1.12.1	MIT	transitive runtime graph	licenses/rust/bytes-1.12.1/LICENSE	https://crates.io/api/v1/crates/bytes/1.12.1/download
+cargo	camino	1.2.6	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/camino-1.2.6/LICENSE-APACHE;licenses/rust/camino-1.2.6/LICENSE-MIT	https://crates.io/api/v1/crates/camino/1.2.6/download
+cargo	cargo-platform	0.1.9	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/cargo-platform-0.1.9/LICENSE-APACHE;licenses/rust/cargo-platform-0.1.9/LICENSE-MIT	https://crates.io/api/v1/crates/cargo-platform/0.1.9/download
+cargo	cargo_metadata	0.19.2	MIT	transitive runtime graph	licenses/rust/cargo_metadata-0.19.2/LICENSE-MIT	https://crates.io/api/v1/crates/cargo_metadata/0.19.2/download
+cargo	cargo_toml	1.0.1	Apache-2.0 OR MIT	transitive build graph	licenses/rust/cargo_toml-1.0.1/LICENSE	https://crates.io/api/v1/crates/cargo_toml/1.0.1/download
+cargo	cc	1.11.0	MIT OR Apache-2.0	transitive build graph	licenses/rust/cc-1.11.0/LICENSE-APACHE;licenses/rust/cc-1.11.0/LICENSE-MIT	https://crates.io/api/v1/crates/cc/1.11.0/download
+cargo	cfb	0.14.0	MIT	transitive runtime graph	licenses/rust/cfb-0.14.0/LICENSE	https://crates.io/api/v1/crates/cfb/0.14.0/download
+cargo	cfg-if	1.0.5	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/cfg-if-1.0.5/LICENSE-APACHE;licenses/rust/cfg-if-1.0.5/LICENSE-MIT	https://crates.io/api/v1/crates/cfg-if/1.0.5/download
+cargo	cfg_aliases	0.2.2	MIT	transitive build graph	licenses/rust/cfg_aliases-0.2.2/LICENSE;licenses/rust/cfg_aliases-0.2.2/NOTICES.md	https://crates.io/api/v1/crates/cfg_aliases/0.2.2/download
+cargo	chacha20	0.10.2	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/chacha20-0.10.2/LICENSE-APACHE;licenses/rust/chacha20-0.10.2/LICENSE-MIT	https://crates.io/api/v1/crates/chacha20/0.10.2/download
+cargo	chrono	0.4.45	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/chrono-0.4.45/LICENSE.txt	https://crates.io/api/v1/crates/chrono/0.4.45/download
+cargo	cookie	0.18.2	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/cookie-0.18.2/LICENSE-APACHE;licenses/rust/cookie-0.18.2/LICENSE-MIT	https://crates.io/api/v1/crates/cookie/0.18.2/download
+cargo	cpufeatures	0.2.17	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/cpufeatures-0.2.17/LICENSE-APACHE;licenses/rust/cpufeatures-0.2.17/LICENSE-MIT	https://crates.io/api/v1/crates/cpufeatures/0.2.17/download
+cargo	cpufeatures	0.3.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/cpufeatures-0.3.1/LICENSE-APACHE;licenses/rust/cpufeatures-0.3.1/LICENSE-MIT	https://crates.io/api/v1/crates/cpufeatures/0.3.1/download
+cargo	crc32fast	1.5.4	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/crc32fast-1.5.4/LICENSE-APACHE;licenses/rust/crc32fast-1.5.4/LICENSE-MIT	https://crates.io/api/v1/crates/crc32fast/1.5.4/download
+cargo	crossbeam-channel	0.5.17	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/crossbeam-channel-0.5.17/LICENSE-APACHE;licenses/rust/crossbeam-channel-0.5.17/LICENSE-MIT;licenses/rust/crossbeam-channel-0.5.17/LICENSE-THIRD-PARTY	https://crates.io/api/v1/crates/crossbeam-channel/0.5.17/download
+cargo	crossbeam-utils	0.8.23	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/crossbeam-utils-0.8.23/LICENSE-APACHE;licenses/rust/crossbeam-utils-0.8.23/LICENSE-MIT	https://crates.io/api/v1/crates/crossbeam-utils/0.8.23/download
+cargo	crypto-common	0.1.7	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/crypto-common-0.1.7/LICENSE-APACHE;licenses/rust/crypto-common-0.1.7/LICENSE-MIT	https://crates.io/api/v1/crates/crypto-common/0.1.7/download
+cargo	cssparser	0.37.0	MPL-2.0	transitive runtime graph	licenses/rust/cssparser-0.37.0/LICENSE	https://crates.io/api/v1/crates/cssparser/0.37.0/download
+cargo	cssparser-macros	0.7.1	MPL-2.0	transitive build graph	licenses/rust/cssparser-macros-0.7.1/LICENSE	https://crates.io/api/v1/crates/cssparser-macros/0.7.1/download
+cargo	ctor	1.0.13	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/ctor-1.0.13/LICENSE-APACHE;licenses/rust/ctor-1.0.13/LICENSE-MIT	https://crates.io/api/v1/crates/ctor/1.0.13/download
+cargo	darling	0.24.1	MIT	transitive runtime graph	licenses/rust/darling-0.24.1/LICENSE	https://crates.io/api/v1/crates/darling/0.24.1/download
+cargo	darling_core	0.24.1	MIT	transitive runtime graph	licenses/rust/darling_core-0.24.1/LICENSE	https://crates.io/api/v1/crates/darling_core/0.24.1/download
+cargo	darling_macro	0.24.1	MIT	transitive build graph	licenses/rust/darling_macro-0.24.1/LICENSE	https://crates.io/api/v1/crates/darling_macro/0.24.1/download
+cargo	data-encoding	2.11.1	MIT	transitive runtime graph	licenses/rust/data-encoding-2.11.1/LICENSE	https://crates.io/api/v1/crates/data-encoding/2.11.1/download
+cargo	defmt	1.2.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/defmt-1.2.0/LICENSE-APACHE;licenses/rust/defmt-1.2.0/LICENSE-MIT	https://crates.io/api/v1/crates/defmt/1.2.0/download
+cargo	defmt-macros	1.2.0	MIT OR Apache-2.0	transitive build graph	licenses/rust/defmt-macros-1.2.0/LICENSE-APACHE;licenses/rust/defmt-macros-1.2.0/LICENSE-MIT	https://crates.io/api/v1/crates/defmt-macros/1.2.0/download
+cargo	defmt-parser	1.1.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/defmt-parser-1.1.0/LICENSE-APACHE;licenses/rust/defmt-parser-1.1.0/LICENSE-MIT	https://crates.io/api/v1/crates/defmt-parser/1.1.0/download
+cargo	deranged	0.5.9	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/deranged-0.5.9/LICENSE-Apache;licenses/rust/deranged-0.5.9/LICENSE-MIT	https://crates.io/api/v1/crates/deranged/0.5.9/download
+cargo	derive_more	2.1.1	MIT	transitive runtime graph	licenses/rust/derive_more-2.1.1/LICENSE	https://crates.io/api/v1/crates/derive_more/2.1.1/download
+cargo	derive_more-impl	2.1.1	MIT	transitive build graph	licenses/rust/derive_more-impl-2.1.1/LICENSE	https://crates.io/api/v1/crates/derive_more-impl/2.1.1/download
+cargo	digest	0.10.7	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/digest-0.10.7/LICENSE-APACHE;licenses/rust/digest-0.10.7/LICENSE-MIT	https://crates.io/api/v1/crates/digest/0.10.7/download
+cargo	dirs	7.0.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/dirs-7.0.0/LICENSE-APACHE;licenses/rust/dirs-7.0.0/LICENSE-MIT	https://crates.io/api/v1/crates/dirs/7.0.0/download
+cargo	dirs-sys	0.5.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/dirs-sys-0.5.0/LICENSE-APACHE;licenses/rust/dirs-sys-0.5.0/LICENSE-MIT	https://crates.io/api/v1/crates/dirs-sys/0.5.0/download
+cargo	displaydoc	0.2.7	MIT OR Apache-2.0	transitive build graph	licenses/rust/displaydoc-0.2.7/LICENSE-APACHE;licenses/rust/displaydoc-0.2.7/LICENSE-MIT	https://crates.io/api/v1/crates/displaydoc/0.2.7/download
+cargo	dom_query	0.28.0	MIT	transitive runtime graph	licenses/rust/dom_query-0.28.0/LICENSE	https://crates.io/api/v1/crates/dom_query/0.28.0/download
+cargo	dpi	0.1.2	Apache-2.0 AND MIT	transitive runtime graph	licenses/rust/dpi-0.1.2/LICENSE;licenses/rust/dpi-0.1.2/LICENSE-LIBM-MIT	https://crates.io/api/v1/crates/dpi/0.1.2/download
+cargo	dtoa	1.0.11	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/dtoa-1.0.11/LICENSE-APACHE;licenses/rust/dtoa-1.0.11/LICENSE-MIT	https://crates.io/api/v1/crates/dtoa/1.0.11/download
+cargo	dtoa-short	0.3.5	MPL-2.0	transitive runtime graph	licenses/rust/dtoa-short-0.3.5/LICENSE	https://crates.io/api/v1/crates/dtoa-short/0.3.5/download
+cargo	dunce	1.0.5	CC0-1.0 OR MIT-0 OR Apache-2.0	transitive runtime graph	licenses/rust/dunce-1.0.5/LICENSE	https://crates.io/api/v1/crates/dunce/1.0.5/download
+cargo	dyn-clone	1.0.20	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/dyn-clone-1.0.20/LICENSE-APACHE;licenses/rust/dyn-clone-1.0.20/LICENSE-MIT	https://crates.io/api/v1/crates/dyn-clone/1.0.20/download
+cargo	email_address	0.2.9	MIT	transitive runtime graph	licenses/rust/email_address-0.2.9/LICENSE	https://crates.io/api/v1/crates/email_address/0.2.9/download
+cargo	embed-resource	3.0.12	MIT	transitive build graph	licenses/rust/embed-resource-3.0.12/LICENSE	https://crates.io/api/v1/crates/embed-resource/3.0.12/download
+cargo	equivalent	1.0.3	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/equivalent-1.0.3/LICENSE-APACHE;licenses/rust/equivalent-1.0.3/LICENSE-MIT	https://crates.io/api/v1/crates/equivalent/1.0.3/download
+cargo	erased-serde	0.4.11	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/erased-serde-0.4.11/LICENSE-APACHE;licenses/rust/erased-serde-0.4.11/LICENSE-MIT	https://crates.io/api/v1/crates/erased-serde/0.4.11/download
+cargo	fancy-regex	0.18.0	MIT	transitive runtime graph	licenses/rust/fancy-regex-0.18.0/LICENSE	https://crates.io/api/v1/crates/fancy-regex/0.18.0/download
+cargo	fastrand	2.5.0	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/fastrand-2.5.0/LICENSE-APACHE;licenses/rust/fastrand-2.5.0/LICENSE-MIT	https://crates.io/api/v1/crates/fastrand/2.5.0/download
+cargo	fdeflate	0.3.7	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/fdeflate-0.3.7/LICENSE-APACHE;licenses/rust/fdeflate-0.3.7/LICENSE-MIT	https://crates.io/api/v1/crates/fdeflate/0.3.7/download
+cargo	find-msvc-tools	0.1.15	MIT OR Apache-2.0	transitive build graph	licenses/rust/find-msvc-tools-0.1.15/LICENSE-APACHE;licenses/rust/find-msvc-tools-0.1.15/LICENSE-MIT	https://crates.io/api/v1/crates/find-msvc-tools/0.1.15/download
+cargo	flate2	1.1.10	MIT OR Apache-2.0	direct runtime graph	licenses/rust/flate2-1.1.10/LICENSE-APACHE;licenses/rust/flate2-1.1.10/LICENSE-MIT	https://crates.io/api/v1/crates/flate2/1.1.10/download
+cargo	fluent-uri	0.4.1	MIT	transitive runtime graph	licenses/rust/fluent-uri-0.4.1/LICENSE	https://crates.io/api/v1/crates/fluent-uri/0.4.1/download
+cargo	fnv	1.0.7	Apache-2.0 / MIT	transitive runtime graph	licenses/rust/fnv-1.0.7/LICENSE-APACHE;licenses/rust/fnv-1.0.7/LICENSE-MIT	https://crates.io/api/v1/crates/fnv/1.0.7/download
+cargo	foldhash	0.2.0	Zlib	transitive runtime graph	licenses/rust/foldhash-0.2.0/LICENSE	https://crates.io/api/v1/crates/foldhash/0.2.0/download
+cargo	form_urlencoded	1.2.2	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/form_urlencoded-1.2.2/LICENSE-APACHE;licenses/rust/form_urlencoded-1.2.2/LICENSE-MIT	https://crates.io/api/v1/crates/form_urlencoded/1.2.2/download
+cargo	fraction	0.15.4	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/fraction-0.15.4/LICENSE-APACHE;licenses/rust/fraction-0.15.4/LICENSE-MIT	https://crates.io/api/v1/crates/fraction/0.15.4/download
+cargo	futures	0.3.34	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/futures-0.3.34/LICENSE-APACHE;licenses/rust/futures-0.3.34/LICENSE-MIT	https://crates.io/api/v1/crates/futures/0.3.34/download
+cargo	futures-channel	0.3.34	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/futures-channel-0.3.34/LICENSE-APACHE;licenses/rust/futures-channel-0.3.34/LICENSE-MIT	https://crates.io/api/v1/crates/futures-channel/0.3.34/download
+cargo	futures-core	0.3.34	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/futures-core-0.3.34/LICENSE-APACHE;licenses/rust/futures-core-0.3.34/LICENSE-MIT	https://crates.io/api/v1/crates/futures-core/0.3.34/download
+cargo	futures-executor	0.3.34	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/futures-executor-0.3.34/LICENSE-APACHE;licenses/rust/futures-executor-0.3.34/LICENSE-MIT	https://crates.io/api/v1/crates/futures-executor/0.3.34/download
+cargo	futures-io	0.3.34	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/futures-io-0.3.34/LICENSE-APACHE;licenses/rust/futures-io-0.3.34/LICENSE-MIT	https://crates.io/api/v1/crates/futures-io/0.3.34/download
+cargo	futures-macro	0.3.34	MIT OR Apache-2.0	transitive build graph	licenses/rust/futures-macro-0.3.34/LICENSE-APACHE;licenses/rust/futures-macro-0.3.34/LICENSE-MIT	https://crates.io/api/v1/crates/futures-macro/0.3.34/download
+cargo	futures-sink	0.3.34	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/futures-sink-0.3.34/LICENSE-APACHE;licenses/rust/futures-sink-0.3.34/LICENSE-MIT	https://crates.io/api/v1/crates/futures-sink/0.3.34/download
+cargo	futures-task	0.3.34	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/futures-task-0.3.34/LICENSE-APACHE;licenses/rust/futures-task-0.3.34/LICENSE-MIT	https://crates.io/api/v1/crates/futures-task/0.3.34/download
+cargo	futures-util	0.3.34	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/futures-util-0.3.34/LICENSE-APACHE;licenses/rust/futures-util-0.3.34/LICENSE-MIT	https://crates.io/api/v1/crates/futures-util/0.3.34/download
+cargo	generic-array	0.14.7	MIT	transitive runtime graph	licenses/rust/generic-array-0.14.7/LICENSE	https://crates.io/api/v1/crates/generic-array/0.14.7/download
+cargo	getrandom	0.2.17	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/getrandom-0.2.17/LICENSE-APACHE;licenses/rust/getrandom-0.2.17/LICENSE-MIT	https://crates.io/api/v1/crates/getrandom/0.2.17/download
+cargo	getrandom	0.3.4	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/getrandom-0.3.4/LICENSE-APACHE;licenses/rust/getrandom-0.3.4/LICENSE-MIT	https://crates.io/api/v1/crates/getrandom/0.3.4/download
+cargo	getrandom	0.4.3	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/getrandom-0.4.3/LICENSE-APACHE;licenses/rust/getrandom-0.4.3/LICENSE-MIT	https://crates.io/api/v1/crates/getrandom/0.4.3/download
+cargo	glob	0.3.4	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/glob-0.3.4/LICENSE-APACHE;licenses/rust/glob-0.3.4/LICENSE-MIT	https://crates.io/api/v1/crates/glob/0.3.4/download
+cargo	hashbrown	0.12.3	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/hashbrown-0.12.3/LICENSE-APACHE;licenses/rust/hashbrown-0.12.3/LICENSE-MIT	https://crates.io/api/v1/crates/hashbrown/0.12.3/download
+cargo	hashbrown	0.16.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/hashbrown-0.16.1/LICENSE-APACHE;licenses/rust/hashbrown-0.16.1/LICENSE-MIT	https://crates.io/api/v1/crates/hashbrown/0.16.1/download
+cargo	hashbrown	0.17.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/hashbrown-0.17.1/LICENSE-APACHE;licenses/rust/hashbrown-0.17.1/LICENSE-MIT	https://crates.io/api/v1/crates/hashbrown/0.17.1/download
+cargo	heck	0.5.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/heck-0.5.0/LICENSE-APACHE;licenses/rust/heck-0.5.0/LICENSE-MIT	https://crates.io/api/v1/crates/heck/0.5.0/download
+cargo	hex	0.4.3	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/hex-0.4.3/LICENSE-APACHE;licenses/rust/hex-0.4.3/LICENSE-MIT	https://crates.io/api/v1/crates/hex/0.4.3/download
+cargo	html5ever	0.39.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/html5ever-0.39.0/LICENSE-APACHE;licenses/rust/html5ever-0.39.0/LICENSE-MIT	https://crates.io/api/v1/crates/html5ever/0.39.0/download
+cargo	http	1.5.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/http-1.5.0/LICENSE-APACHE;licenses/rust/http-1.5.0/LICENSE-MIT	https://crates.io/api/v1/crates/http/1.5.0/download
+cargo	http-body	1.1.0	MIT	transitive runtime graph	licenses/rust/http-body-1.1.0/LICENSE	https://crates.io/api/v1/crates/http-body/1.1.0/download
+cargo	http-body-util	0.1.5	MIT	transitive runtime graph	licenses/rust/http-body-util-0.1.5/LICENSE	https://crates.io/api/v1/crates/http-body-util/0.1.5/download
+cargo	httparse	1.10.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/httparse-1.10.1/LICENSE-APACHE;licenses/rust/httparse-1.10.1/LICENSE-MIT	https://crates.io/api/v1/crates/httparse/1.10.1/download
+cargo	hyper	1.12.0	MIT	transitive runtime graph	licenses/rust/hyper-1.12.0/LICENSE	https://crates.io/api/v1/crates/hyper/1.12.0/download
+cargo	hyper-rustls	0.27.10	Apache-2.0 OR ISC OR MIT	transitive runtime graph	licenses/rust/hyper-rustls-0.27.10/LICENSE-APACHE;licenses/rust/hyper-rustls-0.27.10/LICENSE-ISC;licenses/rust/hyper-rustls-0.27.10/LICENSE-MIT	https://crates.io/api/v1/crates/hyper-rustls/0.27.10/download
+cargo	hyper-util	0.1.21	MIT	transitive runtime graph	licenses/rust/hyper-util-0.1.21/LICENSE	https://crates.io/api/v1/crates/hyper-util/0.1.21/download
+cargo	ico	0.6.0	MIT	transitive runtime graph	licenses/rust/ico-0.6.0/LICENSE	https://crates.io/api/v1/crates/ico/0.6.0/download
+cargo	icu_collections	2.4.0	Unicode-3.0	transitive runtime graph	licenses/rust/icu_collections-2.4.0/LICENSE	https://crates.io/api/v1/crates/icu_collections/2.4.0/download
+cargo	icu_locale_core	2.4.0	Unicode-3.0	transitive runtime graph	licenses/rust/icu_locale_core-2.4.0/LICENSE	https://crates.io/api/v1/crates/icu_locale_core/2.4.0/download
+cargo	icu_normalizer	2.4.0	Unicode-3.0	transitive runtime graph	licenses/rust/icu_normalizer-2.4.0/LICENSE	https://crates.io/api/v1/crates/icu_normalizer/2.4.0/download
+cargo	icu_normalizer_data	2.4.0	Unicode-3.0	transitive runtime graph	licenses/rust/icu_normalizer_data-2.4.0/LICENSE	https://crates.io/api/v1/crates/icu_normalizer_data/2.4.0/download
+cargo	icu_properties	2.4.0	Unicode-3.0	transitive runtime graph	licenses/rust/icu_properties-2.4.0/LICENSE	https://crates.io/api/v1/crates/icu_properties/2.4.0/download
+cargo	icu_properties_data	2.4.0	Unicode-3.0	transitive runtime graph	licenses/rust/icu_properties_data-2.4.0/LICENSE	https://crates.io/api/v1/crates/icu_properties_data/2.4.0/download
+cargo	icu_provider	2.4.0	Unicode-3.0	transitive runtime graph	licenses/rust/icu_provider-2.4.0/LICENSE	https://crates.io/api/v1/crates/icu_provider/2.4.0/download
+cargo	ident_case	1.0.1	MIT/Apache-2.0	transitive runtime graph	licenses/rust/ident_case-1.0.1/LICENSE	https://crates.io/api/v1/crates/ident_case/1.0.1/download
+cargo	idna	1.1.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/idna-1.1.0/LICENSE-APACHE;licenses/rust/idna-1.1.0/LICENSE-MIT	https://crates.io/api/v1/crates/idna/1.1.0/download
+cargo	idna_adapter	1.2.2	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/idna_adapter-1.2.2/LICENSE-APACHE;licenses/rust/idna_adapter-1.2.2/LICENSE-MIT	https://crates.io/api/v1/crates/idna_adapter/1.2.2/download
+cargo	indexmap	1.9.3	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/indexmap-1.9.3/LICENSE-APACHE;licenses/rust/indexmap-1.9.3/LICENSE-MIT	https://crates.io/api/v1/crates/indexmap/1.9.3/download
+cargo	indexmap	2.14.2	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/indexmap-2.14.2/LICENSE-APACHE;licenses/rust/indexmap-2.14.2/LICENSE-MIT	https://crates.io/api/v1/crates/indexmap/2.14.2/download
+cargo	infer	0.22.0	MIT	transitive runtime graph	licenses/rust/infer-0.22.0/LICENSE	https://crates.io/api/v1/crates/infer/0.22.0/download
+cargo	ipnet	2.12.2	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/ipnet-2.12.2/LICENSE-APACHE;licenses/rust/ipnet-2.12.2/LICENSE-MIT	https://crates.io/api/v1/crates/ipnet/2.12.2/download
+cargo	itoa	1.0.18	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/itoa-1.0.18/LICENSE-APACHE;licenses/rust/itoa-1.0.18/LICENSE-MIT	https://crates.io/api/v1/crates/itoa/1.0.18/download
+cargo	jiff	0.2.39	Unlicense OR MIT	transitive runtime graph	licenses/rust/jiff-0.2.39/COPYING;licenses/rust/jiff-0.2.39/LICENSE-MIT	https://crates.io/api/v1/crates/jiff/0.2.39/download
+cargo	jiff-core	0.1.2	Unlicense OR MIT	transitive runtime graph	licenses/rust/jiff-core-0.1.2/COPYING;licenses/rust/jiff-core-0.1.2/LICENSE-MIT	https://crates.io/api/v1/crates/jiff-core/0.1.2/download
+cargo	jiff-tzdb	0.1.9	Unlicense OR MIT	transitive runtime graph	licenses/rust/jiff-tzdb-0.1.9/COPYING;licenses/rust/jiff-tzdb-0.1.9/LICENSE-MIT	https://crates.io/api/v1/crates/jiff-tzdb/0.1.9/download
+cargo	jiff-tzdb-platform	0.1.3	Unlicense OR MIT	transitive runtime graph	licenses/rust/jiff-tzdb-platform-0.1.3/COPYING;licenses/rust/jiff-tzdb-platform-0.1.3/LICENSE-MIT	https://crates.io/api/v1/crates/jiff-tzdb-platform/0.1.3/download
+cargo	json-patch	4.2.0	MIT/Apache-2.0	transitive runtime graph	licenses/rust/json-patch-4.2.0/LICENSE-APACHE;licenses/rust/json-patch-4.2.0/LICENSE-MIT	https://crates.io/api/v1/crates/json-patch/4.2.0/download
+cargo	jsonptr	0.7.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/jsonptr-0.7.1/LICENSE-APACHE;licenses/rust/jsonptr-0.7.1/LICENSE-MIT	https://crates.io/api/v1/crates/jsonptr/0.7.1/download
+cargo	jsonschema	0.46.10	MIT	direct runtime graph	licenses/rust/jsonschema-0.46.10/LICENSE	https://crates.io/api/v1/crates/jsonschema/0.46.10/download
+cargo	jsonschema-regex	0.46.10	MIT	transitive runtime graph	licenses/rust/jsonschema-regex-0.46.10/LICENSE	https://crates.io/api/v1/crates/jsonschema-regex/0.46.10/download
+cargo	keyboard-types	0.8.3	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/keyboard-types-0.8.3/LICENSE-APACHE;licenses/rust/keyboard-types-0.8.3/LICENSE-MIT	https://crates.io/api/v1/crates/keyboard-types/0.8.3/download
+cargo	lazy_static	1.5.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/lazy_static-1.5.1/LICENSE-APACHE;licenses/rust/lazy_static-1.5.1/LICENSE-MIT	https://crates.io/api/v1/crates/lazy_static/1.5.1/download
+cargo	libc	0.2.191	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/libc-0.2.191/LICENSE-APACHE;licenses/rust/libc-0.2.191/LICENSE-MIT	https://crates.io/api/v1/crates/libc/0.2.191/download
+cargo	litemap	0.8.3	Unicode-3.0	transitive runtime graph	licenses/rust/litemap-0.8.3/LICENSE	https://crates.io/api/v1/crates/litemap/0.8.3/download
+cargo	lock_api	0.4.14	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/lock_api-0.4.14/LICENSE-APACHE;licenses/rust/lock_api-0.4.14/LICENSE-MIT	https://crates.io/api/v1/crates/lock_api/0.4.14/download
+cargo	log	0.4.35	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/log-0.4.35/LICENSE-APACHE;licenses/rust/log-0.4.35/LICENSE-MIT	https://crates.io/api/v1/crates/log/0.4.35/download
+cargo	lru-slab	0.1.3	MIT OR Apache-2.0 OR Zlib	transitive runtime graph	licenses/rust/lru-slab-0.1.3/LICENSE-APACHE;licenses/rust/lru-slab-0.1.3/LICENSE-MIT;licenses/rust/lru-slab-0.1.3/LICENSE-ZLIB	https://crates.io/api/v1/crates/lru-slab/0.1.3/download
+cargo	markup5ever	0.39.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/markup5ever-0.39.0/LICENSE-APACHE;licenses/rust/markup5ever-0.39.0/LICENSE-MIT	https://crates.io/api/v1/crates/markup5ever/0.39.0/download
+cargo	memchr	2.8.3	Unlicense OR MIT	transitive runtime graph	licenses/rust/memchr-2.8.3/COPYING;licenses/rust/memchr-2.8.3/LICENSE-MIT	https://crates.io/api/v1/crates/memchr/2.8.3/download
+cargo	micromap	0.3.0	MIT	transitive runtime graph	licenses/rust/micromap-0.3.0/LICENSE.txt	https://crates.io/api/v1/crates/micromap/0.3.0/download
+cargo	mime	0.3.17	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/mime-0.3.17/LICENSE-APACHE;licenses/rust/mime-0.3.17/LICENSE-MIT	https://crates.io/api/v1/crates/mime/0.3.17/download
+cargo	miniz_oxide	0.8.9	MIT OR Zlib OR Apache-2.0	transitive runtime graph	licenses/rust/miniz_oxide-0.8.9/LICENSE;licenses/rust/miniz_oxide-0.8.9/LICENSE-APACHE.md;licenses/rust/miniz_oxide-0.8.9/LICENSE-MIT.md;licenses/rust/miniz_oxide-0.8.9/LICENSE-ZLIB.md	https://crates.io/api/v1/crates/miniz_oxide/0.8.9/download
+cargo	miniz_oxide	0.9.1	MIT OR Zlib OR Apache-2.0	transitive runtime graph	licenses/rust/miniz_oxide-0.9.1/LICENSE;licenses/rust/miniz_oxide-0.9.1/LICENSE-APACHE.md;licenses/rust/miniz_oxide-0.9.1/LICENSE-MIT.md;licenses/rust/miniz_oxide-0.9.1/LICENSE-ZLIB.md	https://crates.io/api/v1/crates/miniz_oxide/0.9.1/download
+cargo	mio	1.2.4	MIT	transitive runtime graph	licenses/rust/mio-1.2.4/LICENSE	https://crates.io/api/v1/crates/mio/1.2.4/download
+cargo	muda	0.20.0	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/muda-0.20.0/LICENSE-APACHE;licenses/rust/muda-0.20.0/LICENSE-MIT;licenses/rust/muda-0.20.0/LICENSE.spdx	https://crates.io/api/v1/crates/muda/0.20.0/download
+cargo	new_debug_unreachable	1.0.6	MIT	transitive runtime graph	licenses/rust/new_debug_unreachable-1.0.6/LICENSE-MIT	https://crates.io/api/v1/crates/new_debug_unreachable/1.0.6/download
+cargo	notify	8.2.1	CC0-1.0	direct runtime graph	licenses/rust/notify-8.2.1/LICENSE-CC0	https://crates.io/api/v1/crates/notify/8.2.1/download
+cargo	notify-types	2.2.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/notify-types-2.2.0/LICENSE-APACHE;licenses/rust/notify-types-2.2.0/LICENSE-MIT	https://crates.io/api/v1/crates/notify-types/2.2.0/download
+cargo	num	0.4.3	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/num-0.4.3/LICENSE-APACHE;licenses/rust/num-0.4.3/LICENSE-MIT	https://crates.io/api/v1/crates/num/0.4.3/download
+cargo	num-bigint	0.4.8	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/num-bigint-0.4.8/LICENSE-APACHE;licenses/rust/num-bigint-0.4.8/LICENSE-MIT	https://crates.io/api/v1/crates/num-bigint/0.4.8/download
+cargo	num-cmp	0.1.0	MIT/Apache-2.0	transitive runtime graph	licenses/rust/num-cmp-0.1.0/LICENSE.txt	https://crates.io/api/v1/crates/num-cmp/0.1.0/download
+cargo	num-complex	0.4.6	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/num-complex-0.4.6/LICENSE-APACHE;licenses/rust/num-complex-0.4.6/LICENSE-MIT	https://crates.io/api/v1/crates/num-complex/0.4.6/download
+cargo	num-conv	0.2.2	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/num-conv-0.2.2/LICENSE-Apache;licenses/rust/num-conv-0.2.2/LICENSE-MIT	https://crates.io/api/v1/crates/num-conv/0.2.2/download
+cargo	num-integer	0.1.47	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/num-integer-0.1.47/LICENSE-APACHE;licenses/rust/num-integer-0.1.47/LICENSE-MIT	https://crates.io/api/v1/crates/num-integer/0.1.47/download
+cargo	num-iter	0.1.46	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/num-iter-0.1.46/LICENSE-APACHE;licenses/rust/num-iter-0.1.46/LICENSE-MIT	https://crates.io/api/v1/crates/num-iter/0.1.46/download
+cargo	num-rational	0.4.2	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/num-rational-0.4.2/LICENSE-APACHE;licenses/rust/num-rational-0.4.2/LICENSE-MIT	https://crates.io/api/v1/crates/num-rational/0.4.2/download
+cargo	num-traits	0.2.19	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/num-traits-0.2.19/LICENSE-APACHE;licenses/rust/num-traits-0.2.19/LICENSE-MIT	https://crates.io/api/v1/crates/num-traits/0.2.19/download
+cargo	once_cell	1.21.4	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/once_cell-1.21.4/LICENSE-APACHE;licenses/rust/once_cell-1.21.4/LICENSE-MIT	https://crates.io/api/v1/crates/once_cell/1.21.4/download
+cargo	option-ext	0.2.0	MPL-2.0	transitive runtime graph	licenses/rust/option-ext-0.2.0/LICENSE.txt	https://crates.io/api/v1/crates/option-ext/0.2.0/download
+cargo	outref	0.5.2	MIT	transitive runtime graph	licenses/rust/outref-0.5.2/LICENSE	https://crates.io/api/v1/crates/outref/0.5.2/download
+cargo	parking_lot	0.12.5	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/parking_lot-0.12.5/LICENSE-APACHE;licenses/rust/parking_lot-0.12.5/LICENSE-MIT	https://crates.io/api/v1/crates/parking_lot/0.12.5/download
+cargo	parking_lot_core	0.9.12	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/parking_lot_core-0.9.12/LICENSE-APACHE;licenses/rust/parking_lot_core-0.9.12/LICENSE-MIT	https://crates.io/api/v1/crates/parking_lot_core/0.9.12/download
+cargo	pastey	0.2.3	MIT OR Apache-2.0	transitive build graph	licenses/rust/pastey-0.2.3/LICENSE-APACHE;licenses/rust/pastey-0.2.3/LICENSE-MIT	https://crates.io/api/v1/crates/pastey/0.2.3/download
+cargo	percent-encoding	2.3.2	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/percent-encoding-2.3.2/LICENSE-APACHE;licenses/rust/percent-encoding-2.3.2/LICENSE-MIT	https://crates.io/api/v1/crates/percent-encoding/2.3.2/download
+cargo	phf	0.13.1	MIT	transitive runtime graph	licenses/rust/phf-0.13.1/LICENSE	https://crates.io/api/v1/crates/phf/0.13.1/download
+cargo	phf_codegen	0.13.1	MIT	transitive build graph	licenses/rust/phf_codegen-0.13.1/LICENSE	https://crates.io/api/v1/crates/phf_codegen/0.13.1/download
+cargo	phf_generator	0.13.1	MIT	transitive runtime graph	licenses/rust/phf_generator-0.13.1/LICENSE	https://crates.io/api/v1/crates/phf_generator/0.13.1/download
+cargo	phf_macros	0.13.1	MIT	transitive build graph	licenses/rust/phf_macros-0.13.1/LICENSE	https://crates.io/api/v1/crates/phf_macros/0.13.1/download
+cargo	phf_shared	0.13.1	MIT	transitive runtime graph	licenses/rust/phf_shared-0.13.1/LICENSE	https://crates.io/api/v1/crates/phf_shared/0.13.1/download
+cargo	pin-project-lite	0.2.17	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/pin-project-lite-0.2.17/LICENSE-APACHE;licenses/rust/pin-project-lite-0.2.17/LICENSE-MIT	https://crates.io/api/v1/crates/pin-project-lite/0.2.17/download
+cargo	plist	1.10.3	MIT	transitive runtime graph	licenses/rust/plist-1.10.3/LICENCE	https://crates.io/api/v1/crates/plist/1.10.3/download
+cargo	png	0.18.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/png-0.18.1/LICENSE-APACHE;licenses/rust/png-0.18.1/LICENSE-MIT	https://crates.io/api/v1/crates/png/0.18.1/download
+cargo	potential_utf	0.1.6	Unicode-3.0	transitive runtime graph	licenses/rust/potential_utf-0.1.6/LICENSE	https://crates.io/api/v1/crates/potential_utf/0.1.6/download
+cargo	powerfmt	0.2.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/powerfmt-0.2.1/LICENSE-Apache;licenses/rust/powerfmt-0.2.1/LICENSE-MIT	https://crates.io/api/v1/crates/powerfmt/0.2.1/download
+cargo	ppv-lite86	0.2.21	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/ppv-lite86-0.2.21/LICENSE-APACHE;licenses/rust/ppv-lite86-0.2.21/LICENSE-MIT	https://crates.io/api/v1/crates/ppv-lite86/0.2.21/download
+cargo	precomputed-hash	0.1.1	MIT	transitive runtime graph	licenses/rust/precomputed-hash-0.1.1/LICENSE	https://crates.io/api/v1/crates/precomputed-hash/0.1.1/download
+cargo	proc-macro2	1.0.107	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/proc-macro2-1.0.107/LICENSE-APACHE;licenses/rust/proc-macro2-1.0.107/LICENSE-MIT	https://crates.io/api/v1/crates/proc-macro2/1.0.107/download
+cargo	quick-xml	0.42.0	MIT	transitive runtime graph	licenses/rust/quick-xml-0.42.0/LICENSE-MIT.md	https://crates.io/api/v1/crates/quick-xml/0.42.0/download
+cargo	quinn	0.11.12	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/quinn-0.11.12/LICENSE-APACHE;licenses/rust/quinn-0.11.12/LICENSE-MIT	https://crates.io/api/v1/crates/quinn/0.11.12/download
+cargo	quinn-proto	0.11.19	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/quinn-proto-0.11.19/LICENSE-APACHE;licenses/rust/quinn-proto-0.11.19/LICENSE-MIT	https://crates.io/api/v1/crates/quinn-proto/0.11.19/download
+cargo	quinn-udp	0.5.16	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/quinn-udp-0.5.16/LICENSE-APACHE;licenses/rust/quinn-udp-0.5.16/LICENSE-MIT	https://crates.io/api/v1/crates/quinn-udp/0.5.16/download
+cargo	quote	1.0.47	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/quote-1.0.47/LICENSE-APACHE;licenses/rust/quote-1.0.47/LICENSE-MIT	https://crates.io/api/v1/crates/quote/1.0.47/download
+cargo	rand	0.10.3	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/rand-0.10.3/LICENSE-APACHE;licenses/rust/rand-0.10.3/LICENSE-MIT	https://crates.io/api/v1/crates/rand/0.10.3/download
+cargo	rand	0.9.5	MIT OR Apache-2.0	direct runtime graph	licenses/rust/rand-0.9.5/LICENSE-APACHE;licenses/rust/rand-0.9.5/LICENSE-MIT	https://crates.io/api/v1/crates/rand/0.9.5/download
+cargo	rand_chacha	0.9.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/rand_chacha-0.9.0/LICENSE-APACHE;licenses/rust/rand_chacha-0.9.0/LICENSE-MIT	https://crates.io/api/v1/crates/rand_chacha/0.9.0/download
+cargo	rand_core	0.10.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/rand_core-0.10.1/LICENSE-APACHE;licenses/rust/rand_core-0.10.1/LICENSE-MIT	https://crates.io/api/v1/crates/rand_core/0.10.1/download
+cargo	rand_core	0.9.5	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/rand_core-0.9.5/LICENSE-APACHE;licenses/rust/rand_core-0.9.5/LICENSE-MIT	https://crates.io/api/v1/crates/rand_core/0.9.5/download
+cargo	rand_pcg	0.10.2	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/rand_pcg-0.10.2/LICENSE-APACHE;licenses/rust/rand_pcg-0.10.2/LICENSE-MIT	https://crates.io/api/v1/crates/rand_pcg/0.10.2/download
+cargo	raw-window-handle	0.6.2	MIT OR Apache-2.0 OR Zlib	transitive runtime graph	licenses/rust/raw-window-handle-0.6.2/LICENSE-APACHE.md;licenses/rust/raw-window-handle-0.6.2/LICENSE-MIT.md;licenses/rust/raw-window-handle-0.6.2/LICENSE-ZLIB.md	https://crates.io/api/v1/crates/raw-window-handle/0.6.2/download
+cargo	ref-cast	1.0.27	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/ref-cast-1.0.27/LICENSE-APACHE;licenses/rust/ref-cast-1.0.27/LICENSE-MIT	https://crates.io/api/v1/crates/ref-cast/1.0.27/download
+cargo	ref-cast-impl	1.0.27	MIT OR Apache-2.0	transitive build graph	licenses/rust/ref-cast-impl-1.0.27/LICENSE-APACHE;licenses/rust/ref-cast-impl-1.0.27/LICENSE-MIT	https://crates.io/api/v1/crates/ref-cast-impl/1.0.27/download
+cargo	referencing	0.46.10	MIT	transitive runtime graph	licenses/rust/referencing-0.46.10/LICENSE	https://crates.io/api/v1/crates/referencing/0.46.10/download
+cargo	regex	1.13.1	MIT OR Apache-2.0	direct runtime graph	licenses/rust/regex-1.13.1/LICENSE-APACHE;licenses/rust/regex-1.13.1/LICENSE-MIT	https://crates.io/api/v1/crates/regex/1.13.1/download
+cargo	regex-automata	0.4.18	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/regex-automata-0.4.18/LICENSE-APACHE;licenses/rust/regex-automata-0.4.18/LICENSE-MIT	https://crates.io/api/v1/crates/regex-automata/0.4.18/download
+cargo	regex-syntax	0.8.11	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/regex-syntax-0.8.11/LICENSE-APACHE;licenses/rust/regex-syntax-0.8.11/LICENSE-MIT	https://crates.io/api/v1/crates/regex-syntax/0.8.11/download
+cargo	reqwest	0.12.28	MIT OR Apache-2.0	direct runtime graph	licenses/rust/reqwest-0.12.28/LICENSE-APACHE;licenses/rust/reqwest-0.12.28/LICENSE-MIT	https://crates.io/api/v1/crates/reqwest/0.12.28/download
+cargo	rfd	0.15.4	MIT	direct runtime graph	licenses/rust/rfd-0.15.4/LICENSE	https://crates.io/api/v1/crates/rfd/0.15.4/download
+cargo	ring	0.17.14	Apache-2.0 AND ISC	transitive runtime graph	licenses/rust/ring-0.17.14/LICENSE;licenses/rust/ring-0.17.14/LICENSE-BoringSSL;licenses/rust/ring-0.17.14/LICENSE-other-bits	https://crates.io/api/v1/crates/ring/0.17.14/download
+cargo	rmcp	3.8.0	Apache-2.0	direct runtime graph	licenses/rust/rmcp-3.8.0/LICENSE	https://crates.io/api/v1/crates/rmcp/3.8.0/download
+cargo	rmcp-macros	3.8.0	Apache-2.0	transitive build graph	licenses/rust/rmcp-macros-3.8.0/LICENSE	https://crates.io/api/v1/crates/rmcp-macros/3.8.0/download
+cargo	rustc-hash	2.1.3	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/rustc-hash-2.1.3/LICENSE-APACHE;licenses/rust/rustc-hash-2.1.3/LICENSE-MIT	https://crates.io/api/v1/crates/rustc-hash/2.1.3/download
+cargo	rustc_version	0.4.1	MIT OR Apache-2.0	transitive build graph	licenses/rust/rustc_version-0.4.1/LICENSE-APACHE;licenses/rust/rustc_version-0.4.1/LICENSE-MIT	https://crates.io/api/v1/crates/rustc_version/0.4.1/download
+cargo	rustls	0.23.46	Apache-2.0 OR ISC OR MIT	transitive runtime graph	licenses/rust/rustls-0.23.46/LICENSE-APACHE;licenses/rust/rustls-0.23.46/LICENSE-ISC;licenses/rust/rustls-0.23.46/LICENSE-MIT	https://crates.io/api/v1/crates/rustls/0.23.46/download
+cargo	rustls-pki-types	1.15.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/rustls-pki-types-1.15.1/LICENSE-APACHE;licenses/rust/rustls-pki-types-1.15.1/LICENSE-MIT	https://crates.io/api/v1/crates/rustls-pki-types/1.15.1/download
+cargo	rustls-webpki	0.103.16	ISC	transitive runtime graph	licenses/rust/rustls-webpki-0.103.16/LICENSE	https://crates.io/api/v1/crates/rustls-webpki/0.103.16/download
+cargo	ryu	1.0.23	Apache-2.0 OR BSL-1.0	transitive runtime graph	licenses/rust/ryu-1.0.23/LICENSE-APACHE;licenses/rust/ryu-1.0.23/LICENSE-BOOST	https://crates.io/api/v1/crates/ryu/1.0.23/download
+cargo	same-file	1.0.6	Unlicense/MIT	transitive runtime graph	licenses/rust/same-file-1.0.6/COPYING;licenses/rust/same-file-1.0.6/LICENSE-MIT	https://crates.io/api/v1/crates/same-file/1.0.6/download
+cargo	schemars	0.8.22	MIT	transitive runtime graph	licenses/rust/schemars-0.8.22/LICENSE	https://crates.io/api/v1/crates/schemars/0.8.22/download
+cargo	schemars	0.9.0	MIT	transitive runtime graph	licenses/rust/schemars-0.9.0/LICENSE	https://crates.io/api/v1/crates/schemars/0.9.0/download
+cargo	schemars	1.2.3	MIT	transitive runtime graph	licenses/rust/schemars-1.2.3/LICENSE	https://crates.io/api/v1/crates/schemars/1.2.3/download
+cargo	schemars_derive	0.8.22	MIT	transitive build graph	licenses/rust/schemars_derive-0.8.22/LICENSE	https://crates.io/api/v1/crates/schemars_derive/0.8.22/download
+cargo	schemars_derive	1.2.3	MIT	transitive build graph	licenses/rust/schemars_derive-1.2.3/LICENSE	https://crates.io/api/v1/crates/schemars_derive/1.2.3/download
+cargo	scopeguard	1.2.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/scopeguard-1.2.0/LICENSE-APACHE;licenses/rust/scopeguard-1.2.0/LICENSE-MIT	https://crates.io/api/v1/crates/scopeguard/1.2.0/download
+cargo	selectors	0.38.0	MPL-2.0	transitive runtime graph	licenses/rust/selectors-0.38.0/LICENSE-MPL-2.0	https://crates.io/api/v1/crates/selectors/0.38.0/download
+cargo	semver	1.0.28	MIT OR Apache-2.0	direct runtime graph	licenses/rust/semver-1.0.28/LICENSE-APACHE;licenses/rust/semver-1.0.28/LICENSE-MIT	https://crates.io/api/v1/crates/semver/1.0.28/download
+cargo	serde	1.0.229	MIT OR Apache-2.0	direct runtime graph	licenses/rust/serde-1.0.229/LICENSE-APACHE;licenses/rust/serde-1.0.229/LICENSE-MIT	https://crates.io/api/v1/crates/serde/1.0.229/download
+cargo	serde-untagged	0.1.9	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/serde-untagged-0.1.9/LICENSE-APACHE;licenses/rust/serde-untagged-0.1.9/LICENSE-MIT	https://crates.io/api/v1/crates/serde-untagged/0.1.9/download
+cargo	serde_core	1.0.229	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/serde_core-1.0.229/LICENSE-APACHE;licenses/rust/serde_core-1.0.229/LICENSE-MIT	https://crates.io/api/v1/crates/serde_core/1.0.229/download
+cargo	serde_derive	1.0.229	MIT OR Apache-2.0	transitive build graph	licenses/rust/serde_derive-1.0.229/LICENSE-APACHE;licenses/rust/serde_derive-1.0.229/LICENSE-MIT	https://crates.io/api/v1/crates/serde_derive/1.0.229/download
+cargo	serde_derive_internals	0.29.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/serde_derive_internals-0.29.1/LICENSE-APACHE;licenses/rust/serde_derive_internals-0.29.1/LICENSE-MIT	https://crates.io/api/v1/crates/serde_derive_internals/0.29.1/download
+cargo	serde_derive_internals	0.30.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/serde_derive_internals-0.30.0/LICENSE-APACHE;licenses/rust/serde_derive_internals-0.30.0/LICENSE-MIT	https://crates.io/api/v1/crates/serde_derive_internals/0.30.0/download
+cargo	serde_json	1.0.154	MIT OR Apache-2.0	direct runtime graph	licenses/rust/serde_json-1.0.154/LICENSE-APACHE;licenses/rust/serde_json-1.0.154/LICENSE-MIT	https://crates.io/api/v1/crates/serde_json/1.0.154/download
+cargo	serde_repr	0.1.21	MIT OR Apache-2.0	transitive build graph	licenses/rust/serde_repr-0.1.21/LICENSE-APACHE;licenses/rust/serde_repr-0.1.21/LICENSE-MIT	https://crates.io/api/v1/crates/serde_repr/0.1.21/download
+cargo	serde_spanned	1.1.2	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/serde_spanned-1.1.2/LICENSE-APACHE;licenses/rust/serde_spanned-1.1.2/LICENSE-MIT	https://crates.io/api/v1/crates/serde_spanned/1.1.2/download
+cargo	serde_urlencoded	0.7.1	MIT/Apache-2.0	transitive runtime graph	licenses/rust/serde_urlencoded-0.7.1/LICENSE-APACHE;licenses/rust/serde_urlencoded-0.7.1/LICENSE-MIT	https://crates.io/api/v1/crates/serde_urlencoded/0.7.1/download
+cargo	serde_with	3.24.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/serde_with-3.24.0/LICENSE-APACHE;licenses/rust/serde_with-3.24.0/LICENSE-MIT	https://crates.io/api/v1/crates/serde_with/3.24.0/download
+cargo	serde_with_macros	3.24.0	MIT OR Apache-2.0	transitive build graph	licenses/rust/serde_with_macros-3.24.0/LICENSE-APACHE;licenses/rust/serde_with_macros-3.24.0/LICENSE-MIT	https://crates.io/api/v1/crates/serde_with_macros/3.24.0/download
+cargo	serialize-to-javascript	0.1.2	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/serialize-to-javascript-0.1.2/LICENSE-APACHE;licenses/rust/serialize-to-javascript-0.1.2/LICENSE-MIT	https://crates.io/api/v1/crates/serialize-to-javascript/0.1.2/download
+cargo	serialize-to-javascript-impl	0.1.2	MIT OR Apache-2.0	transitive build graph	licenses/rust/serialize-to-javascript-impl-0.1.2/LICENSE-APACHE;licenses/rust/serialize-to-javascript-impl-0.1.2/LICENSE-MIT	https://crates.io/api/v1/crates/serialize-to-javascript-impl/0.1.2/download
+cargo	servo_arc	0.4.3	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/servo_arc-0.4.3/LICENSE-APACHE;licenses/rust/servo_arc-0.4.3/LICENSE-MIT	https://crates.io/api/v1/crates/servo_arc/0.4.3/download
+cargo	sha2	0.10.9	MIT OR Apache-2.0	direct runtime graph	licenses/rust/sha2-0.10.9/LICENSE-APACHE;licenses/rust/sha2-0.10.9/LICENSE-MIT	https://crates.io/api/v1/crates/sha2/0.10.9/download
+cargo	shlex	2.0.1	MIT OR Apache-2.0	transitive build graph	licenses/rust/shlex-2.0.1/LICENSE-APACHE;licenses/rust/shlex-2.0.1/LICENSE-MIT	https://crates.io/api/v1/crates/shlex/2.0.1/download
+cargo	simd-adler32	0.3.10	MIT	transitive runtime graph	licenses/rust/simd-adler32-0.3.10/LICENSE.md	https://crates.io/api/v1/crates/simd-adler32/0.3.10/download
+cargo	siphasher	1.0.4	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/siphasher-1.0.4/COPYING;licenses/rust/siphasher-1.0.4/LICENSE-APACHE;licenses/rust/siphasher-1.0.4/LICENSE-MIT	https://crates.io/api/v1/crates/siphasher/1.0.4/download
+cargo	slab	0.4.12	MIT	transitive runtime graph	licenses/rust/slab-0.4.12/LICENSE	https://crates.io/api/v1/crates/slab/0.4.12/download
+cargo	smallvec	1.16.4	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/smallvec-1.16.4/LICENSE-APACHE;licenses/rust/smallvec-1.16.4/LICENSE-MIT	https://crates.io/api/v1/crates/smallvec/1.16.4/download
+cargo	socket2	0.6.5	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/socket2-0.6.5/LICENSE-APACHE;licenses/rust/socket2-0.6.5/LICENSE-MIT	https://crates.io/api/v1/crates/socket2/0.6.5/download
+cargo	softbuffer	0.4.8	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/softbuffer-0.4.8/LICENSE-APACHE;licenses/rust/softbuffer-0.4.8/LICENSE-MIT	https://crates.io/api/v1/crates/softbuffer/0.4.8/download
+cargo	stable_deref_trait	1.2.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/stable_deref_trait-1.2.1/LICENSE-APACHE;licenses/rust/stable_deref_trait-1.2.1/LICENSE-MIT	https://crates.io/api/v1/crates/stable_deref_trait/1.2.1/download
+cargo	static_vcruntime	3.0.0	MIT OR Apache-2.0 OR Zlib	transitive build graph	licenses/rust/static_vcruntime-3.0.0/LICENSE;licenses/rust/static_vcruntime-3.0.0/LICENSE-APACHE;licenses/rust/static_vcruntime-3.0.0/LICENSE-MIT;licenses/rust/static_vcruntime-3.0.0/LICENSE-ZLIB	https://crates.io/api/v1/crates/static_vcruntime/3.0.0/download
+cargo	string_cache	0.9.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/string_cache-0.9.0/LICENSE-APACHE;licenses/rust/string_cache-0.9.0/LICENSE-MIT	https://crates.io/api/v1/crates/string_cache/0.9.0/download
+cargo	string_cache_codegen	0.6.1	MIT OR Apache-2.0	transitive build graph	licenses/rust/string_cache_codegen-0.6.1/LICENSE-APACHE;licenses/rust/string_cache_codegen-0.6.1/LICENSE-MIT	https://crates.io/api/v1/crates/string_cache_codegen/0.6.1/download
+cargo	strsim	0.11.1	MIT	transitive runtime graph	licenses/rust/strsim-0.11.1/LICENSE	https://crates.io/api/v1/crates/strsim/0.11.1/download
+cargo	subtle	2.6.1	BSD-3-Clause	transitive runtime graph	licenses/rust/subtle-2.6.1/LICENSE	https://crates.io/api/v1/crates/subtle/2.6.1/download
+cargo	syn	2.0.119	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/syn-2.0.119/LICENSE-APACHE;licenses/rust/syn-2.0.119/LICENSE-MIT	https://crates.io/api/v1/crates/syn/2.0.119/download
+cargo	syn	3.0.9	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/syn-3.0.9/LICENSE-APACHE;licenses/rust/syn-3.0.9/LICENSE-MIT	https://crates.io/api/v1/crates/syn/3.0.9/download
+cargo	sync_wrapper	1.0.2	Apache-2.0	transitive runtime graph	licenses/rust/sync_wrapper-1.0.2/LICENSE	https://crates.io/api/v1/crates/sync_wrapper/1.0.2/download
+cargo	synstructure	0.14.0	MIT	transitive runtime graph	licenses/rust/synstructure-0.14.0/LICENSE	https://crates.io/api/v1/crates/synstructure/0.14.0/download
+cargo	tao	0.37.2	Apache-2.0	transitive runtime graph	licenses/rust/tao-0.37.2/LICENSE;licenses/rust/tao-0.37.2/LICENSE.spdx	https://crates.io/api/v1/crates/tao/0.37.2/download
+cargo	tauri	2.12.5	Apache-2.0 OR MIT	direct runtime graph	licenses/rust/tauri-2.12.5/LICENSE-APACHE-2.0;licenses/rust/tauri-2.12.5/LICENSE-MIT	https://crates.io/api/v1/crates/tauri/2.12.5/download
+cargo	tauri-build	2.7.4	Apache-2.0 OR MIT	direct build graph	licenses/rust/tauri-build-2.7.4/LICENSE-APACHE-2.0;licenses/rust/tauri-build-2.7.4/LICENSE-MIT	https://crates.io/api/v1/crates/tauri-build/2.7.4/download
+cargo	tauri-codegen	2.7.4	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/tauri-codegen-2.7.4/LICENSE-APACHE-2.0;licenses/rust/tauri-codegen-2.7.4/LICENSE-MIT	https://crates.io/api/v1/crates/tauri-codegen/2.7.4/download
+cargo	tauri-macros	2.7.4	Apache-2.0 OR MIT	transitive build graph	licenses/rust/tauri-macros-2.7.4/LICENSE-APACHE-2.0;licenses/rust/tauri-macros-2.7.4/LICENSE-MIT	https://crates.io/api/v1/crates/tauri-macros/2.7.4/download
+cargo	tauri-runtime	2.12.2	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/tauri-runtime-2.12.2/LICENSE-APACHE-2.0;licenses/rust/tauri-runtime-2.12.2/LICENSE-MIT	https://crates.io/api/v1/crates/tauri-runtime/2.12.2/download
+cargo	tauri-runtime-wry	2.12.3	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/tauri-runtime-wry-2.12.3/LICENSE-APACHE-2.0;licenses/rust/tauri-runtime-wry-2.12.3/LICENSE-MIT	https://crates.io/api/v1/crates/tauri-runtime-wry/2.12.3/download
+cargo	tauri-utils	2.10.2	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/tauri-utils-2.10.2/LICENSE-APACHE-2.0;licenses/rust/tauri-utils-2.10.2/LICENSE-MIT	https://crates.io/api/v1/crates/tauri-utils/2.10.2/download
+cargo	tauri-winres	0.3.7	MIT	transitive build graph	licenses/rust/tauri-winres-0.3.7/LICENSE	https://crates.io/api/v1/crates/tauri-winres/0.3.7/download
+cargo	tendril	0.5.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/tendril-0.5.1/LICENSE-APACHE;licenses/rust/tendril-0.5.1/LICENSE-MIT	https://crates.io/api/v1/crates/tendril/0.5.1/download
+cargo	thiserror	2.0.21	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/thiserror-2.0.21/LICENSE-APACHE;licenses/rust/thiserror-2.0.21/LICENSE-MIT	https://crates.io/api/v1/crates/thiserror/2.0.21/download
+cargo	thiserror-impl	2.0.21	MIT OR Apache-2.0	transitive build graph	licenses/rust/thiserror-impl-2.0.21/LICENSE-APACHE;licenses/rust/thiserror-impl-2.0.21/LICENSE-MIT	https://crates.io/api/v1/crates/thiserror-impl/2.0.21/download
+cargo	time	0.3.55	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/time-0.3.55/LICENSE-Apache;licenses/rust/time-0.3.55/LICENSE-MIT	https://crates.io/api/v1/crates/time/0.3.55/download
+cargo	time-core	0.1.9	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/time-core-0.1.9/LICENSE-Apache;licenses/rust/time-core-0.1.9/LICENSE-MIT	https://crates.io/api/v1/crates/time-core/0.1.9/download
+cargo	time-macros	0.2.32	MIT OR Apache-2.0	transitive build graph	licenses/rust/time-macros-0.2.32/LICENSE-Apache;licenses/rust/time-macros-0.2.32/LICENSE-MIT	https://crates.io/api/v1/crates/time-macros/0.2.32/download
+cargo	tinystr	0.8.5	Unicode-3.0	transitive runtime graph	licenses/rust/tinystr-0.8.5/LICENSE	https://crates.io/api/v1/crates/tinystr/0.8.5/download
+cargo	tinyvec	1.13.3	Zlib OR Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/tinyvec-1.13.3/LICENSE-APACHE.md;licenses/rust/tinyvec-1.13.3/LICENSE-MIT.md;licenses/rust/tinyvec-1.13.3/LICENSE-ZLIB.md	https://crates.io/api/v1/crates/tinyvec/1.13.3/download
+cargo	tokio	1.54.1	MIT	direct runtime graph	licenses/rust/tokio-1.54.1/LICENSE	https://crates.io/api/v1/crates/tokio/1.54.1/download
+cargo	tokio-macros	2.7.2	MIT	transitive build graph	licenses/rust/tokio-macros-2.7.2/LICENSE	https://crates.io/api/v1/crates/tokio-macros/2.7.2/download
+cargo	tokio-rustls	0.26.6	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/tokio-rustls-0.26.6/LICENSE-APACHE;licenses/rust/tokio-rustls-0.26.6/LICENSE-MIT	https://crates.io/api/v1/crates/tokio-rustls/0.26.6/download
+cargo	tokio-util	0.7.20	MIT	transitive runtime graph	licenses/rust/tokio-util-0.7.20/LICENSE	https://crates.io/api/v1/crates/tokio-util/0.7.20/download
+cargo	toml	1.2.0+spec-1.1.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/toml-1.2.0+spec-1.1.0/LICENSE-APACHE;licenses/rust/toml-1.2.0+spec-1.1.0/LICENSE-MIT	https://crates.io/api/v1/crates/toml/1.2.0+spec-1.1.0/download
+cargo	toml_datetime	1.1.2+spec-1.1.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/toml_datetime-1.1.2+spec-1.1.0/LICENSE-APACHE;licenses/rust/toml_datetime-1.1.2+spec-1.1.0/LICENSE-MIT	https://crates.io/api/v1/crates/toml_datetime/1.1.2+spec-1.1.0/download
+cargo	toml_parser	1.1.5+spec-1.1.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/toml_parser-1.1.5+spec-1.1.0/LICENSE-APACHE;licenses/rust/toml_parser-1.1.5+spec-1.1.0/LICENSE-MIT	https://crates.io/api/v1/crates/toml_parser/1.1.5+spec-1.1.0/download
+cargo	toml_writer	1.2.0+spec-1.1.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/toml_writer-1.2.0+spec-1.1.0/LICENSE-APACHE;licenses/rust/toml_writer-1.2.0+spec-1.1.0/LICENSE-MIT	https://crates.io/api/v1/crates/toml_writer/1.2.0+spec-1.1.0/download
+cargo	tower	0.5.3	MIT	transitive runtime graph	licenses/rust/tower-0.5.3/LICENSE	https://crates.io/api/v1/crates/tower/0.5.3/download
+cargo	tower-http	0.6.11	MIT	transitive runtime graph	licenses/rust/tower-http-0.6.11/LICENSE	https://crates.io/api/v1/crates/tower-http/0.6.11/download
+cargo	tower-layer	0.3.3	MIT	transitive runtime graph	licenses/rust/tower-layer-0.3.3/LICENSE	https://crates.io/api/v1/crates/tower-layer/0.3.3/download
+cargo	tower-service	0.3.3	MIT	transitive runtime graph	licenses/rust/tower-service-0.3.3/LICENSE	https://crates.io/api/v1/crates/tower-service/0.3.3/download
+cargo	tracing	0.1.44	MIT	transitive runtime graph	licenses/rust/tracing-0.1.44/LICENSE	https://crates.io/api/v1/crates/tracing/0.1.44/download
+cargo	tracing-attributes	0.1.31	MIT	transitive build graph	licenses/rust/tracing-attributes-0.1.31/LICENSE	https://crates.io/api/v1/crates/tracing-attributes/0.1.31/download
+cargo	tracing-core	0.1.36	MIT	transitive runtime graph	licenses/rust/tracing-core-0.1.36/LICENSE	https://crates.io/api/v1/crates/tracing-core/0.1.36/download
+cargo	tray-icon	0.25.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/tray-icon-0.25.1/LICENSE-APACHE;licenses/rust/tray-icon-0.25.1/LICENSE-MIT;licenses/rust/tray-icon-0.25.1/LICENSE.spdx	https://crates.io/api/v1/crates/tray-icon/0.25.1/download
+cargo	try-lock	0.2.5	MIT	transitive runtime graph	licenses/rust/try-lock-0.2.5/LICENSE	https://crates.io/api/v1/crates/try-lock/0.2.5/download
+cargo	typeid	1.0.3	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/typeid-1.0.3/LICENSE-APACHE;licenses/rust/typeid-1.0.3/LICENSE-MIT	https://crates.io/api/v1/crates/typeid/1.0.3/download
+cargo	typenum	1.20.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/typenum-1.20.1/LICENSE;licenses/rust/typenum-1.20.1/LICENSE-APACHE;licenses/rust/typenum-1.20.1/LICENSE-MIT	https://crates.io/api/v1/crates/typenum/1.20.1/download
+cargo	unicode-general-category	1.1.0	Apache-2.0	transitive runtime graph	licenses/rust/unicode-general-category-1.1.0/LICENSE	https://crates.io/api/v1/crates/unicode-general-category/1.1.0/download
+cargo	unicode-ident	1.0.27	(MIT OR Apache-2.0) AND Unicode-3.0	transitive runtime graph	licenses/rust/unicode-ident-1.0.27/LICENSE-APACHE;licenses/rust/unicode-ident-1.0.27/LICENSE-MIT;licenses/rust/unicode-ident-1.0.27/LICENSE-UNICODE	https://crates.io/api/v1/crates/unicode-ident/1.0.27/download
+cargo	unicode-normalization	0.1.26	(MIT OR Apache-2.0) AND Unicode-3.0	direct runtime graph	licenses/rust/unicode-normalization-0.1.26/LICENSE-APACHE;licenses/rust/unicode-normalization-0.1.26/LICENSE-MIT;licenses/rust/unicode-normalization-0.1.26/LICENSE-UNICODE	https://crates.io/api/v1/crates/unicode-normalization/0.1.26/download
+cargo	unicode-segmentation	1.13.3	MIT OR Apache-2.0	direct runtime graph	licenses/rust/unicode-segmentation-1.13.3/LICENSE-APACHE;licenses/rust/unicode-segmentation-1.13.3/LICENSE-MIT	https://crates.io/api/v1/crates/unicode-segmentation/1.13.3/download
+cargo	untrusted	0.9.0	ISC	transitive runtime graph	licenses/rust/untrusted-0.9.0/LICENSE.txt	https://crates.io/api/v1/crates/untrusted/0.9.0/download
+cargo	url	2.5.8	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/url-2.5.8/LICENSE-APACHE;licenses/rust/url-2.5.8/LICENSE-MIT	https://crates.io/api/v1/crates/url/2.5.8/download
+cargo	urlpattern	0.6.0	MIT	transitive runtime graph	licenses/rust/urlpattern-0.6.0/LICENSE	https://crates.io/api/v1/crates/urlpattern/0.6.0/download
+cargo	utf8_iter	1.1.0	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/utf8_iter-1.1.0/LICENSE-APACHE;licenses/rust/utf8_iter-1.1.0/LICENSE-MIT	https://crates.io/api/v1/crates/utf8_iter/1.1.0/download
+cargo	utf_types	1.0.0	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/utf_types-1.0.0/LICENSE-APACHE;licenses/rust/utf_types-1.0.0/LICENSE-MIT	https://crates.io/api/v1/crates/utf_types/1.0.0/download
+cargo	uuid	1.29.0	Apache-2.0 OR MIT	direct runtime graph	licenses/rust/uuid-1.29.0/LICENSE-APACHE;licenses/rust/uuid-1.29.0/LICENSE-MIT	https://crates.io/api/v1/crates/uuid/1.29.0/download
+cargo	uuid-simd	0.8.0	MIT	transitive runtime graph	licenses/rust/uuid-simd-0.8.0/LICENSE	https://crates.io/api/v1/crates/uuid-simd/0.8.0/download
+cargo	version_check	0.9.5	MIT/Apache-2.0	transitive build graph	licenses/rust/version_check-0.9.5/LICENSE-APACHE;licenses/rust/version_check-0.9.5/LICENSE-MIT	https://crates.io/api/v1/crates/version_check/0.9.5/download
+cargo	vsimd	0.8.0	MIT	transitive runtime graph	licenses/rust/vsimd-0.8.0/LICENSE	https://crates.io/api/v1/crates/vsimd/0.8.0/download
+cargo	vswhom	0.1.0	MIT	transitive build graph	licenses/rust/vswhom-0.1.0/LICENSE	https://crates.io/api/v1/crates/vswhom/0.1.0/download
+cargo	vswhom-sys	0.1.3	MIT	transitive build graph	licenses/rust/vswhom-sys-0.1.3/LICENSE	https://crates.io/api/v1/crates/vswhom-sys/0.1.3/download
+cargo	walkdir	2.5.0	Unlicense/MIT	transitive runtime graph	licenses/rust/walkdir-2.5.0/COPYING;licenses/rust/walkdir-2.5.0/LICENSE-MIT	https://crates.io/api/v1/crates/walkdir/2.5.0/download
+cargo	want	0.3.2	MIT	transitive runtime graph	licenses/rust/want-0.3.2/LICENSE	https://crates.io/api/v1/crates/want/0.3.2/download
+cargo	web-time	1.1.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/web-time-1.1.0/LICENSE-APACHE;licenses/rust/web-time-1.1.0/LICENSE-MIT	https://crates.io/api/v1/crates/web-time/1.1.0/download
+cargo	web_atoms	0.2.6	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/web_atoms-0.2.6/LICENSE-APACHE;licenses/rust/web_atoms-0.2.6/LICENSE-MIT	https://crates.io/api/v1/crates/web_atoms/0.2.6/download
+cargo	webpki-roots	1.0.11	CDLA-Permissive-2.0	transitive runtime graph	licenses/rust/webpki-roots-1.0.11/LICENSE	https://crates.io/api/v1/crates/webpki-roots/1.0.11/download
+cargo	webview2-com	0.39.1	MIT	transitive runtime graph	licenses/rust/webview2-com-0.39.1/LICENSE	https://crates.io/api/v1/crates/webview2-com/0.39.1/download
+cargo	webview2-com-macros	0.8.1	MIT	transitive build graph	licenses/rust/webview2-com-macros-0.8.1/LICENSE	https://crates.io/api/v1/crates/webview2-com-macros/0.8.1/download
+cargo	webview2-com-sys	0.39.1	MIT	transitive runtime graph	licenses/rust/webview2-com-sys-0.39.1/LICENSE	https://crates.io/api/v1/crates/webview2-com-sys/0.39.1/download
+cargo	winapi-util	0.1.11	Unlicense OR MIT	transitive runtime graph	licenses/rust/winapi-util-0.1.11/COPYING;licenses/rust/winapi-util-0.1.11/LICENSE-MIT	https://crates.io/api/v1/crates/winapi-util/0.1.11/download
+cargo	window-vibrancy	0.8.1	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/window-vibrancy-0.8.1/LICENSE-APACHE;licenses/rust/window-vibrancy-0.8.1/LICENSE-MIT;licenses/rust/window-vibrancy-0.8.1/LICENSE.spdx	https://crates.io/api/v1/crates/window-vibrancy/0.8.1/download
+cargo	windows	0.62.2	MIT OR Apache-2.0	direct runtime graph	licenses/rust/windows-0.62.2/license-apache-2.0;licenses/rust/windows-0.62.2/license-mit	https://crates.io/api/v1/crates/windows/0.62.2/download
+cargo	windows-collections	0.3.2	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/windows-collections-0.3.2/license-apache-2.0;licenses/rust/windows-collections-0.3.2/license-mit	https://crates.io/api/v1/crates/windows-collections/0.3.2/download
+cargo	windows-core	0.62.2	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/windows-core-0.62.2/license-apache-2.0;licenses/rust/windows-core-0.62.2/license-mit	https://crates.io/api/v1/crates/windows-core/0.62.2/download
+cargo	windows-future	0.3.2	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/windows-future-0.3.2/license-apache-2.0;licenses/rust/windows-future-0.3.2/license-mit	https://crates.io/api/v1/crates/windows-future/0.3.2/download
+cargo	windows-implement	0.60.2	MIT OR Apache-2.0	transitive build graph	licenses/rust/windows-implement-0.60.2/license-apache-2.0;licenses/rust/windows-implement-0.60.2/license-mit	https://crates.io/api/v1/crates/windows-implement/0.60.2/download
+cargo	windows-interface	0.59.3	MIT OR Apache-2.0	transitive build graph	licenses/rust/windows-interface-0.59.3/license-apache-2.0;licenses/rust/windows-interface-0.59.3/license-mit	https://crates.io/api/v1/crates/windows-interface/0.59.3/download
+cargo	windows-link	0.2.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/windows-link-0.2.1/license-apache-2.0;licenses/rust/windows-link-0.2.1/license-mit	https://crates.io/api/v1/crates/windows-link/0.2.1/download
+cargo	windows-numerics	0.3.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/windows-numerics-0.3.1/license-apache-2.0;licenses/rust/windows-numerics-0.3.1/license-mit	https://crates.io/api/v1/crates/windows-numerics/0.3.1/download
+cargo	windows-result	0.4.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/windows-result-0.4.1/license-apache-2.0;licenses/rust/windows-result-0.4.1/license-mit	https://crates.io/api/v1/crates/windows-result/0.4.1/download
+cargo	windows-strings	0.5.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/windows-strings-0.5.1/license-apache-2.0;licenses/rust/windows-strings-0.5.1/license-mit	https://crates.io/api/v1/crates/windows-strings/0.5.1/download
+cargo	windows-sys	0.59.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/windows-sys-0.59.0/license-apache-2.0;licenses/rust/windows-sys-0.59.0/license-mit	https://crates.io/api/v1/crates/windows-sys/0.59.0/download
+cargo	windows-sys	0.61.2	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/windows-sys-0.61.2/license-apache-2.0;licenses/rust/windows-sys-0.61.2/license-mit	https://crates.io/api/v1/crates/windows-sys/0.61.2/download
+cargo	windows-targets	0.52.6	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/windows-targets-0.52.6/license-apache-2.0;licenses/rust/windows-targets-0.52.6/license-mit	https://crates.io/api/v1/crates/windows-targets/0.52.6/download
+cargo	windows-threading	0.2.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/windows-threading-0.2.1/license-apache-2.0;licenses/rust/windows-threading-0.2.1/license-mit	https://crates.io/api/v1/crates/windows-threading/0.2.1/download
+cargo	windows-version	0.1.7	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/windows-version-0.1.7/license-apache-2.0;licenses/rust/windows-version-0.1.7/license-mit	https://crates.io/api/v1/crates/windows-version/0.1.7/download
+cargo	windows_x86_64_msvc	0.52.6	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/windows_x86_64_msvc-0.52.6/license-apache-2.0;licenses/rust/windows_x86_64_msvc-0.52.6/license-mit	https://crates.io/api/v1/crates/windows_x86_64_msvc/0.52.6/download
+cargo	winnow	1.0.5	MIT	transitive runtime graph	licenses/rust/winnow-1.0.5/LICENSE-MIT	https://crates.io/api/v1/crates/winnow/1.0.5/download
+cargo	winreg	0.56.0	MIT	transitive build graph	licenses/rust/winreg-0.56.0/LICENSE	https://crates.io/api/v1/crates/winreg/0.56.0/download
+cargo	writeable	0.6.4	Unicode-3.0	transitive runtime graph	licenses/rust/writeable-0.6.4/LICENSE	https://crates.io/api/v1/crates/writeable/0.6.4/download
+cargo	wry	0.57.1	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/wry-0.57.1/LICENSE-APACHE;licenses/rust/wry-0.57.1/LICENSE-MIT;licenses/rust/wry-0.57.1/LICENSE.spdx	https://crates.io/api/v1/crates/wry/0.57.1/download
+cargo	yoke	0.8.4	Unicode-3.0	transitive runtime graph	licenses/rust/yoke-0.8.4/LICENSE	https://crates.io/api/v1/crates/yoke/0.8.4/download
+cargo	yoke-derive	0.8.4	Unicode-3.0	transitive build graph	licenses/rust/yoke-derive-0.8.4/LICENSE	https://crates.io/api/v1/crates/yoke-derive/0.8.4/download
+cargo	zerocopy	0.8.63	BSD-2-Clause OR Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/zerocopy-0.8.63/LICENSE-APACHE;licenses/rust/zerocopy-0.8.63/LICENSE-BSD;licenses/rust/zerocopy-0.8.63/LICENSE-MIT	https://crates.io/api/v1/crates/zerocopy/0.8.63/download
+cargo	zerofrom	0.1.8	Unicode-3.0	transitive runtime graph	licenses/rust/zerofrom-0.1.8/LICENSE	https://crates.io/api/v1/crates/zerofrom/0.1.8/download
+cargo	zerofrom-derive	0.1.8	Unicode-3.0	transitive build graph	licenses/rust/zerofrom-derive-0.1.8/LICENSE	https://crates.io/api/v1/crates/zerofrom-derive/0.1.8/download
+cargo	zeroize	1.9.1	Apache-2.0 OR MIT	transitive runtime graph	licenses/rust/zeroize-1.9.1/LICENSE-APACHE;licenses/rust/zeroize-1.9.1/LICENSE-MIT	https://crates.io/api/v1/crates/zeroize/1.9.1/download
+cargo	zerotrie	0.2.5	Unicode-3.0	transitive runtime graph	licenses/rust/zerotrie-0.2.5/LICENSE	https://crates.io/api/v1/crates/zerotrie/0.2.5/download
+cargo	zerovec	0.11.9	Unicode-3.0	transitive runtime graph	licenses/rust/zerovec-0.11.9/LICENSE	https://crates.io/api/v1/crates/zerovec/0.11.9/download
+cargo	zerovec-derive	0.11.7	Unicode-3.0	transitive build graph	licenses/rust/zerovec-derive-0.11.7/LICENSE	https://crates.io/api/v1/crates/zerovec-derive/0.11.7/download
+cargo	zlib-rs	0.6.8	Zlib	transitive runtime graph	licenses/rust/zlib-rs-0.6.8/LICENSE	https://crates.io/api/v1/crates/zlib-rs/0.6.8/download
+cargo	zmij	1.0.23	MIT	transitive runtime graph	licenses/rust/zmij-1.0.23/LICENSE-MIT	https://crates.io/api/v1/crates/zmij/1.0.23/download
+npm	@codemirror/autocomplete	6.20.4	MIT	direct frontend	licenses/npm/@codemirror__autocomplete-6.20.4/LICENSE	https://registry.npmjs.org/@codemirror/autocomplete/-/autocomplete-6.20.4.tgz
+npm	@codemirror/commands	6.11.1	MIT	direct frontend	licenses/npm/@codemirror__commands-6.11.1/LICENSE	https://registry.npmjs.org/@codemirror/commands/-/commands-6.11.1.tgz
+npm	@codemirror/lang-css	6.3.1	MIT	transitive frontend	licenses/npm/@codemirror__lang-css-6.3.1/LICENSE	https://registry.npmjs.org/@codemirror/lang-css/-/lang-css-6.3.1.tgz
+npm	@codemirror/lang-html	6.4.12	MIT	transitive frontend	licenses/npm/@codemirror__lang-html-6.4.12/LICENSE	https://registry.npmjs.org/@codemirror/lang-html/-/lang-html-6.4.12.tgz
+npm	@codemirror/lang-javascript	6.2.5	MIT	direct frontend	licenses/npm/@codemirror__lang-javascript-6.2.5/LICENSE	https://registry.npmjs.org/@codemirror/lang-javascript/-/lang-javascript-6.2.5.tgz
+npm	@codemirror/lang-json	6.0.2	MIT	direct frontend	licenses/npm/@codemirror__lang-json-6.0.2/LICENSE	https://registry.npmjs.org/@codemirror/lang-json/-/lang-json-6.0.2.tgz
+npm	@codemirror/lang-markdown	6.5.2	MIT	direct frontend	licenses/npm/@codemirror__lang-markdown-6.5.2/LICENSE	https://registry.npmjs.org/@codemirror/lang-markdown/-/lang-markdown-6.5.2.tgz
+npm	@codemirror/lang-python	6.2.1	MIT	direct frontend	licenses/npm/@codemirror__lang-python-6.2.1/LICENSE	https://registry.npmjs.org/@codemirror/lang-python/-/lang-python-6.2.1.tgz
+npm	@codemirror/language	6.13.1	MIT	direct frontend	licenses/npm/@codemirror__language-6.13.1/LICENSE	https://registry.npmjs.org/@codemirror/language/-/language-6.13.1.tgz
+npm	@codemirror/legacy-modes	6.5.5	MIT	direct frontend	licenses/npm/@codemirror__legacy-modes-6.5.5/LICENSE	https://registry.npmjs.org/@codemirror/legacy-modes/-/legacy-modes-6.5.5.tgz
+npm	@codemirror/lint	6.9.7	MIT	transitive frontend	licenses/npm/@codemirror__lint-6.9.7/LICENSE	https://registry.npmjs.org/@codemirror/lint/-/lint-6.9.7.tgz
+npm	@codemirror/search	6.7.2	MIT	direct frontend	licenses/npm/@codemirror__search-6.7.2/LICENSE	https://registry.npmjs.org/@codemirror/search/-/search-6.7.2.tgz
+npm	@codemirror/state	6.7.6	MIT	direct frontend	licenses/npm/@codemirror__state-6.7.6/LICENSE	https://registry.npmjs.org/@codemirror/state/-/state-6.7.6.tgz
+npm	@codemirror/streamparser	6.0.0	MIT	transitive frontend	licenses/npm/@codemirror__streamparser-6.0.0/LICENSE	https://registry.npmjs.org/@codemirror/streamparser/-/streamparser-6.0.0.tgz
+npm	@codemirror/view	6.43.15	MIT	direct frontend	licenses/npm/@codemirror__view-6.43.15/LICENSE	https://registry.npmjs.org/@codemirror/view/-/view-6.43.15.tgz
+npm	@lezer/common	1.5.5	MIT	transitive frontend	licenses/npm/@lezer__common-1.5.5/LICENSE	https://registry.npmjs.org/@lezer/common/-/common-1.5.5.tgz
+npm	@lezer/css	1.3.9	MIT	transitive frontend	licenses/npm/@lezer__css-1.3.9/LICENSE	https://registry.npmjs.org/@lezer/css/-/css-1.3.9.tgz
+npm	@lezer/highlight	1.2.5	MIT	transitive frontend	licenses/npm/@lezer__highlight-1.2.5/LICENSE	https://registry.npmjs.org/@lezer/highlight/-/highlight-1.2.5.tgz
+npm	@lezer/html	1.3.13	MIT	transitive frontend	licenses/npm/@lezer__html-1.3.13/LICENSE	https://registry.npmjs.org/@lezer/html/-/html-1.3.13.tgz
+npm	@lezer/javascript	1.5.6	MIT	transitive frontend	licenses/npm/@lezer__javascript-1.5.6/LICENSE	https://registry.npmjs.org/@lezer/javascript/-/javascript-1.5.6.tgz
+npm	@lezer/json	1.0.3	MIT	transitive frontend	licenses/npm/@lezer__json-1.0.3/LICENSE	https://registry.npmjs.org/@lezer/json/-/json-1.0.3.tgz
+npm	@lezer/lr	1.4.12	MIT	transitive frontend	licenses/npm/@lezer__lr-1.4.12/LICENSE	https://registry.npmjs.org/@lezer/lr/-/lr-1.4.12.tgz
+npm	@lezer/markdown	1.8.1	MIT	transitive frontend	licenses/npm/@lezer__markdown-1.8.1/LICENSE	https://registry.npmjs.org/@lezer/markdown/-/markdown-1.8.1.tgz
+npm	@lezer/python	1.1.19	MIT	transitive frontend	licenses/npm/@lezer__python-1.1.19/LICENSE	https://registry.npmjs.org/@lezer/python/-/python-1.1.19.tgz
+npm	@marijn/find-cluster-break	1.0.4	MIT	transitive frontend	licenses/npm/@marijn__find-cluster-break-1.0.4/LICENSE	https://registry.npmjs.org/@marijn/find-cluster-break/-/find-cluster-break-1.0.4.tgz
+npm	@napi-rs/canvas	1.1.0	MIT	optional Node-only dependency; native binary not redistributed	licenses/npm/@napi-rs__canvas-1.1.0/LICENSE	https://registry.npmjs.org/@napi-rs/canvas/-/canvas-1.1.0.tgz
+npm	@napi-rs/canvas-win32-x64-msvc	1.1.0	MIT	optional Node-only dependency; native binary not redistributed		https://registry.npmjs.org/@napi-rs/canvas-win32-x64-msvc/-/canvas-win32-x64-msvc-1.1.0.tgz
+npm	@tauri-apps/api	2.12.4	Apache-2.0 OR MIT	direct frontend	licenses/npm/@tauri-apps__api-2.12.4/LICENSE.spdx;licenses/npm/@tauri-apps__api-2.12.4/LICENSE-APACHE-2.0;licenses/npm/@tauri-apps__api-2.12.4/LICENSE-MIT	https://registry.npmjs.org/@tauri-apps/api/-/api-2.12.4.tgz
+npm	crelt	1.0.7	MIT	transitive frontend	licenses/npm/crelt-1.0.7/LICENSE	https://registry.npmjs.org/crelt/-/crelt-1.0.7.tgz
+npm	pdfjs-dist	6.5.438	Apache-2.0	direct frontend	licenses/npm/pdfjs-dist-6.5.438/LICENSE	https://registry.npmjs.org/pdfjs-dist/-/pdfjs-dist-6.5.438.tgz
+npm	react	19.3.1	MIT	direct frontend	licenses/npm/react-19.3.1/LICENSE	https://registry.npmjs.org/react/-/react-19.3.1.tgz
+npm	react-dom	19.3.1	MIT	direct frontend	licenses/npm/react-dom-19.3.1/LICENSE	https://registry.npmjs.org/react-dom/-/react-dom-19.3.1.tgz
+npm	scheduler	0.28.0	MIT	transitive frontend	licenses/npm/scheduler-0.28.0/LICENSE	https://registry.npmjs.org/scheduler/-/scheduler-0.28.0.tgz
+npm	style-mod	4.1.4	MIT	transitive frontend	licenses/npm/style-mod-4.1.4/LICENSE	https://registry.npmjs.org/style-mod/-/style-mod-4.1.4.tgz
+npm	w3c-keyname	2.2.8	MIT	transitive frontend	licenses/npm/w3c-keyname-2.2.8/LICENSE	https://registry.npmjs.org/w3c-keyname/-/w3c-keyname-2.2.8.tgz
