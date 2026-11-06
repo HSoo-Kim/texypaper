@@ -1,4 +1,4 @@
-//! Window close hides live controllers; only the main window's guarded quit can exit.
+//! First-close consent precedes background hiding; guarded main-window quit owns exit.
 use crate::{
     contracts::{AppError, AppResult},
     state::AppState,
@@ -82,6 +82,79 @@ pub fn set_locale(app: &tauri::AppHandle, english: bool) -> tauri::Result<()> {
     let (open, exit) = labels(english);
     state.open.set_text(open)?;
     state.exit.set_text(exit)
+}
+
+fn explained(settings: &Value) -> bool {
+    settings.get("trayCloseExplained").and_then(Value::as_bool) == Some(true)
+}
+
+fn acknowledge_close(
+    settings: &mut Value,
+    acknowledge: bool,
+    persist: impl FnOnce(&Value) -> AppResult<()>,
+) -> AppResult<()> {
+    if !acknowledge && !explained(settings) {
+        return Err(AppError::new(
+            "TRAY_ACKNOWLEDGMENT_REQUIRED",
+            "Choose whether TexyPaper should keep running in the tray first",
+        ));
+    }
+    if acknowledge && !explained(settings) {
+        let mut updated = settings.as_object().cloned().ok_or_else(|| {
+            AppError::new("INVALID_SETTINGS", "Application settings must be an object")
+        })?;
+        updated.insert("trayCloseExplained".into(), json!(true));
+        let updated = Value::Object(updated);
+        if serde_json::to_vec(&updated)?.len() > 65536 {
+            return Err(AppError::new(
+                "INVALID_SETTINGS",
+                "Combined settings exceed 64 KiB",
+            ));
+        }
+        // Do not change the live policy if durable storage refused the acknowledgment.
+        persist(&updated)?;
+        *settings = updated;
+    }
+    Ok(())
+}
+
+pub fn close_requested(app: &tauri::AppHandle) {
+    let state = app.state::<Arc<AppState>>();
+    let acknowledged = state
+        .settings
+        .lock()
+        .is_ok_and(|settings| explained(&settings));
+    if acknowledged {
+        hide(app);
+    } else {
+        // In particular, do not restore/focus an unfocused window merely to explain X.
+        let _ = app.emit_to("main", "texypaper:tray-close-requested", ());
+    }
+}
+
+#[tauri::command]
+pub async fn app_hide_to_tray(
+    app: tauri::AppHandle,
+    window: WebviewWindow,
+    state: State<'_, Arc<AppState>>,
+    acknowledge: bool,
+) -> AppResult<()> {
+    if window.label() != "main" {
+        return Err(AppError::new(
+            "WINDOW_ROLE_DENIED",
+            "Only the main window can hide the application",
+        ));
+    }
+    let mut settings = state
+        .settings
+        .lock()
+        .map_err(|_| AppError::new("STATE_ERROR", "Application settings lock poisoned"))?;
+    acknowledge_close(&mut settings, acknowledge, |updated| {
+        crate::state::atomic_json(&state.data_dir.join("settings.json"), updated)
+    })?;
+    drop(settings);
+    hide(&app);
+    Ok(())
 }
 
 pub fn restore(app: &tauri::AppHandle) -> tauri::Result<()> {
@@ -193,4 +266,49 @@ pub async fn app_quit(
     }
     app.exit(0);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unexplained_close_cannot_be_hidden_without_acknowledgment() {
+        for mut settings in [
+            json!({}),
+            json!({"trayCloseExplained": false}),
+            json!({"trayCloseExplained": "true"}),
+        ] {
+            assert_eq!(
+                acknowledge_close(&mut settings, false, |_| panic!("must not persist"))
+                    .unwrap_err()
+                    .code,
+                "TRAY_ACKNOWLEDGMENT_REQUIRED"
+            );
+            assert!(!explained(&settings));
+        }
+    }
+
+    #[test]
+    fn acknowledgment_becomes_effective_only_after_successful_persistence() {
+        let mut settings = json!({"locale": "en", "recents": ["paper"]});
+        let original = settings.clone();
+        assert!(
+            acknowledge_close(&mut settings, true, |_| {
+                Err(AppError::new("IO_ERROR", "Synthetic storage refusal"))
+            })
+            .is_err()
+        );
+        assert_eq!(settings, original);
+        acknowledge_close(&mut settings, true, |updated| {
+            assert!(explained(updated));
+            assert_eq!(updated["recents"], original["recents"]);
+            Ok(())
+        })
+        .unwrap();
+        assert!(explained(&settings));
+        // Future closes need neither a fresh acknowledgment nor another write.
+        acknowledge_close(&mut settings, false, |_| panic!("must not persist")).unwrap();
+        acknowledge_close(&mut settings, true, |_| panic!("must not persist")).unwrap();
+    }
 }

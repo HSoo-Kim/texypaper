@@ -4,8 +4,14 @@ import { useI18n } from '../../ui/i18n';
 import { ProviderSettings, localizedAgentError } from './ProviderSettings';
 import { ProposalReview } from './ProposalReview';
 import { ExecutionReview } from './ExecutionReview';
-import type { ChatSnapshot, ChatViewProps, HistoryRow } from './chatTypes';
+import type { ChatReadingPosition, ChatSnapshot, ChatViewProps, HistoryRow } from './chatTypes';
+import { readingScrollTop } from './chatHistory';
 import './agents.css';
+
+// Keep family + version intact; the adjacent provider label already identifies Claude/Codex.
+function compactModelLabel(label: string): string {
+  return label.replace(/^(?:Claude|Codex)\s+(?:[·:]\s*)?/i, '');
+}
 
 // Text is rendered as React text nodes, never provider-supplied HTML.
 function MessageText({ text }: { text: string }) {
@@ -39,14 +45,22 @@ function MeasuredMessage({ row, measure, measurementEpoch }: { row: HistoryRow; 
 function Transcript({ snapshot, onAction }: ChatViewProps) {
   const { t } = useI18n();
   const view = useRef<HTMLDivElement>(null); const heights = useRef(new Map<string, number>());
-  const following = useRef(true); const anchor = useRef<{ id: string; inset: number } | null>(null);
-  const previousPage = useRef(snapshot.historyPage);
-  const [viewport, setViewport] = useState({ top: 0, height: 600 }); const [revision, setRevision] = useState(0);
+  const following = useRef(snapshot.readingPosition?.following ?? snapshot.historyPage === 'current.jsonl');
+  const anchor = useRef<ChatReadingPosition['anchor']>(snapshot.readingPosition?.anchor);
+  const restoredScope = useRef('');
+  const programmaticTop = useRef<number | null>(null);
+  const latest = useRef({ snapshot, onAction }); latest.current = { snapshot, onAction };
+  const [viewport, setViewport] = useState({ top: snapshot.readingPosition?.scrollTop ?? 0, height: 600 }); const [revision, setRevision] = useState(0);
   const [measurementEpoch, setMeasurementEpoch] = useState(0);
   const [selection, setSelection] = useState<{ start: string; end: string } | null>(null);
   const measure = useCallback((id: string, height: number) => {
     if (Math.abs((heights.current.get(id) ?? 0) - height) < .5) return;
     heights.current.set(id, height); setRevision(value => value + 1);
+  }, []);
+  const reportPosition = useCallback(() => {
+    const node = view.current; const { snapshot: current, onAction: dispatch } = latest.current;
+    if (!node || current.historyLoading) return;
+    dispatch({ type: 'reading-position', value: { provider: current.provider, historyPage: current.historyPage, following: following.current, scrollTop: node.scrollTop, ...(anchor.current ? { anchor: anchor.current } : {}) } });
   }, []);
   useEffect(() => {
     const node = view.current; if (!node) return;
@@ -55,6 +69,7 @@ function Transcript({ snapshot, onAction }: ChatViewProps) {
       if (node.clientWidth !== width) { width = node.clientWidth; heights.current.clear(); setMeasurementEpoch(value => value + 1); setRevision(value => value + 1); }
       setViewport({ top: node.scrollTop, height: node.clientHeight });
     });
+    resize.observe(node);
     // Theme and scale can alter line wrapping without changing the panel's CSS width.
     const appearance = new MutationObserver(() => { heights.current.clear(); setMeasurementEpoch(value => value + 1); setRevision(value => value + 1); });
     appearance.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'class', 'data-theme'] });
@@ -71,13 +86,19 @@ function Transcript({ snapshot, onAction }: ChatViewProps) {
       const last = end?.closest<HTMLElement>('[data-message-id]');
       if (first && last && node.contains(first) && node.contains(last)) {
         following.current = false;
+        const top = node.getBoundingClientRect().top;
+        for (const message of node.querySelectorAll<HTMLElement>('[data-message-id]')) {
+          const bounds = message.getBoundingClientRect();
+          if (bounds.bottom > top) { anchor.current = { id: message.dataset.messageId!, inset: top - bounds.top }; break; }
+        }
         const startId = first.dataset.messageId!; const endId = last.dataset.messageId!;
+        reportPosition();
         setSelection(previous => previous?.start === startId && previous.end === endId ? previous : { start: startId, end: endId });
       } else setSelection(previous => previous === null ? previous : null);
     };
     document.addEventListener('selectionchange', preserveSelection);
     return () => document.removeEventListener('selectionchange', preserveSelection);
-  }, []);
+  }, [reportPosition]);
   const layout = useMemo(() => {
     let top = 0;
     const offsets = snapshot.history.map(row => { const offset = top; top += heights.current.get(row.id) ?? 120; return offset; });
@@ -92,26 +113,39 @@ function Transcript({ snapshot, onAction }: ChatViewProps) {
     return { offsets, total: top, first, end: Math.max(first + 1, end) };
   }, [snapshot.history, viewport, revision, selection]);
   useLayoutEffect(() => {
-    const node = view.current; if (!node) return;
-    if (previousPage.current !== snapshot.historyPage) { previousPage.current = snapshot.historyPage; following.current = snapshot.historyPage === 'current.jsonl'; anchor.current = null; node.scrollTop = following.current ? node.scrollHeight : 0; }
-    else if (following.current) node.scrollTop = node.scrollHeight;
-    else if (anchor.current) {
-      const index = snapshot.history.findIndex(row => row.id === anchor.current?.id);
-      if (index >= 0) node.scrollTop = layout.offsets[index] + anchor.current.inset;
+    const node = view.current; if (!node || snapshot.historyLoading) return;
+    const scope = `${snapshot.workspace.id}:${snapshot.workspace.epoch}:${snapshot.historyPage}`;
+    if (restoredScope.current !== scope) {
+      restoredScope.current = scope;
+      const saved = snapshot.readingPosition?.historyPage === snapshot.historyPage ? snapshot.readingPosition : undefined;
+      following.current = snapshot.historyPage === 'current.jsonl' && (saved?.following ?? true);
+      anchor.current = saved?.anchor;
+      programmaticTop.current = saved?.scrollTop ?? 0;
+      node.scrollTop = programmaticTop.current;
+      setSelection(null);
     }
+    // A live browser selection is a reading action, including at the bottom.
+    const top = readingScrollTop({ following: following.current && !selection, scrollTop: node.scrollTop, anchor: anchor.current }, snapshot.history, layout.offsets, node.scrollHeight, node.clientHeight);
+    if (Math.abs(node.scrollTop - top) > .5) { programmaticTop.current = top; node.scrollTop = top; }
     setViewport(previous => previous.top === node.scrollTop && previous.height === node.clientHeight ? previous : { top: node.scrollTop, height: node.clientHeight });
     const retained = new Set(snapshot.history.map(row => row.id));
     for (const id of heights.current.keys()) if (!retained.has(id)) heights.current.delete(id);
-  }, [snapshot.history, snapshot.historyPage, snapshot.proposals, snapshot.executions, layout.total, layout.offsets]);
+  }, [snapshot.history, snapshot.historyPage, snapshot.historyLoading, snapshot.workspace.id, snapshot.workspace.epoch, snapshot.proposals, snapshot.executions, layout.total, layout.offsets, selection]);
   const proposals = snapshot.proposals.filter(proposal => !proposal.provider || proposal.provider === snapshot.provider);
-  return <div data-testid="agent-history" className="agent-history" ref={view} tabIndex={0} role="log" aria-live="off" aria-label={t('AI 대화 기록', 'AI conversation history')} onScroll={event => {
+  return <div data-testid="agent-history" className="agent-history" ref={view} tabIndex={0} role="log" aria-live="off" aria-busy={snapshot.historyLoading || undefined} aria-label={t('AI 대화 기록', 'AI conversation history')} onScroll={event => {
     const node = event.currentTarget;
-    following.current = node.scrollTop + node.clientHeight >= node.scrollHeight - 32;
+    if (snapshot.historyLoading) return;
+    if (programmaticTop.current !== null && Math.abs(node.scrollTop - programmaticTop.current) < 1) { programmaticTop.current = null; return; }
+    programmaticTop.current = null;
+    const selected = document.getSelection();
+    const selecting = selected && !selected.isCollapsed && selected.anchorNode && node.contains(selected.anchorNode);
+    following.current = !selection && !selecting && snapshot.historyPage === 'current.jsonl' && node.scrollTop + node.clientHeight >= node.scrollHeight - 32;
     let index = 0; while (index + 1 < layout.offsets.length && layout.offsets[index + 1] <= node.scrollTop) index++;
-    anchor.current = snapshot.history[index] ? { id: snapshot.history[index].id, inset: node.scrollTop - layout.offsets[index] } : null;
+    anchor.current = snapshot.history[index] ? { id: snapshot.history[index].id, inset: node.scrollTop - layout.offsets[index] } : undefined;
     setViewport({ top: node.scrollTop, height: node.clientHeight });
+    reportPosition();
   }}>
-    {snapshot.history.length === 0 ? <div className="agent-empty"><h3>{t('논문에 대해 물어보세요', 'Ask about your paper')}</h3><p>{t('선택한 문장을 다듬거나, 코드와 결과에서 근거를 찾아 달라고 요청하세요.', 'Ask to revise selected text or find evidence in your code and results.')}</p><p className="agent-note">{t('파일 변경은 제안을 검토하고 승인한 뒤에만 적용됩니다.', 'File changes require your review and approval.')}</p></div> : <div className="agent-transcript-rows" style={{ paddingTop: layout.offsets[layout.first] ?? 0, paddingBottom: Math.max(0, layout.total - (layout.offsets[layout.end] ?? layout.total)) }}>
+    {snapshot.historyLoading && snapshot.history.length === 0 ? <p className="agent-history-loading" role="status">{t('대화 기록 불러오는 중…', 'Loading conversation history…')}</p> : snapshot.history.length === 0 ? <div className="agent-empty"><h3>{t('논문에 대해 물어보세요', 'Ask about your paper')}</h3><p>{t('선택한 문장을 다듬거나, 코드와 결과에서 근거를 찾아 달라고 요청하세요.', 'Ask to revise selected text or find evidence in your code and results.')}</p><p className="agent-note">{t('파일 변경은 제안을 검토하고 승인한 뒤에만 적용됩니다.', 'File changes require your review and approval.')}</p></div> : <div className="agent-transcript-rows" style={{ paddingTop: layout.offsets[layout.first] ?? 0, paddingBottom: Math.max(0, layout.total - (layout.offsets[layout.end] ?? layout.total)) }}>
       {snapshot.history.slice(layout.first, layout.end).map(row => <MeasuredMessage key={row.id} row={row} measure={measure} measurementEpoch={measurementEpoch} />)}
     </div>}
     {proposals.length > 0 && <section className="agent-proposals" aria-label={t('변경 제안', 'Proposed changes')}>{proposals.map(proposal => <ProposalReview key={proposal.id} proposal={proposal} busy={snapshot.proposalBusy.includes(proposal.id)} onDecision={(id, decision) => onAction({ type: 'decide', id, decision })} onUndo={id => onAction({ type: 'undo', id })} />)}</section>}
@@ -125,10 +159,10 @@ export function ChatView({ snapshot, onAction, detached = false }: ChatViewProps
   const [acknowledged, setAcknowledged] = useState(false);
   useEffect(() => { setSessionWarning(false); setAcknowledged(false); }, [snapshot.workspace.id, snapshot.workspace.epoch, snapshot.executionPermission]);
   const { provider, model, status, busy, prompt, disclosure, context, workspace, error } = snapshot;
-  const ready = snapshot.account?.provider === provider && snapshot.account.subscription && !!model && !snapshot.configuration.loading;
+  const ready = snapshot.account?.provider === provider && snapshot.account.subscription && !!model && !snapshot.configuration.loading && (snapshot.configuration.allowCustom || snapshot.configuration.models.some(row => row.id === model));
   const { models, allowCustom, loading } = snapshot.configuration;
   const selectedModel = models.find(row => row.id === model);
-  const modelLabel = selectedModel?.label || model;
+  const modelLabel = compactModelLabel(selectedModel?.label || model);
   const efforts = selectedModel?.reasoningEfforts ?? [];
   const defaultEffortLabel = efforts.find(row => row.value === selectedModel?.defaultReasoningEffort)?.label;
   const effortLabel = efforts.find(row => row.value === snapshot.reasoningEffort)?.label;
@@ -150,11 +184,11 @@ export function ChatView({ snapshot, onAction, detached = false }: ChatViewProps
       <Transcript snapshot={snapshot} onAction={onAction} />
       <form className="agent-composer" onSubmit={event => { event.preventDefault(); onAction({ type: 'send' }); }}>
         <details className="agent-context"><summary>{t('공유 환경 및 선택 내용', 'Shared environment and selection')}{context.source && ` · ${context.source.path}`}{context.pdf && ` · PDF`}</summary><div><p><code>{workspace.environmentId}: {workspace.root}</code></p><ul>{[context.source?.path, ...(context.attachments ?? [])].filter(Boolean).map((path, index) => <li key={`${path}:${index}`}><code>{path}</code></li>)}</ul>{context.source?.text && <p className="agent-context-quote">{context.source.text}</p>}{context.pdf && <p className="agent-context-quote">{t('PDF 선택', 'PDF selection')}{context.pdf.page != null && ` · ${context.pdf.page}`}: {context.pdf.quote}</p>}<p className="agent-note">{t('이 작업은 위 환경에서 허용된 관련 파일을 읽을 수 있습니다. 실제로 읽은 경로는 도구 진행과 응답에 표시됩니다.', 'This task may read allowed relevant files in this environment. Inspected paths appear in tool progress and responses.')}</p></div></details>
-        <label className="agent-disclosure"><input type="checkbox" checked={disclosure} disabled={busy} onChange={event => onAction({ type: 'disclosure', value: event.target.checked })} /><span>{t('선택 내용과 요청한 관련 파일을 선택한 클라우드 공급자에게 전송하는 데 동의합니다.', 'I agree to send selected content and requested relevant files to the chosen cloud provider.')}</span></label>
-        <label className="agent-prompt-label" htmlFor="agent-prompt">{t('논문 작업 요청', 'Paper task')}</label><textarea id="agent-prompt" data-testid="agent-prompt" value={prompt} maxLength={65536} rows={3} placeholder={t('선택한 문장을 검토하거나 근거를 찾아 달라고 요청하세요…', 'Ask to review selected text or find supporting evidence…')} onChange={event => onAction({ type: 'prompt', value: event.target.value })} onKeyDown={event => { if (event.ctrlKey && event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); onAction({ type: 'send' }); } }} />
+        <label className="agent-disclosure"><input type="checkbox" checked={disclosure} disabled={busy} onChange={event => onAction({ type: 'disclosure', value: event.target.checked })} /><span>{t('선택 내용·요청한 관련 파일을 ', 'I agree to send selected content and requested files to ')}{provider === 'codex' ? 'OpenAI' : 'Anthropic'}{t(' 클라우드로 전송하는 데 동의합니다.', ' cloud.')}</span></label>
+        <label className="agent-prompt-label" htmlFor="agent-prompt">{t('논문 작업 요청', 'Paper task')}</label><textarea id="agent-prompt" data-testid="agent-prompt" value={prompt} maxLength={65536} rows={2} placeholder={t('선택한 문장을 검토하거나 근거를 찾아 달라고 요청하세요…', 'Ask to review selected text or find supporting evidence…')} onChange={event => onAction({ type: 'prompt', value: event.target.value })} onKeyDown={event => { if (event.ctrlKey && event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); onAction({ type: 'send' }); } }} />
         <div data-testid="agent-status" data-status={status} data-state={status} data-task-id={snapshot.taskId} data-session-id={snapshot.sessionId} role="status" className="agent-task-status">{busy && snapshot.executions.some(execution => execution.status === 'running') && status !== 'running' && status !== 'cancelling' ? t('명령 실행 중', 'Running command') : labels[status]}</div>
         <div className="agent-composer-footer">
-          <label className="agent-quick-control agent-model-control" htmlFor="agent-model"><span>{t('모델', 'Model')}</span><select id="agent-model" value={selectedModel ? model : allowCustom ? '__custom' : ''} title={modelLabel || t('연결 후 모델 선택', 'Connect to select a model')} disabled={busy || loading || !snapshot.account?.subscription || (!models.length && !allowCustom)} onChange={event => onAction({ type: 'model', value: event.target.value === '__custom' ? '' : event.target.value })}>{!selectedModel && !allowCustom && <option value="">{t('모델 없음', 'No model')}</option>}{models.map(row => <option key={row.id} value={row.id}>{row.label || row.id}</option>)}{allowCustom && <option value="__custom">{t('직접 입력', 'Custom ID')}</option>}</select></label>
+          <label className="agent-quick-control agent-model-control" htmlFor="agent-model"><span>{t('모델', 'Model')}</span><select id="agent-model" value={selectedModel || !allowCustom ? model : '__custom'} title={modelLabel || t('연결 후 모델 선택', 'Connect to select a model')} disabled={busy || loading || !snapshot.account?.subscription || (!models.length && !allowCustom)} onChange={event => onAction({ type: 'model', value: event.target.value === '__custom' ? '' : event.target.value })}>{!selectedModel && !allowCustom && <option value={model}>{model ? `${modelLabel} · ${t('목록에 없음', 'Not listed')}` : t('모델 없음', 'No model')}</option>}{models.map(row => <option key={row.id} value={row.id}>{compactModelLabel(row.label || row.id)}</option>)}{allowCustom && <option value="__custom">{t('직접 입력', 'Custom ID')}</option>}</select></label>
           <label className="agent-quick-control agent-effort-control" htmlFor="agent-reasoning"><span>{t('추론', 'Reasoning')}</span><select id="agent-reasoning" data-testid="reasoning-effort" aria-label={t('추론 수준', 'Reasoning effort')} value={snapshot.reasoningEffort} title={effortLabel || (defaultEffortLabel ? `${t('공급자 기본값', 'Provider default')} · ${defaultEffortLabel}` : t('공급자 기본값', 'Provider default'))} disabled={busy || loading || !ready || !efforts.length} onChange={event => onAction({ type: 'reasoning', value: event.target.value })}><option value="">{defaultEffortLabel ? `${t('기본', 'Default')} · ${defaultEffortLabel}` : t('기본', 'Default')}</option>{efforts.map(row => <option key={row.value} value={row.value}>{row.label}</option>)}</select></label>
           <label className="agent-quick-control agent-permission-control" htmlFor="agent-execution-permission"><span>{t('실행 권한', 'Execution')}</span><select id="agent-execution-permission" data-testid="execution-permission" aria-label={t('프로젝트 코드 실행 권한', 'Project code execution permission')} value={snapshot.executionPermission} title={t('실제 로컬·SSH 명령 실행 권한. 파일 수정은 별도 승인합니다.', 'Permission for real local/SSH commands. File edits require separate approval.')} onChange={event => {
             const value = event.target.value as ChatSnapshot['executionPermission'];
@@ -163,7 +197,7 @@ export function ChatView({ snapshot, onAction, detached = false }: ChatViewProps
           }}><option value="deny">{t('실행 안 함', 'Deny')}</option><option value="ask">{t('매번 승인', 'Ask each time')}</option><option value="session">{t('세션 허용', 'Allow session')}</option></select></label>
           {busy ? <button type="button" data-testid="agent-cancel" disabled={status === 'cancelling'} onClick={() => onAction({ type: 'cancel' })}><Icon name="stop" size={13} />{t('중지', 'Stop')}</button> : <button type="submit" className="primary" data-testid="agent-send" disabled={!disclosure || !prompt.trim() || !ready} title={t('요청 보내기 (Ctrl+Enter)', 'Send request (Ctrl+Enter)')}><Icon name="play" size={13} />{t('보내기', 'Send')}<kbd>Ctrl↵</kbd></button>}
         </div>
-        {selectedModel?.catalogSource === 'official' && <p className="agent-note" data-testid="model-catalog-note">{t('CLI 목록에 없는 공식 모델입니다. 계정 사용 가능 여부는 전송 시 확인하며, 추론은 공급자 기본값을 사용합니다.', 'Official model not listed by this CLI. Account access is checked when sending; reasoning uses the provider default.')}</p>}
+        {model && <details className="agent-model-access" data-testid="model-catalog-note"><summary>{error?.code === 'PROVIDER_MODEL_UNAVAILABLE' ? t('이 요청에서 모델 접근 거부됨', 'Model access denied for this request') : t('모델 접근 안내', 'Model access')}</summary><p className="agent-note">{error?.code === 'PROVIDER_MODEL_UNAVAILABLE' ? t('선택한 모델을 공급자가 거부했습니다. 다른 모델을 직접 선택하거나 계정 상태를 확인하세요. 자동 전환하지 않습니다.', 'The provider rejected the selected model. Choose another model yourself or check the account. No automatic fallback is used.') : selectedModel?.catalogSource === 'official' ? t('공식 모델 목록의 선택지이며, 현재 CLI가 보고한 모델은 아닙니다. 목록만으로 이 계정의 접근 권한을 확인할 수 없습니다. 전송할 때 확인하며 추론은 공급자 기본값입니다.', 'An official catalog choice, not reported by the current CLI. The listing alone does not verify access for this account. It is checked when you send; reasoning uses the provider default.') : t('모델 선택이나 CLI 목록만으로 계정별 접근 권한을 보장하지 않습니다. 실제 요청의 공급자 응답으로 확인하며, 백그라운드 시험 요청이나 자동 모델·결제 전환은 하지 않습니다.', 'A model selection or CLI listing does not guarantee account access. The provider checks each real request. No background test requests or automatic model or billing fallback are used.')}</p></details>}
         {allowCustom && !selectedModel && <label className="agent-setting-row">{t('직접 입력 모델 ID', 'Custom model ID')}<input aria-label={t('모델 ID', 'Model ID')} value={model} maxLength={512} disabled={busy || loading} spellCheck={false} onChange={event => onAction({ type: 'model', value: event.target.value })} /></label>}
         {sessionWarning && snapshot.executionPermission !== 'session' && <div className="agent-permission-warning" data-testid="execution-session-warning" role="region" aria-label={t('세션 실행 권한 확인', 'Confirm session execution permission')}>
           <p>{t('명령과 스크립트는 현재 계정 권한으로 실행되어 프로젝트 밖의 파일과 시스템에도 영향을 줄 수 있습니다. 작업 폴더 제한은 샌드박스가 아니며 실행 결과를 자동으로 되돌릴 수 없습니다. 작업 공간 변경·재연결·앱 종료 시 권한이 초기화됩니다.', 'Commands and scripts run with your account permissions and can affect files and systems outside the project. The working directory is not a sandbox, and execution cannot be automatically undone. Switching workspaces, reconnecting, or exiting resets permission.')}</p>

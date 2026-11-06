@@ -73,6 +73,15 @@ describe('main-owned chat patches', () => {
     expect(() => applyChatPatch(previous, { changes: {}, history: { start: 1, deleteCount: 3, rows: [] } })).toThrow();
     expect(() => applyChatPatch(previous, { changes: {}, history: { start: 0.5, deleteCount: 0, rows: [] } })).toThrow();
   });
+  it('round-trips historical reading state through detach patches without restoring consent', () => {
+    const previous = { ...snapshot(), disclosure: false, executionPermission: 'ask' as const };
+    const readingPosition = { provider: 'claude' as const, historyPage: 'history-123.jsonl', following: false, scrollTop: 240, anchor: { id: 'message', inset: 16 } };
+    const next = { ...previous, readingPosition };
+    const restored = applyChatPatch(previous, diffChatSnapshot(previous, next));
+    expect(restored.readingPosition).toEqual(readingPosition);
+    expect(restored.disclosure).toBe(false);
+    expect(restored.executionPermission).toBe('ask');
+  });
 
 
 });
@@ -106,6 +115,25 @@ describe('detached intent boundaries', () => {
     expect(isChatAction({ type: 'reasoning', value: 3 })).toBe(false);
     expect(isChatAction({ type: 'decide', id: '', decision: 'apply' })).toBe(false);
     expect(isChatAction({ type: '__proto__' })).toBe(false);
+  });
+  it('accepts reading-only intents and rejects consent injection or invalid positions', () => {
+    const value = { provider: 'claude', historyPage: 'history-123.jsonl', following: false, scrollTop: 240, anchor: { id: 'message', inset: -16 } };
+    expect(isChatAction({ type: 'reading-position', value })).toBe(true);
+    for (const change of [{ disclosure: true }, { executionPermission: 'session' }, { sessionId: 'restored' }, { scrollTop: Infinity }, { scrollTop: -1 }, { historyPage: '../current.jsonl' }, { historyPage: 'C:current.jsonl' }, { anchor: { id: 'message', inset: NaN } }]) {
+      expect(isChatAction({ type: 'reading-position', value: { ...value, ...change } })).toBe(false);
+    }
+    expect(isChatAction({ type: 'history', page: '../../current.jsonl' })).toBe(false);
+  });
+  it('matches native numeric and UTF-8 reading-position limits', () => {
+    const value = { provider: 'codex', historyPage: `${'한'.repeat(83)}.jsonl`, following: false, scrollTop: 1_000_000_000, anchor: { id: '한'.repeat(341), inset: -1_000_000_000 } };
+    expect(isChatAction({ type: 'reading-position', value })).toBe(true);
+    for (const change of [
+      { historyPage: `${'한'.repeat(84)}.jsonl` },
+      { historyPage: 'bad\u0085.jsonl' },
+      { scrollTop: 1_000_000_001 },
+      { anchor: { ...value.anchor, id: '한'.repeat(342) } },
+      { anchor: { ...value.anchor, inset: -1_000_000_001 } },
+    ]) expect(isChatAction({ type: 'reading-position', value: { ...value, ...change } })).toBe(false);
   });
 
   it('requires a session, finite epoch and positive monotonic-sequence candidate', () => {

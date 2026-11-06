@@ -10,7 +10,8 @@ const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const delay = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 export async function openWorkspace(page, root) {
   const expectedRoot = await realpath(root);
-  if (!(await page.getByTestId('workspace-path').isVisible())) await page.getByTestId('workspace-switch').click();
+  if (!(await page.getByTestId('workspace-disclose').isVisible())) await page.getByTestId('workspace-switch').click();
+  if (!(await page.getByTestId('workspace-path').isVisible())) await page.getByTestId('workspace-disclose').click();
   await page.getByTestId('workspace-path').fill(root);
   await page.getByTestId('workspace-open').click();
   await waitFor(async () => {
@@ -20,6 +21,32 @@ export async function openWorkspace(page, root) {
   }, { label: 'new canonical workspace identity acknowledged' });
   if (!await page.getByTestId('file-tree').isVisible()) await page.getByRole('button', { name: /탐색기 표시|Show explorer/, exact: true }).click();
   await page.getByTestId('file-tree').waitFor({ state: 'visible', timeout: 30000 });
+}
+export async function verifyPickerDisclosure(page) {
+  const disclose = page.getByTestId('workspace-disclose'), input = page.getByTestId('workspace-path'), addSsh = page.getByTestId('ssh-add');
+  assert(await disclose.getAttribute('aria-expanded') === 'false' && !await input.isVisible(), 'Project inputs should wait for an explicit opening action.');
+  assert(await addSsh.getAttribute('aria-expanded') === 'false' && !await page.getByTestId('ssh-alias').isVisible(), 'SSH setup should not be expanded on entry.');
+  await disclose.focus(); await page.keyboard.press('Enter');
+  await input.waitFor({ state: 'visible' });
+  assert(await input.evaluate(element => element === document.activeElement), 'Keyboard disclosure did not focus the project path.');
+  await input.fill('');
+  await input.evaluate(element => element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, isComposing: true })));
+  assert(!await page.locator('.workspace-picker [role="alert"]').count(), 'Committing an IME composition must not validate or open an incomplete project path.');
+  await page.keyboard.press('Enter');
+  const errors = page.locator('.workspace-picker [role="alert"]');
+  await errors.waitFor({ state: 'visible' });
+  await addSsh.click();
+  await page.getByTestId('ssh-alias').waitFor({ state: 'visible' });
+  assert(await page.getByTestId('ssh-alias').evaluate(element => element === document.activeElement), 'SSH disclosure did not focus its alias field.');
+  assert(await errors.isVisible(), 'Switching disclosure hid a project-opening error.');
+  await page.locator('.ssh-form .button-row button[type=button]').click();
+  assert(await addSsh.evaluate(element => element === document.activeElement), 'Closing SSH setup did not restore its action focus.');
+  assert(await errors.isVisible(), 'Closing disclosure hid an unresolved error.');
+  await disclose.focus(); await page.keyboard.press('Space');
+  await input.waitFor({ state: 'visible' });
+  await page.locator('.picker-form:not([hidden]) .dialog-heading>button').click();
+  assert(await disclose.evaluate(element => element === document.activeElement), 'Closing the project form did not restore its action focus.');
+  return { initiallyCollapsed: true, keyboardDisclosure: true, focusRestored: true, errorsRemainVisible: true };
 }
 async function revealTreeRow(page, relative) {
   const tree = page.getByTestId('file-tree');
@@ -162,6 +189,16 @@ async function desktopScenarios(session, fixture, output) {
   };
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByTestId('file-tree').waitFor({ timeout: 30000 });
+  await scenario('recent-project-modal-disclosure-and-continuation', async () => {
+    await page.getByTestId('workspace-switch').click();
+    const evidence = await verifyPickerDisclosure(page);
+    const continuation = page.locator('.workspace-picker .recent-continue');
+    assert(await continuation.count() === 1, 'Recent projects need one clear primary continuation.');
+    await continuation.focus(); await page.keyboard.press('Enter');
+    await page.getByTestId('workspace-disclose').waitFor({ state: 'hidden' });
+    await page.getByTestId('file-tree').waitFor({ state: 'visible' });
+    return { ...evidence, recentContinuation: true };
+  });
   await scenario('explorer-keyboard-and-paper-evidence', async () => {
     await keyboardTree(page);
     const direct = await revealTreeRow(page, 'paper-direct');

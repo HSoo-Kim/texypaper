@@ -5,6 +5,8 @@ import type { Proposal } from './ProposalReview';
 export type AgentContext = { source?: { path: string; startLine?: number; endLine?: number; text?: string }; pdf?: { buildId: string; quote: string; page?: number }; attachments?: string[] };
 export type HistoryRow = { id: string; role: 'user' | 'assistant' | 'tool'; text: string; provider?: string; taskId?: string };
 export type AgentStatus = 'idle' | 'running' | 'completed' | 'failed' | 'cancelled' | 'cancelling';
+// View state only: never carries execution permission, disclosure or session credentials.
+export type ChatReadingPosition = { provider: Provider; historyPage: string; following: boolean; scrollTop: number; anchor?: { id: string; inset: number } };
 export type AgentError = { code: string; message: string };
 export type ProviderConfiguration = {
   models: Model[];
@@ -56,6 +58,8 @@ export type ChatSnapshot = {
   context: AgentContext;
   pages: string[];
   historyPage: string;
+  historyLoading?: boolean;
+  readingPosition?: ChatReadingPosition;
   settingsOpen: boolean;
   executionPermission: ExecutionPermission;
   executions: ExecutionRequest[];
@@ -70,6 +74,7 @@ export type ChatAction =
   | { type: 'executable'; value: string }
   | { type: 'settings'; value: boolean }
   | { type: 'history'; page: string }
+  | { type: 'reading-position'; value: ChatReadingPosition }
   | { type: 'decide'; id: string; decision: 'apply' | 'reject' }
   | { type: 'undo'; id: string }
   | { type: 'execution-permission'; value: ExecutionPermission; acknowledged?: boolean }

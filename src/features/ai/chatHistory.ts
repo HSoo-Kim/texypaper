@@ -1,8 +1,16 @@
 import type { AppEvent } from '../../contracts';
-import type { HistoryRow } from './chatTypes';
+import type { ChatReadingPosition, HistoryRow } from './chatTypes';
 
 export const MAX_HISTORY_BYTES = 2 * 1024 * 1024;
 export const MAX_HISTORY_ROWS = 1000;
+
+export function readingScrollTop(position: Pick<ChatReadingPosition, 'following' | 'scrollTop' | 'anchor'>, rows: HistoryRow[], offsets: number[], scrollHeight: number, viewportHeight: number): number {
+  const maximum = Math.max(0, scrollHeight - viewportHeight);
+  if (position.following) return maximum;
+  const index = position.anchor ? rows.findIndex(row => row.id === position.anchor?.id) : -1;
+  const top = index >= 0 && offsets[index] !== undefined ? offsets[index] + position.anchor!.inset : position.scrollTop;
+  return Math.min(maximum, Math.max(0, top));
+}
 function rowBytes(row: HistoryRow): number {
   const serialized = JSON.stringify(row);
   let utf8 = 0;

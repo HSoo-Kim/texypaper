@@ -2,6 +2,7 @@ import { t } from "../ui/i18n";
 import { EditorState, type ChangeSet } from '@codemirror/state';
 import type { AppError, Revision, TextDocument, WorkspaceRef } from '../contracts';
 import { normalizeError, request } from '../api';
+import type { EditorReadingPosition } from '../state/readingPosition';
 
 export type BufferRecord = { path: string; document: TextDocument; state: EditorState | null; dirty: boolean; saving: boolean; composing: boolean; version: number; lastUsed: number; error?: AppError; warning?:AppError; external?: TextDocument; rawText?:string; transactionId?:string; uncertain?:boolean;evicted?:boolean; };
 export type SourceSelection = {path:string;startByte:number;endByte:number;baseSha256:string;quote:string;before:string;after:string};
@@ -27,6 +28,8 @@ export function applyEditorChanges(raw:string,changes:ChangeSet){
 export class BufferStore {
   readonly records = new Map<string, BufferRecord>();
   activePath: string | null = null;
+  readonly readingPositions=new Map<string,EditorReadingPosition>();
+  rememberPosition(path:string,position:EditorReadingPosition){if(this.disposed)return;this.readingPositions.delete(path);this.readingPositions.set(path,position);if(this.readingPositions.size>64)this.readingPositions.delete(this.readingPositions.keys().next().value!);this.onReadingPosition?.(path,position);}
   private listeners = new Set<() => void>();
   private tick = 0;
   private timers = new Map<string, number>();
@@ -37,7 +40,7 @@ export class BufferStore {
   private polling=false;
   disconnected=false;
   recoveryStatus:string|null=null;
-  constructor(readonly workspace: WorkspaceRef, private onSaved: (path:string)=>void, private onDirty:()=>void,readonly remote=false) {}
+  constructor(readonly workspace: WorkspaceRef, private onSaved: (path:string)=>void, private onDirty:()=>void,readonly remote=false,positions:{path:string;position:EditorReadingPosition}[]=[],private onReadingPosition?:(path:string,position:EditorReadingPosition)=>void) {for(const row of positions)this.readingPositions.set(row.path,row.position);}
   subscribe = (listener:()=>void) => { this.listeners.add(listener); return ()=>this.listeners.delete(listener); };
   snapshot = () => this.tick;
   notify() { if (!this.disposed) { this.tick++; this.listeners.forEach(listener=>listener()); } }
@@ -128,7 +131,7 @@ export class BufferStore {
   async allowLarge(path:string) { const buffer=this.records.get(path);if(!buffer)return;buffer.document=await request<TextDocument>('file_read',this.workspace,{path,allowLarge:true});buffer.state=null;this.notify(); }
   discard() {for(const buffer of this.records.values()){clearTimeout(this.timers.get(buffer.path));buffer.dirty=false;}this.notify();}
   close(path:string) {const buffer=this.records.get(path);if(buffer?.dirty)return false;this.records.delete(path);if(this.activePath===path)this.activePath=[...this.records.values()].reverse().find(buffer=>!buffer.evicted)?.path??null;this.notify();return true;}
-  rename(oldPath:string,newPath:string){for(const [path,buffer]of [...this.records])if(path===oldPath||path.startsWith(`${oldPath}/`)){const target=newPath+path.slice(oldPath.length);this.records.delete(path);buffer.path=target;buffer.document={...buffer.document,file:{...buffer.document.file,path:target}};this.records.set(target,buffer);if(this.activePath===path)this.activePath=target;}this.notify();}
+  rename(oldPath:string,newPath:string){for(const [path,position]of [...this.readingPositions])if(path===oldPath||path.startsWith(`${oldPath}/`)){this.readingPositions.delete(path);this.rememberPosition(newPath+path.slice(oldPath.length),position);}for(const [path,buffer]of [...this.records])if(path===oldPath||path.startsWith(`${oldPath}/`)){const target=newPath+path.slice(oldPath.length);this.records.delete(path);buffer.path=target;buffer.document={...buffer.document,file:{...buffer.document.file,path:target}};this.records.set(target,buffer);if(this.activePath===path)this.activePath=target;}this.notify();}
   evict() {
     const clean=[...this.records.values()].filter(buffer=>!buffer.dirty&&!buffer.evicted&&buffer.path!==this.activePath).sort((a,b)=>a.lastUsed-b.lastUsed);
     const cost=(buffer:BufferRecord)=>buffer.evicted?0:encoder.encode(this.text(buffer)).length+(buffer.rawText&&buffer.state?buffer.state.doc.length*2:0);let bytes=[...this.records.values()].reduce((sum,buffer)=>sum+cost(buffer),0);
@@ -139,6 +142,6 @@ export class BufferStore {
   }
   dispose() {
     // The owner calls this only after Save/Discard, or an acknowledged reconnect recovery journal.
-    this.disposed=true;this.openGeneration++;this.timers.forEach(clearTimeout);this.recoveryTimers.forEach(clearTimeout);this.recoveryTimers.clear();this.timers.clear();this.listeners.clear();this.saves.clear();this.records.clear();this.activePath=null;this.recoveryStatus=null;this.onSaved=()=>{};this.onDirty=()=>{};
+    this.disposed=true;this.openGeneration++;this.timers.forEach(clearTimeout);this.recoveryTimers.forEach(clearTimeout);this.recoveryTimers.clear();this.timers.clear();this.listeners.clear();this.saves.clear();this.records.clear();this.readingPositions.clear();this.onReadingPosition=undefined;this.activePath=null;this.recoveryStatus=null;this.onSaved=()=>{};this.onDirty=()=>{};
   }
 }

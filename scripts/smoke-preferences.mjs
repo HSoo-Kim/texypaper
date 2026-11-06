@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { mkdir, readFile } from 'node:fs/promises';
 import { parseArgs, requireBinary, createRun, launchDesktop, waitFor, assert, writeJson } from './smoke-support.mjs';
-import { configurePreferenceFixtures, verifyResetPreferences, exerciseOptionalUpdateFeed } from './smoke-desktop.mjs';
+import { configurePreferenceFixtures, verifyResetPreferences, exerciseOptionalUpdateFeed, verifyPickerDisclosure } from './smoke-desktop.mjs';
 
 const args = parseArgs();
 const binary = await requireBinary(args);
@@ -10,6 +10,7 @@ const report = { passed: false, screenshots: [], evidence: [] };
 let app;
 try {
   app = await launchDesktop({ binary, ...run });
+  report.evidence.push(await verifyPickerDisclosure(app.page));
   for (const locale of ['ko', 'en']) {
     for (const theme of ['light', 'dark']) {
       await app.page.getByTestId('settings-button').click();
@@ -20,7 +21,7 @@ try {
       await app.page.screenshot({ path: path.join(run.output, image) });
       report.screenshots.push(image);
       await app.page.keyboard.press('Escape');
-      assert(await app.page.getByTestId('workspace-open').innerText() === (locale === 'ko' ? '프로젝트 열기' : 'Open project'), 'The actual project action was not translated.');
+      assert(await app.page.getByTestId('workspace-disclose').innerText() === (locale === 'ko' ? '프로젝트 열기' : 'Open project'), 'The actual project action was not translated.');
     }
   }
   await app.page.getByTestId('settings-button').click();

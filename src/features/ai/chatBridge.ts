@@ -1,4 +1,4 @@
-import type { ChatAction, ChatSnapshot, HistoryRow } from './chatTypes';
+import type { ChatAction, ChatReadingPosition, ChatSnapshot, HistoryRow } from './chatTypes';
 import type { AppSettings } from '../../ui/theme';
 
 export const CHAT_EVENT = 'texypaper:chat';
@@ -85,6 +85,25 @@ const simpleActions: Record<string, true> = { send: true, cancel: true, refresh:
 function boundedString(value: unknown, maximum: number): value is string {
   return typeof value === 'string' && value.length <= maximum;
 }
+const utf8 = new TextEncoder();
+function boundedUtf8String(value: unknown, maximum: number): value is string {
+  return boundedString(value, maximum) && utf8.encode(value).byteLength <= maximum;
+}
+export function isHistoryPage(value: unknown): value is string {
+  return boundedUtf8String(value, 255) && value.length > 0 && !/[\\/:\u0000-\u001f\u007f-\u009f]/.test(value) && value.endsWith('.jsonl');
+}
+export function isChatReadingPosition(value: unknown): value is ChatReadingPosition {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const position = value as Record<string, unknown>;
+  if (Object.keys(position).some(key => !['provider', 'historyPage', 'following', 'scrollTop', 'anchor'].includes(key))) return false;
+  if ((position.provider !== 'codex' && position.provider !== 'claude') || !isHistoryPage(position.historyPage) || typeof position.following !== 'boolean' || typeof position.scrollTop !== 'number' || !Number.isFinite(position.scrollTop) || position.scrollTop < 0 || position.scrollTop > 1_000_000_000) return false;
+  if (position.anchor !== undefined) {
+    if (!position.anchor || typeof position.anchor !== 'object' || Array.isArray(position.anchor)) return false;
+    const anchor = position.anchor as Record<string, unknown>;
+    if (Object.keys(anchor).sort().join(',') !== 'id,inset' || !boundedUtf8String(anchor.id, 1024) || !anchor.id || typeof anchor.inset !== 'number' || !Number.isFinite(anchor.inset) || Math.abs(anchor.inset) > 1_000_000_000) return false;
+  }
+  return true;
+}
 export function isChatAction(value: unknown): value is ChatAction {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const action = value as Record<string, unknown>;
@@ -99,7 +118,8 @@ export function isChatAction(value: unknown): value is ChatAction {
     case 'model': return keys === 'type,value' && boundedString(action.value, 512);
     case 'reasoning': return keys === 'type,value' && boundedString(action.value, 64);
     case 'executable': return keys === 'type,value' && boundedString(action.value, 4096);
-    case 'history': return keys === 'page,type' && boundedString(action.page, 4096);
+    case 'history': return keys === 'page,type' && isHistoryPage(action.page);
+    case 'reading-position': return keys === 'type,value' && isChatReadingPosition(action.value);
     case 'undo': return keys === 'id,type' && boundedString(action.id, 256) && action.id.length > 0;
     case 'decide': return keys === 'decision,id,type' && boundedString(action.id, 256) && action.id.length > 0 && (action.decision === 'apply' || action.decision === 'reject');
     case 'execution-permission': return (keys === 'type,value' || (keys === 'acknowledged,type,value' && typeof action.acknowledged === 'boolean')) && (action.value === 'deny' || action.value === 'ask' || action.value === 'session');

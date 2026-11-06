@@ -1,8 +1,33 @@
-# Verification — TexyPaper 0.0.1
+# Verification — TexyPaper 0.0.2
 
 Evidence is generated under ignored `artifacts/` directories. The scripts use isolated synthetic papers and app-data; no user paper is a writable fixture. A passing unit suite is not presented as proof of a desktop, SSH, model or installer interaction.
 
-## Current release — TexyPaper 0.0.1 / 현재 릴리스
+## Current release — TexyPaper 0.0.2 / 현재 릴리스
+
+Observed on Windows x64, 2026-11-07 (KST). The normal distribution is separate from the hidden-start verification binary. No real paper or normal account store was used as a development fixture.
+
+| Exercise | Observed result | Evidence |
+| --- | --- | --- |
+| Frontend behavior | 127 tests passed across 16 source files. Vitest now excludes ignored exported source-audit trees | `pnpm test` |
+| Native checks | Formatting, 109 tests across 8 suites, and strict Clippy passed | Cargo command output |
+| Actual native usability | All 9 final scenarios passed through the real application-owned WebView2, launched with `agent-desktop` without activation; inspected native windows remained hidden | `artifacts/usability-native-002-06/report.json` |
+| Dashboard and close policy | Recent-first collapsed forms, keyboard focus return, first X → Cancel, refused unacknowledged hide, persisted background choice, later X, and fresh-profile first X → complete exit passed | Same runtime report and dashboard/close renders |
+| Actual detached chat | Native child creation/docking preserved the unsent draft and archived message anchor across width changes, including a 360px child viewport. Child lifecycle authority was refused | Same report; `detached-chat-light.png`, `detached-chat-360.png` |
+| Executable restart | Actual source selection and deep scroll, active file, 58% split, PDF zoom 75%/rotation 90°/deep page, archived message anchor, and explicit custom blue palette survived guarded exit and executable relaunch | Same report; `restored-workspace.png` |
+| Guarded complete exit | `Ctrl+Shift+Q` → Cancel kept the process and unsaved file; a second request → Save all wrote the exact synthetic change before process exit | Same runtime report |
+| Actual local and SSH work | Native local LaTeX rendered a 30-page fixture. Native OpenSSH reached the loopback server and actual WSL Python/LaTeX; reconnect restored the SSH file/layout without importing the local archive | Same runtime report and isolated SSH host events; `ssh-restored.png` |
+| Appearance | Actual light/dark renders, English 200% UI, reduced-motion/forced-color media emulation, and custom-palette restart passed. At 1440×900 logical pixels the enlarged Send control remained within the viewport. Actual dark comment foreground/background contrast measured 6.74:1 | Same report and inspected renders |
+| Icon | RGBA app artwork has transparent outer corners; generated small Windows icon and light/dark composites were inspected. Source artwork and banner were unchanged | `artifacts/texypaper-0.0.2/transparent-icon-preview.png`, native renders |
+| Production distribution | Normal visible-start release/NSIS build passed with TexyPaper 0.0.2 version resources; the existing large-chunk warning remains. Both artifacts are unsigned | `artifacts/texypaper-release-0.0.2/release-manifest.json` |
+| Package integrity | 651 payload files in each distribution. All license/notices hashes match source, the portable executable matches the normal binary, and the extracted installer executable differs only by Tauri's three-byte `UNK` → `NSS` bundle marker. Hidden executables and the temporary verification script were removed | Same directory: `package-proof.json`, `SHA256SUMS.txt` |
+
+Runtime inspection exposed the dashboard Settings button's lost chrome selector, enlarged composer controls scrolling below the viewport, and fixed light-theme source colors on dark surfaces. These were corrected and exercised in the final native run. Earlier smoke attempts also exposed harness mistakes (a nonexistent Playwright focus helper, a guessed continuation selector, an exact wrapped-label match, and sampling layout before its debounced write); those failed attempts are not counted as passes.
+
+The chat transcript in this run was explicitly seeded synthetic history, **not a live model response**. Current Claude account/model metadata was read, but no paid inference or background model probe was performed. Reduced-motion/forced-color emulation is not a Windows accessibility certification, and the application UI's 200% setting is not a change to OS display scale.
+
+**Not re-exercised in this hidden run:** physical tray Open/double-click/Exit, active-build exit confirmation, live Codex/Claude inference, the full resource aggregate, uninstall or fresh-machine WebView2 bootstrap. macOS, signing, cloud accounts and cross-device settings sync are not supplied. Publication/package integrity and the explicitly requested local installation are separate checks; raw local evidence is not public source.
+
+## Previous release — TexyPaper 0.0.1
 
 Observed on Windows x64, 2026-11-06. Source and release: [HSoo-Kim/texypaper](https://github.com/HSoo-Kim/texypaper). The current observations below are separate from the pre-rebrand baseline.
 

@@ -28,4 +28,16 @@ describe('byte-preserving editor serialization',()=>{
     store.dispose();store.update(cached.path,cached.state!);store.notify();
     expect(store.records.size).toBe(0);expect(store.activePath).toBeNull();expect(notifications).toBe(0);
   });
+  it('records cursor/viewport changes without publishing document snapshots and ignores old epoch callbacks',()=>{
+    let notifications=0,positions=0;
+    const original={anchor:8,head:3,top:0,inset:14,left:0};
+    const store=new BufferStore({id:'workspace',environmentId:'local',root:'fixture',epoch:1},()=>{},()=>{},false,[{path:'paper.tex',position:original}],()=>{positions++;});
+    store.subscribe(()=>{notifications++;});
+    store.rememberPosition('paper.tex',{...original,head:6});
+    expect(store.readingPositions.get('paper.tex')?.head).toBe(6);expect(positions).toBe(1);expect(notifications).toBe(0);
+    store.rename('paper.tex','renamed.tex');
+    expect(store.readingPositions.has('paper.tex')).toBe(false);expect(store.readingPositions.get('renamed.tex')?.head).toBe(6);
+    store.dispose();store.rememberPosition('late.tex',original);
+    expect(store.readingPositions.size).toBe(0);expect(positions).toBe(2);
+  });
 });

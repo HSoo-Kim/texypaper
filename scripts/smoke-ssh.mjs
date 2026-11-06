@@ -27,9 +27,10 @@ async function localWorkspaceIdentity(page, expectedRoot) {
 }
 
 async function picker(page) {
-  if (!await page.getByTestId('workspace-path').isVisible().catch(() => false)) {
+  if (!await page.getByTestId('workspace-disclose').isVisible().catch(() => false)) {
     await page.getByTestId('workspace-switch').click();
   }
+  if (!await page.getByTestId('workspace-path').isVisible()) await page.getByTestId('workspace-disclose').click();
   await page.getByTestId('workspace-path').waitFor({ state: 'visible' });
 }
 
@@ -64,7 +65,18 @@ export async function connectSshUi(page, environment, root, { acceptUnknownHost 
   await environments.selectOption(value);
   await page.getByTestId('workspace-path').fill(root);
   const helper = page.getByTestId('ssh-helper-consent');
-  if (await helper.count()) await helper.check();
+  if (await helper.count()) {
+    assert(!await helper.isChecked(), 'Selecting an SSH environment silently reused helper consent.');
+    const beforeConsent = await workspaceIdentity(page);
+    await page.getByTestId('workspace-open').click();
+    await page.locator('.workspace-picker [role="alert"]').waitFor({ state: 'visible' });
+    assert(!await page.getByTestId('ssh-prompt').isVisible(), 'SSH authentication began before explicit helper consent.');
+    assert(JSON.stringify(await workspaceIdentity(page)) === JSON.stringify(beforeConsent), 'A project opened before explicit helper consent.');
+    await environments.selectOption('local');
+    await environments.selectOption(value);
+    assert(!await helper.isChecked(), 'Changing environments silently approved the helper.');
+    await helper.check();
+  }
   const prompts = [];
   const previousIdentity = await workspaceIdentity(page);
   let connectionFailure;

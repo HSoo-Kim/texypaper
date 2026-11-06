@@ -3,18 +3,20 @@ import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react'
 import { Compartment, EditorState, type Extension } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, rectangularSelection } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-import { bracketMatching, indentOnInput, StreamLanguage, syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
+import { bracketMatching, indentOnInput, StreamLanguage, syntaxHighlighting } from '@codemirror/language';
+import { classHighlighter } from '@lezer/highlight';
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { autocompletion, completionKeymap, type CompletionContext } from '@codemirror/autocomplete';
 import { stex } from '@codemirror/legacy-modes/mode/stex';
 import { BufferStore, byteToUtf16, selectionAnchor, type SourceSelection } from './buffers';
+import { clampEditorPosition } from '../state/readingPosition';
 import { Icon } from '../ui/Icon';
 import { runEditorCommand, type EditorCommand } from './editorCommands';
 export type { EditorCommand } from './editorCommands';
 import { undoDepth, redoDepth } from '@codemirror/commands';
 
-export type SourceEditorHandle = { focus:()=>void; position:()=>{line1:number;column1:number}; selectBytes:(start:number,end:number)=>void; selection:()=>SourceSelection|null; navigate:(line:number,column?:number)=>void; command:(name:EditorCommand)=>void; };
-type Props = {store:BufferStore;loading?:boolean;onSelection?:(selection:SourceSelection|null)=>void;onReady?:(handle:SourceEditorHandle|null)=>void;};
+export type SourceEditorHandle = { captureReadingPosition:()=>void;focus:()=>void; position:()=>{line1:number;column1:number}; selectBytes:(start:number,end:number)=>void; selection:()=>SourceSelection|null; navigate:(line:number,column?:number)=>void; command:(name:EditorCommand)=>void; };
+type Props = {store:BufferStore;loading?:boolean;visible?:boolean;onSelection?:(selection:SourceSelection|null)=>void;onReady?:(handle:SourceEditorHandle|null)=>void;};
 const language = new Compartment(), editable = new Compartment(), phrases=new Compartment();
 // StreamLanguage registers its Document node globally; reuse one instance without constructing it at launch.
 let texLanguage:Extension|undefined;
@@ -37,38 +39,44 @@ export async function languageFor(path:string):Promise<Extension> {
   if(extension==='md'){const {markdown}=await import('@codemirror/lang-markdown');return markdown();}
   return [];
 }
-export function SourceEditor({store,onSelection,onReady,loading=false}:Props) {
+export function SourceEditor({store,onSelection,onReady,loading=false,visible=true}:Props) {
   const {locale}=useI18n();
   const host=useRef<HTMLDivElement>(null),view=useRef<EditorView|null>(null),pathRef=useRef<string|null>(null);
+  const navigation=useRef(0),capture=useRef<()=>void>(()=>{}),shown=useRef(false);
   const callbacks=useRef({onSelection,onReady});callbacks.current={onSelection,onReady};
   useSyncExternalStore(store.subscribe,store.snapshot);
   useLayoutEffect(()=>{
     if(!host.current)return;
     const editor=new EditorView({parent:host.current,state:EditorState.create({extensions:[editorTheme]})});view.current=editor;
-    const handle:SourceEditorHandle={command:name=>{if(pathRef.current)runEditorCommand(editor,name);},focus:()=>editor.focus(),position:()=>{const head=editor.state.selection.main.head,line=editor.state.doc.lineAt(head);return {line1:line.number,column1:head-line.from+1};},selectBytes:(start,end)=>{const path=pathRef.current,record=path?store.records.get(path):undefined;if(!record)return;const raw=store.text(record),bom=record.document.encoding==='utf8Bom'?3:0;const toEditor=(byte:number)=>raw.slice(0,byteToUtf16(raw,Math.max(0,byte-bom))).replaceAll('\r\n','\n').replaceAll('\r','\n').length;const anchor=toEditor(start),head=toEditor(end);editor.dispatch({selection:{anchor,head},effects:EditorView.scrollIntoView(anchor,{y:'center'})});editor.focus();},selection:()=>{const path=pathRef.current,buffer=path?store.records.get(path):undefined;if(!buffer)return null;const {from,to}=editor.state.selection.main;return from===to?null:selectionAnchor(buffer,from,to);},navigate:(line,column=1)=>{const target=editor.state.doc.line(Math.max(1,Math.min(line,editor.state.doc.lines)));const position=Math.min(target.to,target.from+Math.max(0,column-1));editor.dispatch({selection:{anchor:position},effects:EditorView.scrollIntoView(position,{y:'center'})});editor.focus();}};
+    const remember=()=>{const path=pathRef.current;if(!path||!store.records.has(path))return;const {anchor,head}=editor.state.selection.main,previous=store.readingPositions.get(path);if(!editor.scrollDOM.getClientRects().length){store.rememberPosition(path,{anchor,head,top:previous?.top??0,inset:previous?.inset??0,left:previous?.left??0});return;}const top=editor.lineBlockAtHeight(editor.scrollDOM.scrollTop);store.rememberPosition(path,{anchor,head,top:top.from,inset:editor.scrollDOM.scrollTop-top.top,left:editor.scrollDOM.scrollLeft});};capture.current=remember;editor.scrollDOM.addEventListener('scroll',remember,{passive:true});
+    const handle:SourceEditorHandle={captureReadingPosition:remember,command:name=>{if(pathRef.current)runEditorCommand(editor,name);},focus:()=>editor.focus(),position:()=>{const head=editor.state.selection.main.head,line=editor.state.doc.lineAt(head);return {line1:line.number,column1:head-line.from+1};},selectBytes:(start,end)=>{navigation.current++;const path=pathRef.current,record=path?store.records.get(path):undefined;if(!record)return;const raw=store.text(record),bom=record.document.encoding==='utf8Bom'?3:0;const toEditor=(byte:number)=>raw.slice(0,byteToUtf16(raw,Math.max(0,byte-bom))).replaceAll('\r\n','\n').replaceAll('\r','\n').length;const anchor=toEditor(start),head=toEditor(end);editor.dispatch({selection:{anchor,head},effects:EditorView.scrollIntoView(anchor,{y:'center'})});editor.focus();},selection:()=>{const path=pathRef.current,buffer=path?store.records.get(path):undefined;if(!buffer)return null;const {from,to}=editor.state.selection.main;return from===to?null:selectionAnchor(buffer,from,to);},navigate:(line,column=1)=>{navigation.current++;const target=editor.state.doc.line(Math.max(1,Math.min(line,editor.state.doc.lines)));const position=Math.min(target.to,target.from+Math.max(0,column-1));editor.dispatch({selection:{anchor:position},effects:EditorView.scrollIntoView(position,{y:'center'})});editor.focus();}};
     callbacks.current.onReady?.(handle);
-    return()=>{callbacks.current.onReady?.(null);pathRef.current=null;editor.destroy();view.current=null;};
+    return()=>{remember();editor.scrollDOM.removeEventListener('scroll',remember);capture.current=()=>{};callbacks.current.onReady?.(null);pathRef.current=null;editor.destroy();view.current=null;};
   },[store]);
   const buffer=store.activePath?store.records.get(store.activePath):undefined;
   useLayoutEffect(()=>{
     // Workspace restoration may activate several cached buffers; only install the final visible document.
-    const editor=view.current;if(!editor||!buffer||loading)return;
-    if(pathRef.current===buffer.path && buffer.state===editor.state)return;
-    const previous=pathRef.current?store.records.get(pathRef.current):undefined;if(previous&&!previous.evicted&&pathRef.current!==buffer.path)previous.state=editor.state;
+    const editor=view.current;if(!editor||!buffer||loading||!visible){shown.current=false;return;}
+    if(shown.current&&pathRef.current===buffer.path&&buffer.state===editor.state)return;shown.current=true;
+    const previous=pathRef.current?store.records.get(pathRef.current):undefined;if(previous&&!previous.evicted&&pathRef.current!==buffer.path){capture.current();previous.state=editor.state;}
     pathRef.current=buffer.path;
     const complete=(context:CompletionContext)=>{
       const token=context.matchBefore(/[\w:.-]*/);if(!token||(!context.explicit&&token.from===token.to))return null;
       const keys=new Set<string>();for(const record of store.records.values()){const text=store.text(record);for(const match of text.matchAll(/(?:\\label\{([^}]+)\}|@[\w]+\s*\{\s*([^,\s]+))/g))keys.add(match[1]??match[2]);}
       return {from:token.from,options:[...keys].slice(0,2000).map(label=>({label,type:'constant'}))};
     };
-    if(!buffer.state)buffer.state=EditorState.create({doc:buffer.document.text,extensions:[phrases.of(EditorState.phrases.of(locale==='ko'?koreanPhrases:{})),...(buffer.document.newline==='crlf'?[EditorState.lineSeparator.of('\r\n')]:[]),lineNumbers(),highlightActiveLineGutter(),highlightSpecialChars(),history(),drawSelection(),rectangularSelection(),bracketMatching(),indentOnInput(),syntaxHighlighting(defaultHighlightStyle),highlightSelectionMatches(),autocompletion({override:[complete]}),keymap.of([...defaultKeymap,...historyKeymap,...searchKeymap,...completionKeymap,indentWithTab]),editorTheme,language.of([]),editable.of([EditorState.readOnly.of(buffer.document.readOnly),EditorView.editable.of(!buffer.document.readOnly)]),EditorView.lineWrapping,EditorView.domEventHandlers({compositionstart:()=>{if(pathRef.current)store.composition(pathRef.current,true);return false;},compositionend:()=>{if(pathRef.current)store.composition(pathRef.current,false);return false;}}),EditorView.updateListener.of(update=>{
+    if(!buffer.state)buffer.state=EditorState.create({doc:buffer.document.text,extensions:[phrases.of(EditorState.phrases.of(locale==='ko'?koreanPhrases:{})),...(buffer.document.newline==='crlf'?[EditorState.lineSeparator.of('\r\n')]:[]),lineNumbers(),highlightActiveLineGutter(),highlightSpecialChars(),history(),drawSelection(),rectangularSelection(),bracketMatching(),indentOnInput(),syntaxHighlighting(classHighlighter),highlightSelectionMatches(),autocompletion({override:[complete]}),keymap.of([...defaultKeymap,...historyKeymap,...searchKeymap,...completionKeymap,indentWithTab]),editorTheme,language.of([]),editable.of([EditorState.readOnly.of(buffer.document.readOnly),EditorView.editable.of(!buffer.document.readOnly)]),EditorView.lineWrapping,EditorView.domEventHandlers({compositionstart:()=>{if(pathRef.current)store.composition(pathRef.current,true);return false;},compositionend:()=>{if(pathRef.current)store.composition(pathRef.current,false);return false;}}),EditorView.updateListener.of(update=>{
       const path=pathRef.current;if(!path)return;const record=store.records.get(path);if(!record)return;
       if(update.docChanged)store.update(path,update.state,update.changes);else record.state=update.state;
       if(update.selectionSet||update.docChanged){const {from,to}=update.state.selection.main;callbacks.current.onSelection?.(from===to?null:selectionAnchor(record,from,to));}
+      if(update.selectionSet||update.docChanged){navigation.current++;const {anchor,head}=update.state.selection.main;const previous=store.readingPositions.get(path);store.rememberPosition(path,{top:previous?.top??0,inset:previous?.inset??0,left:previous?.left??0,anchor,head});}
     })]});
-    buffer.document.text='';editor.setState(buffer.state);editor.dispatch({effects:phrases.reconfigure(EditorState.phrases.of(locale==='ko'?koreanPhrases:{}))});const active=buffer.path;
-    void languageFor(active).then(extension=>{if(pathRef.current===active){editor.dispatch({effects:language.reconfigure(extension)});}});
-  },[buffer,buffer?.document,buffer?.state,store,loading]);
+    const restored=store.readingPositions.get(buffer.path),position=restored?clampEditorPosition(restored,buffer.state.doc.length):undefined;
+    if(position)buffer.state=buffer.state.update({selection:{anchor:position.anchor,head:position.head}}).state;
+    buffer.document.text='';editor.setState(buffer.state);editor.dispatch({effects:phrases.reconfigure(EditorState.phrases.of(locale==='ko'?koreanPhrases:{}))});const active=buffer.path,sequence=++navigation.current;
+    if(position)editor.requestMeasure({read:()=>view.current===editor&&pathRef.current===active&&navigation.current===sequence?editor.lineBlockAt(position.top).top:0,write:top=>{if(view.current!==editor||pathRef.current!==active||navigation.current!==sequence)return;editor.scrollDOM.scrollTop=Math.max(0,top+position.inset);editor.scrollDOM.scrollLeft=position.left;}});
+    void languageFor(active).then(extension=>{if(view.current===editor&&pathRef.current===active){editor.dispatch({effects:language.reconfigure(extension)});}});
+  },[buffer,buffer?.document,buffer?.state,store,loading,visible]);
   useEffect(()=>{view.current?.dispatch({effects:phrases.reconfigure(EditorState.phrases.of(locale==='ko'?koreanPhrases:{}))});},[locale]);
   const command=(name:EditorCommand)=>{const editor=view.current;if(!editor||!buffer||loading)return;runEditorCommand(editor,name);};
   const readOnly=!buffer||loading||buffer.document.readOnly;

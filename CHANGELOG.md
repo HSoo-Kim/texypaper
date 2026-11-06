@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.0.2 — 2026-11-07
+
+### Continuity and window behavior
+
+- Added **File → Exit TexyPaper** and `Ctrl+Shift+Q`, sharing the existing active-work and unsaved-change guards.
+- The first main-window close explains background operation and offers keep running in tray, complete exit, or cancel. Only the acknowledged native hide command saves the policy; subsequent closes hide both windows.
+- On Windows, another launch with the same user/profile restores the existing instance through a current-user-only, restore-only event. Exclusive profile locks and migration conflicts remain authoritative.
+- Restore workspace-scoped editor selection/scroll, PDF page/zoom/rotation, source/PDF split, sidebar widths and conversation history/message positions. Metadata is bounded and serialized in the client profile, including for SSH projects; execution permission and transmission consent are never restored from reading state.
+- Preserve chat reading anchors across native detach/dock and width reflow. A detached window created while its main owner is hidden stays hidden.
+
+### Interface and identity
+
+- Recent projects and Continue are primary on the start screen. Project and SSH forms expand on request, return keyboard focus when collapsed, and retain explicit SSH helper consent.
+- Quieter porcelain/navy surfaces and burgundy/rose accents in light/dark modes; explicit custom palettes are unchanged.
+- Removed the outer navy background from the supplied app icon and regenerated platform assets; the source artwork and banner are unchanged.
+- More readable transcript width and spacing, compact composer controls, concise model family/version labels, and expandable model-access details. A previously selected model missing from the catalog is shown as unavailable rather than silently replaced.
+- Source/PDF resizing keeps the pointer's grab offset. Pressed states avoid layout jumps and respect reduced-motion/contrast preferences.
+- Fixed the dashboard Settings button's chrome contrast after adding the File menu.
+- Keep composer controls visible within the enlarged UI's scrolling input area. Source syntax now uses theme-aware semantic colors instead of fixed light-theme colors, including readable comments on dark backgrounds.
+
+### Packaging and verification
+
+- Windows x64 NSIS and portable ZIP remain unsigned and include the complete license/notices payload. No macOS binary, cloud login/sync or automatic installer execution is added.
+- Scope Vitest to `src` so ignored exported source-audit trees are not accidentally included in release test totals.
+- Actual runtime checks and limitations are recorded separately in `docs/VERIFICATION.md`; historical 0.0.1 evidence is retained.
+
 ## 0.0.1 — 2026-11-06
 
 ### TexyPaper identity

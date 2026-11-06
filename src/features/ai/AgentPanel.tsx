@@ -6,16 +6,19 @@ import type { AppSettings } from '../../ui/theme';
 import { request, normalizeError } from '../../api';
 import type { Provider, ProviderStatus, ModelsResponse } from './ProviderSettings';
 import type { Proposal } from './ProposalReview';
-import type { AgentContext, AgentStatus, ChatAction, ChatSnapshot, ExecutionPermission, ExecutionRequest, HistoryRow } from './chatTypes';
+import type { AgentContext, AgentStatus, ChatAction, ChatReadingPosition, ChatSnapshot, ExecutionPermission, ExecutionRequest, HistoryRow } from './chatTypes';
 import { appendHistory, historyEventKey, historyFromEvents } from './chatHistory';
+import { isChatReadingPosition, isHistoryPage } from './chatBridge';
 import { ChatView } from './ChatView';
 import { useChatWindow } from './chatWindow';
 import './agents.css';
 export type { AgentContext } from './chatTypes';
 
-export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusyChange, onDetachedChange, context: incomingContext }: { workspace: WorkspaceRef; settings: AppSettings; onChanged?: (paths: string[]) => void; beforeStart?: () => Promise<boolean>; onBusyChange?: (busy: boolean) => void; onDetachedChange?: (detached: boolean) => void; context?: AgentContext }) {
-  const initialProvider = settings.ai?.provider ?? 'codex';
-  const [snapshot, setSnapshot] = useState<ChatSnapshot>(() => ({ workspace, provider: initialProvider, model: settings.ai?.models?.[initialProvider] ?? '', reasoningEffort: '', account: null, configuration: { models: [], allowCustom: false, loading: true, instructions: false, executable: settings.providerExecutables?.[initialProvider] ?? '', error: null }, prompt: '', disclosure: false, busy: false, status: 'idle', taskId: '', sessionId: '', loginUrl: '', error: null, history: [], proposals: [], proposalBusy: [], context: incomingContext ?? {}, pages: [], historyPage: 'current.jsonl', settingsOpen: false, executionPermission: 'ask', executions: [] }));
+export type AgentPanelProps = { workspace: WorkspaceRef; settings: AppSettings; onChanged?: (paths: string[]) => void; beforeStart?: () => Promise<boolean>; onBusyChange?: (busy: boolean) => void; onDetachedChange?: (detached: boolean) => void; context?: AgentContext; readingPosition?: ChatReadingPosition; onReadingPositionChange?: (position: ChatReadingPosition) => void };
+export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusyChange, onDetachedChange, context: incomingContext, readingPosition, onReadingPositionChange }: AgentPanelProps) {
+  const restoredPosition = isChatReadingPosition(readingPosition) ? readingPosition : undefined;
+  const initialProvider = restoredPosition?.provider ?? settings.ai?.provider ?? 'codex';
+  const [snapshot, setSnapshot] = useState<ChatSnapshot>(() => ({ workspace, provider: initialProvider, model: settings.ai?.models?.[initialProvider] ?? '', reasoningEffort: '', account: null, configuration: { models: [], allowCustom: false, loading: true, instructions: false, executable: settings.providerExecutables?.[initialProvider] ?? '', error: null }, prompt: '', disclosure: false, busy: false, status: 'idle', taskId: '', sessionId: '', loginUrl: '', error: null, history: [], proposals: [], proposalBusy: [], context: incomingContext ?? {}, pages: [], historyPage: restoredPosition?.historyPage ?? 'current.jsonl', historyLoading: true, readingPosition: restoredPosition, settingsOpen: false, executionPermission: 'ask', executions: [] }));
   const state = useRef(snapshot);
   const workspaceKey = `${workspace.id}:${workspace.epoch}`;
   const activeWorkspace = useRef(workspaceKey); activeWorkspace.current = workspaceKey;
@@ -23,7 +26,6 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
   const refreshRevision = useRef(0); const historyRevision = useRef(0);
   const modelsByProvider = useRef<Partial<Record<Provider, string>>>({ ...settings.ai?.models });
   const reasoningByProvider = useRef<Partial<Record<Provider, string>>>({ ...settings.ai?.reasoningEfforts });
-  const customModels = useRef<Partial<Record<Provider, boolean>>>({});
   const sessions = useRef<Partial<Record<Provider, string>>>({});
   const terminalTasks = useRef(new Set<string>());
   const taskTerminalVersion = useRef(0);
@@ -43,7 +45,7 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
   const persistence = useRef(Promise.resolve());
   const liveDuringHistory = useRef<AppEvent[] | null>(null);
   const listenerReady = useRef(Promise.withResolvers<void>());
-  const callbacks = useRef({ onChanged, beforeStart, onBusyChange }); callbacks.current = { onChanged, beforeStart, onBusyChange };
+  const callbacks = useRef({ onChanged, beforeStart, onBusyChange, onReadingPositionChange }); callbacks.current = { onChanged, beforeStart, onBusyChange, onReadingPositionChange };
   const executables = useRef<Partial<Record<Provider, string>>>({ ...settings.providerExecutables });
   const update = useCallback((change: Partial<ChatSnapshot> | ((previous: ChatSnapshot) => ChatSnapshot)) => {
     if (!mounted.current) return;
@@ -54,6 +56,7 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
     const next = candidate.busy === busy ? candidate : { ...candidate, busy };
     state.current = next; setSnapshot(next);
     if (next.busy !== previous.busy) callbacks.current.onBusyChange?.(next.busy);
+    if (next.readingPosition && next.readingPosition !== previous.readingPosition) callbacks.current.onReadingPositionChange?.(next.readingPosition);
   }, []);
   const valid = (key: string) => mounted.current && activeWorkspace.current === key;
   const configError = (caught: unknown) => update(previous => ({ ...previous, configuration: { ...previous.configuration, error: normalizeError(caught) } }));
@@ -81,7 +84,8 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
         if (!current()) return;
         const models = result.models;
         const selected = state.current.model;
-        const model = (!result.allowCustom || !customModels.current[provider]) && !models.some(row => row.id === selected) ? models[0]?.id ?? '' : selected;
+        // Refresh never silently replaces an explicit model choice.
+        const model = selected || models[0]?.id || '';
         const savedEffort = reasoningByProvider.current[provider] ?? '';
         const reasoningEffort = models.find(row => row.id === model)?.reasoningEfforts.some(row => row.value === savedEffort) ? savedEffort : '';
         modelsByProvider.current[provider] = model;
@@ -93,18 +97,35 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
     finally { if (current()) update(previous => ({ ...previous, configuration: { ...previous.configuration, loading: false } })); }
   }
   async function loadHistory(page = 'current.jsonl') {
+    if (!isHistoryPage(page)) return;
     const key = activeWorkspace.current; const revision = ++historyRevision.current;
+    const current = () => valid(key) && revision === historyRevision.current;
     liveDuringHistory.current = [];
+    update({ historyLoading: true });
     try {
-      const response = await request<{ events: AppEvent[]; pages: string[]; page?: string }>('agent_history', state.current.workspace, { page });
-      if (!valid(key) || revision !== historyRevision.current) return;
-      const actualPage = response.page ?? page;
+      type HistoryResponse = { events: AppEvent[]; pages: string[]; page?: string };
+      // Read the real page list first; a deleted saved page must not strand restoration.
+      let response = await request<HistoryResponse>('agent_history', state.current.workspace, { page: 'current.jsonl' });
+      if (!current()) return;
+      const selectedPage = response.pages.includes(page) ? page : 'current.jsonl';
+      if (selectedPage !== 'current.jsonl') {
+        try { response = await request<HistoryResponse>('agent_history', state.current.workspace, { page: selectedPage }); }
+        catch (caught) {
+          if (!current()) return;
+          if (normalizeError(caught).code !== 'HISTORY_PAGE_MISSING') throw caught;
+          response = await request<HistoryResponse>('agent_history', state.current.workspace, { page: 'current.jsonl' });
+        }
+      }
+      if (!current()) return;
+      const actualPage = response.page ?? 'current.jsonl';
       const received = new Set(response.events.map(historyEventKey));
       const pending = actualPage === 'current.jsonl' ? (liveDuringHistory.current ?? []).filter(event => !received.has(historyEventKey(event))) : [];
       flushPending.current?.();
       liveDuringHistory.current = null;
-      update({ history: historyFromEvents([...response.events, ...pending]), pages: response.pages, historyPage: actualPage });
-    } catch (caught) { if (valid(key) && revision === historyRevision.current) { liveDuringHistory.current = null; update({ error: normalizeError(caught) }); } }
+      const saved = state.current.readingPosition;
+      const position: ChatReadingPosition = saved?.historyPage === actualPage ? { ...saved, provider: state.current.provider } : { provider: state.current.provider, historyPage: actualPage, following: actualPage === 'current.jsonl', scrollTop: 0 };
+      update({ history: historyFromEvents([...response.events, ...pending]), pages: response.pages.filter(isHistoryPage), historyPage: actualPage, historyLoading: false, readingPosition: position });
+    } catch (caught) { if (current()) { liveDuringHistory.current = null; update({ historyLoading: false, error: normalizeError(caught) }); } }
   }
 
   useEffect(() => {
@@ -114,7 +135,8 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
     const ready = listenerReady.current;
     sessions.current = {}; terminalTasks.current.clear(); operation.current = null; starting.current = false; providerBusy.current = false; pendingStart.current = null; executionActions.current.clear(); permissionVersion.current++;
     executionVersions.current.clear(); executionRevision.current = 0;
-    update(previous => ({ ...previous, workspace, account: null, prompt: '', disclosure: false, busy: false, status: 'idle', taskId: '', sessionId: '', loginUrl: '', error: null, history: [], proposals: [], proposalBusy: [], context: incomingContext ?? {}, pages: [], historyPage: 'current.jsonl', executionPermission: 'ask', executions: [] }));
+    const provider = restoredPosition?.provider ?? settings.ai?.provider ?? 'codex';
+    update(previous => ({ ...previous, workspace, provider, model: modelsByProvider.current[provider] ?? '', account: null, prompt: '', disclosure: false, busy: false, status: 'idle', taskId: '', sessionId: '', loginUrl: '', error: null, history: [], proposals: [], proposalBusy: [], context: incomingContext ?? {}, pages: [], historyPage: restoredPosition?.historyPage ?? 'current.jsonl', historyLoading: true, readingPosition: restoredPosition, executionPermission: 'ask', executions: [] }));
     const append = (row: HistoryRow) => update(previous => previous.historyPage === 'current.jsonl' ? { ...previous, history: appendHistory(previous.history, row) } : previous);
     const flush = () => { window.clearTimeout(flushTimer); flushTimer = undefined; if (pending) { append(pending); pending = null; } };
     flushPending.current = flush;
@@ -171,7 +193,7 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
     };
     void listen<AppEvent>('texypaper:event', ({ payload }) => handleEvent(payload)).then(cleanup => {
       if (disposed) { cleanup(); ready.resolve(); return; }
-      unlisten = cleanup; ready.resolve(); void loadHistory();
+      unlisten = cleanup; ready.resolve(); void loadHistory(restoredPosition?.historyPage);
       const version = permissionVersion.current;
       void request<{ permission: ExecutionPermission; requests: ExecutionRequest[] }>('command_list', workspace).then(result => {
         if (disposed) return;
@@ -191,6 +213,7 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
   async function send() {
     const initial = state.current;
     if (initial.busy || !initial.prompt.trim() || !initial.disclosure || !initial.account?.subscription || initial.account.provider !== initial.provider || !initial.model || initial.configuration.loading) return;
+    if (!initial.configuration.allowCustom && !initial.configuration.models.some(row => row.id === initial.model)) return;
     if (initial.reasoningEffort && !initial.configuration.models.find(row => row.id === initial.model)?.reasoningEfforts.some(row => row.value === initial.reasoningEffort)) return;
     const key = activeWorkspace.current; const terminalVersion = taskTerminalVersion.current;
     providerGeneration.current++;
@@ -324,13 +347,12 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
       case 'provider':
         if (current.busy || current.configuration.loading || action.value === current.provider) break;
         refreshRevision.current++; modelsByProvider.current[current.provider] = current.model;
-        update({ provider: action.value, model: modelsByProvider.current[action.value] ?? '', reasoningEffort: '', disclosure: false, account: null, sessionId: sessions.current[action.value] ?? '', loginUrl: '', configuration: { models: [], allowCustom: false, loading: true, instructions: false, executable: executables.current[action.value] ?? '', error: null } }); persistSelection(); break;
+        update({ provider: action.value, model: modelsByProvider.current[action.value] ?? '', reasoningEffort: '', disclosure: false, account: null, sessionId: sessions.current[action.value] ?? '', loginUrl: '', error: null, readingPosition: { ...(current.readingPosition ?? { historyPage: current.historyPage, following: current.historyPage === 'current.jsonl', scrollTop: 0 }), provider: action.value }, configuration: { models: [], allowCustom: false, loading: true, instructions: false, executable: executables.current[action.value] ?? '', error: null } }); persistSelection(); break;
       case 'model':
         if (!current.busy && !current.configuration.loading && (current.configuration.allowCustom || current.configuration.models.some(row => row.id === action.value))) {
-          customModels.current[current.provider] = current.configuration.allowCustom && !current.configuration.models.some(row => row.id === action.value);
           const reasoningEffort = current.configuration.models.find(row => row.id === action.value)?.reasoningEfforts.some(row => row.value === current.reasoningEffort) ? current.reasoningEffort : '';
           modelsByProvider.current[current.provider] = action.value; reasoningByProvider.current[current.provider] = reasoningEffort;
-          update({ model: action.value, reasoningEffort }); persistSelection();
+          update({ model: action.value, reasoningEffort, error: null }); persistSelection();
         }
         break;
       case 'reasoning':
@@ -346,7 +368,10 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
       case 'login': void login(); break;
       case 'open-login': if (current.loginUrl) void invoke('open_external_url', { url: current.loginUrl }).catch(caught => { if (activeWorkspace.current === `${current.workspace.id}:${current.workspace.epoch}`) configError(caught); }); break;
       case 'save-executable': void saveExecutable(); break;
-      case 'history': if (!current.busy) void loadHistory(action.page); break;
+      case 'history': if (!current.busy && (action.page === 'current.jsonl' || current.pages.includes(action.page))) void loadHistory(action.page); break;
+      case 'reading-position':
+        if (!current.historyLoading && isChatReadingPosition(action.value) && action.value.provider === current.provider && action.value.historyPage === current.historyPage) update({ readingPosition: action.value });
+        break;
       case 'decide': void decide(action.id, action.decision); break;
       case 'undo': void decide(action.id, 'undo'); break;
       case 'execution-permission': void setExecutionPermission(action.value, action.acknowledged); break;

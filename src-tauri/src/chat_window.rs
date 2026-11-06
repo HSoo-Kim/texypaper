@@ -109,6 +109,8 @@ pub async fn chat_window_open(
     .min_inner_size(360.0, 480.0)
     .decorations(true)
     .resizable(true)
+    .visible(false)
+    .focused(false)
     .disable_drag_drop_handler()
     .data_directory(state.profile.clone())
     .on_navigation(move |url| {
@@ -162,6 +164,31 @@ pub async fn chat_window_open(
         }
         _ => {}
     });
+    // Creation can overlap main-window close. Decide visibility on the UI thread,
+    // after registration, so a late child cannot reappear over a hidden workspace.
+    let (shown, result) = tokio::sync::oneshot::channel();
+    let owner = app.clone();
+    app.run_on_main_thread(move || {
+        let outcome = (|| -> tauri::Result<()> {
+            if !crate::tray::is_exiting(&owner)
+                && let Some(main) = owner.get_webview_window("main")
+                && main.is_visible()?
+            {
+                chat.show()?;
+                chat.set_focus()?;
+            }
+            Ok(())
+        })();
+        if outcome.is_err() {
+            let _ = chat.destroy();
+        }
+        let _ = shown.send(outcome);
+    })
+    .map_err(window_error)?;
+    result
+        .await
+        .map_err(|_| denied("Chat visibility request was interrupted"))?
+        .map_err(window_error)?;
     Ok(())
 }
 
@@ -271,6 +298,9 @@ fn valid_action(action: &Value) -> bool {
         "model" => keys(&["type", "value"]) && bounded_text(action, "value", 2048),
         "executable" => keys(&["type", "value"]) && bounded_text(action, "value", 16384),
         "history" => keys(&["type", "page"]) && bounded_text(action, "page", 16384),
+        "reading-position" => {
+            keys(&["type", "value"]) && crate::state::valid_chat_reading_position(&action["value"])
+        }
         "undo" => keys(&["type", "id"]) && bounded_text(action, "id", 1024) && action["id"] != "",
         "decide" => {
             keys(&["type", "id", "decision"])
@@ -419,6 +449,35 @@ mod tests {
         assert!(!valid_action(
             &json!({ "type": "prompt", "value": "x".repeat(262145) })
         ));
+    }
+
+    #[test]
+    fn reading_position_cannot_smuggle_authority_or_paths() {
+        let mut action = json!({
+            "type": "reading-position",
+            "value": {
+                "provider": "claude",
+                "historyPage": "current.jsonl",
+                "following": false,
+                "scrollTop": 320,
+                "anchor": { "id": "message-7", "inset": 12 }
+            }
+        });
+        assert!(valid_action(&action));
+        action["value"]["executionPermission"] = json!("session");
+        assert!(!valid_action(&action));
+        action["value"]
+            .as_object_mut()
+            .unwrap()
+            .remove("executionPermission");
+        action["value"]["historyPage"] = json!("../other/current.jsonl");
+        assert!(!valid_action(&action));
+        action["value"]["historyPage"] = json!("current.jsonl");
+        action["value"]["scrollTop"] = json!(-1);
+        assert!(!valid_action(&action));
+        action["value"]["scrollTop"] = json!(320);
+        action["acknowledged"] = json!(true);
+        assert!(!valid_action(&action));
     }
 
     #[test]

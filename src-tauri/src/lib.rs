@@ -1,3 +1,4 @@
+pub mod activation;
 pub mod ai;
 pub mod chat_window;
 pub mod comments;
@@ -60,6 +61,12 @@ async fn app_settings(
         return Err(AppError::new(
             "INVALID_SETTINGS",
             "Settings must be an object of at most 64 KiB",
+        ));
+    }
+    if settings.get("trayCloseExplained").is_some() {
+        return Err(AppError::new(
+            "INVALID_SETTINGS",
+            "Tray acknowledgment can only be saved by app_hide_to_tray",
         ));
     }
     updates::validate_settings(&settings)?;
@@ -588,6 +595,15 @@ pub fn run() {
                 Ok(instance) => instance,
                 Err(error) => {
                     let running = error.code == "PROFILE_IN_USE";
+                    if running {
+                        match activation::request_existing(&directory) {
+                            // No settings, workspace controller or WebView has been
+                            // created in this launcher. Only the owner restores.
+                            Ok(true) => std::process::exit(0),
+                            Ok(false) => {}
+                            Err(error) => eprintln!("{}: {}", error.code, error.message),
+                        }
+                    }
                     let guidance = match error.code.as_str() {
                         "PROFILE_IN_USE" => "실행 중인 TexyPaper는 트레이에서 열 수 있습니다. 이전 앱은 트레이에서 완전히 종료하세요.\nOpen the running TexyPaper from its tray icon. Fully exit the legacy app before migration.",
                         "MIGRATION_CONFLICT" => "두 저장소를 모두 보존하고 백업한 뒤 충돌을 해결하세요. 자동 병합하거나 삭제하지 않았습니다.\nPreserve and back up both profiles before resolving the conflict. Neither was merged or deleted.",
@@ -605,6 +621,8 @@ pub fn run() {
                 }
             };
             let _ = INSTANCE_LOCK.set(instance);
+            let activation = activation::Listener::new(&directory)
+                .map_err(|error| std::io::Error::other(error.message))?;
             let profile = directory.join("webview");
             let state = Arc::new(
                 AppState::new(directory, open_path)
@@ -625,6 +643,16 @@ pub fn run() {
                 .data_directory(profile)
                 .build()?;
             tray::setup(app.handle())?;
+            let handle = app.handle().clone();
+            let activation = activation.start(move || {
+                let main_handle = handle.clone();
+                let _ = handle.run_on_main_thread(move || {
+                    if !tray::is_exiting(&main_handle) {
+                        let _ = tray::restore(&main_handle);
+                    }
+                });
+            }).map_err(|error| std::io::Error::other(error.message))?;
+            app.manage(activation);
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -632,7 +660,7 @@ pub fn run() {
                 match event {
                     tauri::WindowEvent::CloseRequested { api, .. } => {
                         api.prevent_close();
-                        tray::hide(window.app_handle());
+                        tray::close_requested(window.app_handle());
                     }
                     tauri::WindowEvent::Destroyed => chat_window::main_destroyed(window.app_handle()),
                     _ => {}
@@ -697,6 +725,7 @@ pub fn run() {
             chat_window::chat_window_action,
             chat_window::chat_window_snapshot,
             tray::app_quit,
+            tray::app_hide_to_tray,
             app_bootstrap,
             app_settings,
             update_status,
@@ -788,11 +817,17 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("TexyPaper runtime failed")
         .run(|app, event| {
-            if let tauri::RunEvent::ExitRequested { api, .. } = event
-                && !tray::authorized(app)
-            {
-                api.prevent_exit();
-                tray::request_quit(app);
+            match event {
+                tauri::RunEvent::ExitRequested { api, .. } if !tray::authorized(app) => {
+                    api.prevent_exit();
+                    tray::request_quit(app);
+                }
+                tauri::RunEvent::Exit => {
+                    if let Some(activation) = app.try_state::<activation::Server>() {
+                        activation.shutdown();
+                    }
+                }
+                _ => {}
             }
         });
 }

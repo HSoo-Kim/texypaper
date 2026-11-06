@@ -28,7 +28,11 @@ React는 파일시스템·임의 shell 권한을 갖지 않습니다. `src/api.t
 
 `chat_window.rs`와 `chatWindow.ts`의 메인 컨트롤러가 대화·초안·작업·승인 상태를 소유합니다. 분리 창은 순서가 있는 session/workspace/epoch별 UI intent만 보내고 제한된 상태 패치를 받습니다. 긴 응답은 기존 문자열을 재전송하지 않고 추가 text와 제거할 prefix를 전달합니다. 분리 창에는 editor/PDF/provider 컨트롤러를 만들지 않습니다. 메인 이외의 WebView는 `chat_window_ready`, `chat_window_action` 외 앱 command를 호출할 수 없습니다.
 
-`tray.rs`는 메인 X를 숨김으로 처리합니다. 메인과 분리 창을 보존하므로 작업과 권한 epoch가 유지됩니다. 트레이 복원은 기존 창을 다시 표시합니다. 명시적 종료만 main-targeted `texypaper:quit-requested`를 거치며 UI 저장/버리기/취소와 작업 중지 확인 뒤 main-only `app_quit`으로 진행합니다. native 종료 중에는 새 앱 작업을 막고, 실제 소유 프로세스·변경 작업의 종료를 확인한 뒤 workspace와 창을 닫습니다. 정리를 확인하지 못하면 앱을 유지하고 오류를 반환합니다.
+읽기 위치는 메인 소유 `ChatReadingPosition`으로 동기화합니다. `reading-position` intent와 native workspace metadata는 동일한 bounded validator로 검증하며 provider/history leaf/message anchor/scroll만 허용합니다. 권한·동의·session 키는 복원 payload에서 거부합니다. 메인이 숨겨져 있는 동안 생성한 분리 창도 숨김 상태를 유지합니다.
+
+`tray.rs`는 첫 메인 X를 막고 main-only `texypaper:tray-close-requested`로 설명을 요청합니다. main-only `app_hide_to_tray({acknowledge:true})`가 원자적으로 `trayCloseExplained`를 저장한 뒤 창들을 숨기며 일반 settings API로는 이를 설정할 수 없습니다. 이후 X는 메인·분리 창을 보존해 숨기므로 작업과 권한 epoch가 유지됩니다. 파일 메뉴·단축키·트레이의 명시적 종료는 같은 UI 저장/버리기/취소와 작업 중지 확인 뒤 main-only `app_quit`으로 진행합니다. native 종료 중에는 새 앱 작업을 막고, 실제 소유 프로세스·변경 작업의 종료를 확인한 뒤 workspace와 창을 닫습니다. 정리를 확인하지 못하면 앱을 유지하고 오류를 반환합니다.
+
+Windows의 `activation.rs`는 같은 사용자 SID와 canonical profile 경로의 hash로 이름을 만든 restore-only event를 사용합니다. 현재 사용자만 접근할 수 있는 DACL을 적용하고 어떤 파일 경로나 명령 payload도 받지 않습니다. exclusive profile lock의 `PROFILE_IN_USE`일 때만 기존 인스턴스에 복원을 요청합니다. 초기화 전 요청은 큐에 남고 종료 중 요청은 창을 다시 만들지 않습니다. 다른 profile과 migration conflict는 우회하지 않습니다.
 
 
 ### 주요 코드 경로
@@ -241,7 +245,7 @@ MCP 파일 읽기는 private key·`.env*`·credential·`.git` 내부·auth/histo
 | `%APPDATA%\dev.texypaper.desktop` 또는 `--data-dir` | 클라이언트 소유; 사용자별 격리 |
 | `settings.json`, `updates.json` | UI/환경/최근 경로와 update 상태 |
 | `webview/` | 해당 앱 세션의 전용 WebView2 profile |
-| `workspaces/<id>/state.json` | 탭/view/trash 등 metadata |
+| `workspaces/<id>/state.json` | 탭/view/trash, 파일별 커서·스크롤, PDF identity별 읽기 위치, 패널 layout, 대화 읽기 위치 |
 | `workspaces/<id>/recovery/` | 미저장 source와 base hash/불확실한 transaction ID |
 | app-data의 index/frontier/history/proposal/session 파일 | 필요한 부분만 읽는 cache·보이는 대화·승인/재개 기록 |
 | `providers/codex/` | 공식 CLI 소유 private account/config store; 토큰 직접 처리 금지 |
@@ -250,6 +254,8 @@ MCP 파일 읽기는 private key·`.env*`·credential·`.git` 내부·auth/histo
 | 프로젝트 `.texypaper/transactions/`, `trash/` | 복구/undo 원본, 명시적 삭제의 복원 자료 |
 | 프로젝트 `.texypaper/build/`, 클라이언트 artifact cache | host build와 범위 전송용 생성물 |
 | 서버 `~/.cache/texypaper/worker/<sha256>/` | 검증한 버전별 Python code; 상시 서비스 아님 |
+
+`WorkspaceStateWriter`는 workspace epoch별로 하나만 두고 소량의 UI metadata를 합쳐 직렬 기록합니다(600ms debounce). 전환·종료 전에 flush하며 scroll마다 소스 전체를 복사하거나 AppShell을 다시 렌더하지 않습니다. native에서 키·범위·상한을 재검증하고 전체 64KiB, editor 64개, PDF 16개로 제한합니다. 로컬과 SSH 모두 위 클라이언트 저장소를 사용합니다. PDF identity는 참고 경로·build ID·SHA-256이고 다른 artifact에 이전 좌표를 적용하지 않습니다. 파일의 명시적 탐색은 복원보다 우선하며 편집 권한·실행 허용·전송 동의는 저장된 읽기 위치에서 복원하지 않습니다.
 
 app-data에는 논문 일부·최근 서버 경로·대화·복구 내용·CLI 인증 상태가 포함될 수 있습니다. 문제 보고에 전체 디렉터리를 첨부하지 마세요. 설정 변경은 작은 JSON을 atomic write하며 프로젝트의 기존 `.gitignore`를 임의로 다시 쓰지 않습니다. 미해결 transaction/recovery를 일반 cache와 함께 삭제해서는 안 됩니다.
 

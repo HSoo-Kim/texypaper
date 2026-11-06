@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AppEvent } from '../../contracts';
 import type { HistoryRow } from './chatTypes';
-import { appendHistory, boundedHistory, historyFromEvents, MAX_HISTORY_BYTES, MAX_HISTORY_ROWS } from './chatHistory';
+import { appendHistory, boundedHistory, historyFromEvents, readingScrollTop, MAX_HISTORY_BYTES, MAX_HISTORY_ROWS } from './chatHistory';
 
 const row = (id: string, text: string): HistoryRow => ({ id, text, role: 'assistant', provider: 'codex', taskId: 'task-a' });
 
@@ -64,5 +64,26 @@ describe('bounded chat transcript', () => {
     ]);
     expect(rows.map(item => item.role)).toEqual(['assistant', 'tool', 'assistant']);
     expect(rows.map(item => item.text)).toEqual(['Before', 'read_file · main.tex', 'After']);
+  });
+});
+
+describe('transcript reading restoration', () => {
+  const rows = [row('first', 'First'), row('anchor', 'Reading here'), row('last', 'Latest')];
+  it('keeps the message and inset when detaching changes line wrapping', () => {
+    const position = { following: false, scrollTop: 140, anchor: { id: 'anchor', inset: 20 } };
+    expect(readingScrollTop(position, rows, [0, 120, 300], 700, 200)).toBe(140);
+    expect(readingScrollTop(position, rows, [0, 240, 600], 1200, 200)).toBe(260);
+  });
+  it('does not follow arriving output while reading an earlier message', () => {
+    const position = { following: false, scrollTop: 140, anchor: { id: 'anchor', inset: 20 } };
+    expect(readingScrollTop(position, rows, [0, 120, 300], 700, 200)).toBe(140);
+    expect(readingScrollTop(position, [...rows, row('incoming', 'Streaming')], [0, 120, 300, 700], 1400, 200)).toBe(140);
+    expect(readingScrollTop({ ...position, following: true }, rows, [0, 120, 300], 1400, 200)).toBe(1200);
+  });
+  it('falls back safely when retained history no longer contains the anchor', () => {
+    const position = { following: false, scrollTop: 900, anchor: { id: 'removed', inset: 50 } };
+    expect(readingScrollTop(position, rows, [0, 120, 300], 700, 200)).toBe(500);
+    expect(readingScrollTop({ ...position, anchor: { id: 'first', inset: -20 } }, rows, [0, 120, 300], 700, 200)).toBe(0);
+    expect(readingScrollTop(position, [], [], 0, 200)).toBe(0);
   });
 });

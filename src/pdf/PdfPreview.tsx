@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useRef,useState,type ReactNode} from 'react';
+import {useCallback,useEffect,useLayoutEffect,useRef,useState,type ReactNode} from 'react';
 import {GlobalWorkerOptions,getDocument,TextLayer,type PDFDataRangeTransport,type PDFDocumentProxy,type PDFDocumentLoadingTask,type PDFPageProxy,type PageViewport} from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import 'pdfjs-dist/web/pdf_viewer.css';
@@ -10,16 +10,17 @@ import {captureSelection,pdfRectToViewport,type PdfTextItem} from './selection';
 import {PageLifecycle} from './pageLifecycle';
 import {readPageSearchText,selectionTextStream} from './pageText';
 import {queueDocumentTeardown,waitForDocumentTeardown} from './documentLifecycle';
+import {clampPdfPosition,pdfReadingIdentity,type PdfReadingPosition} from '../state/readingPosition';
 import './pdf.css';
 import {useI18n} from '../ui/i18n';
 import {Icon} from '../ui/Icon';
 import {invoke} from '@tauri-apps/api/core';
 GlobalWorkerOptions.workerSrc=workerUrl;
-type Props={workspace:WorkspaceRef;manifest:BuildManifest|null;referencePath?:string;buildControls?:ReactNode;logs?:ReactNode;logsOpen?:boolean;onSelection?:(selection:unknown)=>void;onError?:(error:unknown)=>void;onNavigate?:(location:{path:string;line1:number})=>void;onManifest?:(manifest:BuildManifest)=>void;onReturnToBuild?:()=>void};
+type Props={workspace:WorkspaceRef;manifest:BuildManifest|null;referencePath?:string;visible?:boolean;readingPositions?:PdfReadingPosition[];onReadingPositionChange?:(position:PdfReadingPosition)=>void;buildControls?:ReactNode;logs?:ReactNode;logsOpen?:boolean;onSelection?:(selection:unknown)=>void;onError?:(error:unknown)=>void;onNavigate?:(location:{path:string;line1:number})=>void;onManifest?:(manifest:BuildManifest)=>void;onReturnToBuild?:()=>void};
 type PageEntry={layer:HTMLElement;viewport:PageViewport;view:number[];userUnit:number;items:PdfTextItem[]};
 type PdfMark={threadId:string;page:number;rects:number[][];status:string};
 type SyncTarget={page:number;h:number;v:number;W:number;H:number};
-export function PdfPreview({workspace,manifest,referencePath,buildControls,logs,logsOpen=false,onSelection,onError,onReturnToBuild}:Props){
+export function PdfPreview({workspace,manifest,referencePath,visible=true,readingPositions,onReadingPositionChange,buildControls,logs,logsOpen=false,onSelection,onError,onReturnToBuild}:Props){
  const {t}=useI18n();
  const artifactBuildId=referencePath?undefined:manifest?.buildId;
  const errorCallback=useRef(onError);errorCallback.current=onError;
@@ -29,6 +30,9 @@ export function PdfPreview({workspace,manifest,referencePath,buildControls,logs,
  const manifestHistory=useRef<{workspace:string;epoch:number;items:BuildManifest[]}>({workspace:workspace.id,epoch:workspace.epoch,items:[]});
  useEffect(()=>{const history=manifestHistory.current;if(history.workspace!==workspace.id||history.epoch!==workspace.epoch){history.workspace=workspace.id;history.epoch=workspace.epoch;history.items=[];setFallbackPair(null);setGateStatus('idle');}if(!manifest)return;history.items=[manifest,...history.items.filter(item=>item.rootTex!==manifest.rootTex)].slice(0,2);const ascii=history.items.find(item=>/^[\x00-\x7f]+$/.test(item.rootTex)),unicode=history.items.find(item=>/[^\x00-\x7f]/.test(item.rootTex));if(ascii&&unicode){setFallbackPair({asciiBuildId:ascii.buildId,unicodeBuildId:unicode.buildId});setGateStatus('idle');}},[workspace.id,workspace.epoch,manifest?.buildId]);
  const container=useRef<HTMLDivElement>(null),pages=useRef(new Map<number,PageEntry>()),budget=useRef(new RenderBudget()),cancelLoading=useRef<(()=>void)|null>(null),passwordReply=useRef<((password:string)=>void)|null>(null),searchAbort=useRef<AbortController|null>(null),position=useRef({page:1,fraction:0});
+ const reading=useRef({readingPositions,onReadingPositionChange});reading.current={readingPositions,onReadingPositionChange};
+ const documentIdentity=useRef<string|null>(null),pendingNavigation=useRef<{buildId:string;page:number}|null>(null);
+ const reportPosition=useCallback((position:PdfReadingPosition)=>reading.current.onReadingPositionChange?.(position),[]);
  const stoppers=useRef(new Map<number,()=>Promise<void>>());
  const fail=useCallback((cause:unknown)=>{let message=String(cause);if(cause instanceof Error)message=cause.message;else if(cause&&typeof cause==='object'&&'message'in cause)message=String(cause.message);setError(message);errorCallback.current?.(cause);},[]);
  useEffect(()=>{const node=container.current;if(!node)return;const observer=new ResizeObserver(([entry])=>setWidth(Math.max(100,entry.contentRect.width-40)));observer.observe(node);return()=>observer.disconnect();},[]);
@@ -45,6 +49,8 @@ export function PdfPreview({workspace,manifest,referencePath,buildControls,logs,
    }).catch(cause=>errorCallback.current?.(cause));
   };
   cancelLoading.current=dispose;
+  documentIdentity.current=null;position.current={page:1,fraction:0};setCurrent(1);setZoom(1);setFit(true);setRotation(0);
+  if(pendingNavigation.current&&(referencePath||pendingNavigation.current.buildId!==artifactBuildId))pendingNavigation.current=null;
   setLoading(true);setPdf(null);setError('');setMetadata(null);setMarks([]);setSyncTarget(null);pages.current.clear();window.getSelection()?.removeAllRanges();searchAbort.current?.abort();searchAbort.current=null;setResults([]);setSearching(false);passwordReply.current=null;setPassword(false);setPasswordValue('');
   const loading=async()=>{await waitForDocumentTeardown();if(stopped)return;try{
    const data=await request<ArtifactMetadata>('artifact_metadata',workspace,referencePath?{path:referencePath}:{buildId:artifactBuildId});if(stopped)return;if(!data.length)throw new Error('PDF_EMPTY');
@@ -53,7 +59,12 @@ export function PdfPreview({workspace,manifest,referencePath,buildControls,logs,
    task=getDocument({range:transport,rangeChunkSize:65536,disableAutoFetch:true,disableStream:true,disableWorkerRendering:true,enableHWA:true,enableXfa:false,cMapUrl:'/pdfjs/cmaps/',cMapPacked:true,standardFontDataUrl:'/pdfjs/standard_fonts/',wasmUrl:'/pdfjs/wasm/',useWorkerFetch:true});
    task.onPassword=(reply:(value:string)=>void)=>{if(stopped)return;passwordReply.current=reply;setPassword(true);};
    const document=await task.promise;if(stopped)return;const first=await document.getPage(1);if(stopped){first.cleanup();return;}const view=first.getViewport({scale:1});first.cleanup();
-   passwordReply.current=null;setPassword(false);setSize({width:view.width,height:view.height});setMetadata(data);setPdf(document);setCurrent(Math.min(document.numPages,position.current.page));setLoading(false);
+   const identity=pdfReadingIdentity(data.buildId,data.sha256,referencePath),saved=reading.current.readingPositions?.find(value=>value.identity===identity);
+   const restored=saved?clampPdfPosition(saved,document.numPages):{identity,page:1,fraction:0,zoom:1,fit:true,rotation:0};
+   const explicit=pendingNavigation.current;
+   if(explicit?.buildId===data.buildId){restored.page=Math.max(1,Math.min(document.numPages,explicit.page));restored.fraction=0;pendingNavigation.current=null;}
+   documentIdentity.current=identity;position.current={page:restored.page,fraction:restored.fraction};setZoom(restored.zoom);setFit(restored.fit);setRotation(restored.rotation);
+   passwordReply.current=null;setPassword(false);setSize({width:view.width,height:view.height});setMetadata(data);setPdf(document);setCurrent(restored.page);setLoading(false);
    window.dispatchEvent(new CustomEvent('texypaper:pdf-identity',{detail:{workspaceId:workspace.id,epoch:workspace.epoch,buildId:data.buildId,pdfSha256:data.sha256,referencePath,pageCount:document.numPages}}));
   }catch(cause){if(!stopped){setLoading(false);setPassword(false);fail(cause);dispose();}}};
   if(artifactBuildId!==undefined||referencePath)void loading();else setLoading(false);
@@ -62,10 +73,11 @@ export function PdfPreview({workspace,manifest,referencePath,buildControls,logs,
  useEffect(()=>{const listener=(event:Event)=>fail((event as CustomEvent).detail);window.addEventListener('texypaper:pdf-error',listener);return()=>window.removeEventListener('texypaper:pdf-error',listener);},[fail]);
  const scale=fit?width/(rotation%180?size.height:size.width):zoom;
  const pageWidth=(rotation%180?size.height:size.width)*scale,pageHeight=(rotation%180?size.width:size.height)*scale;
- useEffect(()=>{if(!pdf||!container.current)return;const node=container.current;const top=(current-1)*(pageHeight+24);if(Math.abs(node.scrollTop-top)>pageHeight)node.scrollTop=top+position.current.fraction*pageHeight;},[pdf]);
- function jump(page:number){const next=Math.max(1,Math.min(pdf?.numPages??1,page));setCurrent(next);position.current={page:next,fraction:0};container.current?.scrollTo({top:(next-1)*(pageHeight+24)});}
+ useLayoutEffect(()=>{if(!pdf||!container.current||!visible||logsOpen)return;const node=container.current;node.scrollTop=(position.current.page-1)*(pageHeight+24)+position.current.fraction*pageHeight;},[pdf,pageHeight,logsOpen,visible]);
+ useEffect(()=>{const identity=documentIdentity.current;if(!pdf||!identity)return;reportPosition({identity,...position.current,zoom,fit,rotation});},[pdf,zoom,fit,rotation,reportPosition]);
+ function jump(page:number){const next=Math.max(1,Math.min(pdf?.numPages??1,page));setCurrent(next);position.current={page:next,fraction:0};container.current?.scrollTo({top:(next-1)*(pageHeight+24)});const identity=documentIdentity.current;if(identity)reportPosition({identity,...position.current,zoom,fit,rotation});}
  useEffect(()=>{
-  const forward=(event:Event)=>{if(referencePath||!(event instanceof CustomEvent))return;const value:unknown=event.detail;if(!value||typeof value!=='object'||!('records'in value)||!Array.isArray(value.records)||!('buildId'in value)||value.buildId!==manifest?.buildId)return;for(const record of value.records){if(!record||typeof record!=='object')continue;if(typeof record.page==='number'&&typeof record.h==='number'&&typeof record.v==='number'&&typeof record.W==='number'&&typeof record.H==='number'&&[record.page,record.h,record.v,record.W,record.H].every(Number.isFinite)){setSyncTarget({page:record.page,h:record.h,v:record.v,W:record.W,H:record.H});if(metadata?.buildId===value.buildId)jump(record.page);else{position.current={page:record.page,fraction:0};setCurrent(record.page);}break;}}};
+  const forward=(event:Event)=>{if(referencePath||!(event instanceof CustomEvent))return;const value:unknown=event.detail;if(!value||typeof value!=='object'||!('records'in value)||!Array.isArray(value.records)||!('buildId'in value)||typeof value.buildId!=='string'||value.buildId!==manifest?.buildId)return;for(const record of value.records){if(!record||typeof record!=='object')continue;if(typeof record.page==='number'&&typeof record.h==='number'&&typeof record.v==='number'&&typeof record.W==='number'&&typeof record.H==='number'&&[record.page,record.h,record.v,record.W,record.H].every(Number.isFinite)){setSyncTarget({page:record.page,h:record.h,v:record.v,W:record.W,H:record.H});if(metadata?.buildId===value.buildId)jump(record.page);else{pendingNavigation.current={buildId:value.buildId,page:record.page};position.current={page:record.page,fraction:0};setCurrent(record.page);}break;}}};
   const comments=(event:Event)=>{if(!(event instanceof CustomEvent))return;const value:unknown=event.detail;if(!value||typeof value!=='object'||!('pdfSha256'in value)||value.pdfSha256!==metadata?.sha256||!('marks'in value)||!Array.isArray(value.marks))return;const next:PdfMark[]=[];for(const mark of value.marks){if(mark&&typeof mark==='object'&&typeof mark.threadId==='string'&&typeof mark.page==='number'&&Array.isArray(mark.rects)&&typeof mark.status==='string'){const rects=mark.rects.filter((rect:unknown):rect is number[]=>Array.isArray(rect)&&rect.length===4&&rect.every(n=>typeof n==='number'&&Number.isFinite(n)));next.push({threadId:mark.threadId,page:mark.page,rects,status:mark.status});}if(next.length>=1000)break;}setMarks(next);};
   window.addEventListener('texypaper:sync-forward',forward);window.addEventListener('texypaper:comment-marks',comments);
   return()=>{window.removeEventListener('texypaper:sync-forward',forward);window.removeEventListener('texypaper:comment-marks',comments);};
@@ -131,7 +143,7 @@ export function PdfPreview({workspace,manifest,referencePath,buildControls,logs,
   {error&&<div role="alert" className="pdf-error">{t('PDF를 표시할 수 없습니다. 연결 및 빌드 상태를 확인하세요.','The PDF could not be displayed. Check the connection and build status.')} <details><summary>{t('상세 정보','Details')}</summary>{error}</details><button onClick={()=>{void request('build_start',workspace,{rootTex:manifest?.rootTex,engine:manifest?.engine}).catch(fail);}}>{t('다시 빌드','Rebuild')}</button></div>}
   {loading&&<p role="status">{t('PDF 여는 중…','Opening PDF…')}</p>}
   {!pdf&&!loading&&!error&&<p className="pdf-empty">{t('TeX 문서를 빌드하거나 PDF 파일을 여세요.','Build a TeX document or open a PDF file.')}</p>}
-  <div ref={container} className="pdf-scroll" onPointerUp={selected} onKeyUp={event=>{if(event.key==='Shift')selected();if(event.key==='Escape')window.getSelection()?.removeAllRanges();}} onScroll={()=>{const node=container.current;if(!node||!pdf)return;const page=Math.max(1,Math.min(pdf.numPages,Math.floor((node.scrollTop+Math.min(node.clientHeight,pageHeight)*0.4)/(pageHeight+24))+1));position.current={page,fraction:Math.max(0,(node.scrollTop-(page-1)*(pageHeight+24))/pageHeight)};setCurrent(page);}}>
+  <div ref={container} className="pdf-scroll" onPointerUp={selected} onKeyUp={event=>{if(event.key==='Shift')selected();if(event.key==='Escape')window.getSelection()?.removeAllRanges();}} onScroll={()=>{const node=container.current,identity=documentIdentity.current;if(!node||!pdf||!identity||!node.getClientRects().length)return;const page=Math.max(1,Math.min(pdf.numPages,Math.floor(node.scrollTop/(pageHeight+24))+1));position.current={page,fraction:Math.max(0,Math.min(1,(node.scrollTop-(page-1)*(pageHeight+24))/pageHeight))};const visiblePage=Math.max(1,Math.min(pdf.numPages,Math.floor((node.scrollTop+Math.min(node.clientHeight,pageHeight)*0.4)/(pageHeight+24))+1));setCurrent(visiblePage);reportPosition({identity,...position.current,zoom,fit,rotation});}}>
    {pdf&&Array.from({length:pdf.numPages},(_,index)=>{const page=index+1;const mounted=retainedPages(current,pdf.numPages).includes(page);return <div key={page} className="pdf-page-slot" data-page={page} style={{width:pageWidth,height:pageHeight}}>{mounted&&<PdfPage document={pdf} number={page} scale={scale} rotation={rotation} visible={page===current} budget={budget.current} entries={pages.current} stoppers={stoppers.current} marks={marks.filter(mark=>mark.page===page).slice(0,30)} syncTarget={syncTarget?.page===page?syncTarget:null} onError={fail}/>}</div>;})}
   </div>
   </div>
