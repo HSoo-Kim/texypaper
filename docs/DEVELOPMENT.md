@@ -34,7 +34,7 @@ pnpm tauri build --ci --target x86_64-pc-windows-msvc --bundles nsis -- --locked
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows-build.ps1
 ```
 
-The executable is configured to land at `src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.exe` and the NSIS package at `bundle/nsis/TexyPaper_0.0.6_x64-setup.exe` under the same release folder (a set `CARGO_TARGET_DIR` takes precedence). Whether they were actually produced, and how the installer behaves, must be checked separately.
+The executable is configured to land at `src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.exe` and the NSIS package at `bundle/nsis/TexyPaper_0.0.7_x64-setup.exe` under the same release folder (a set `CARGO_TARGET_DIR` takes precedence). Whether they were actually produced, and how the installer behaves, must be checked separately.
 
 ```powershell
 $app = (Resolve-Path 'src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.exe').Path
@@ -69,10 +69,10 @@ The standard memory verdict is taken at a real Windows display scale of 100%. To
 To also check installation, name the NSIS executable you built exactly. If a TexyPaper installation already exists, the isolated install check refuses rather than overwrite it.
 
 ```powershell
-pnpm smoke:desktop --binary $app --installer 'C:\Builds\TexyPaper_0.0.6_x64-setup.exe' --output (Join-Path $run 'installer-desktop')
+pnpm smoke:desktop --binary $app --installer 'C:\Builds\TexyPaper_0.0.7_x64-setup.exe' --output (Join-Path $run 'installer-desktop')
 ```
 
-The installer path above is an example input you must replace with the file you actually built. The integrated run below also opens visible windows and needs the user's permission; it requires the installed tools and an NSIS artifact named exactly `TexyPaper_0.0.6_x64-setup.exe`.
+The installer path above is an example input you must replace with the file you actually built. The integrated run below also opens visible windows and needs the user's permission; it requires the installed tools and an NSIS artifact named exactly `TexyPaper_0.0.7_x64-setup.exe`.
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows-build.ps1 -RunSmoke -LiveAgents -MeasureMemory -OutputDirectory (Join-Path $env:TEMP ('texypaper-full-' + [guid]::NewGuid().ToString('N')))

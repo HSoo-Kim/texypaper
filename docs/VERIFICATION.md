@@ -1,8 +1,26 @@
-# Verification — TexyPaper 0.0.6
+# Verification — TexyPaper 0.0.7
 
 Evidence is generated under ignored `artifacts/` directories. The scripts use isolated synthetic papers and app-data; no user paper is a writable fixture. A passing unit suite is not presented as proof of a desktop, SSH, model or installer interaction.
 
-## Current release — TexyPaper 0.0.6 / 현재 릴리스
+## Current release — TexyPaper 0.0.7 / 현재 릴리스
+
+Observed on Windows x64, 2026-11-08 (KST). This release only returns the editor's line numbers to the Overleaf rule (CodeMirror's own gutter: one number per source line on its first row, nothing on wrapped rows) and removes the `↳` rows added in 0.0.6. No native source changed. Runtime checks used a separately compiled hidden-start verification binary of the 0.0.7 source (no baked-in update feed); the distributed binaries are normal-start builds. All fixtures and profiles were synthetic and isolated; no real paper or normal account store was used.
+
+| Exercise | Observed result | Evidence |
+| --- | --- | --- |
+| Frontend | TypeScript check passed; 446 tests across 33 files passed (the wrapped-gutter helper and its tests were removed with it) | `pnpm typecheck`, `pnpm test` |
+| Feature suite | All 7 scenarios passed in the real WebView2 app. The line number scenario waits for CodeMirror's measured heights, then requires exactly `1`…`6` in the number column, source line 4 spanning three rows while every other line is one row, the same single number after the window is narrowed, a separate number-column background with a divider, and the Home button border only on hover | `artifacts/features-007-02/features-results.json`, `wrapped-line-numbers.png`, `home-button-hover.png` |
+| Usability suite | All 14 scenarios passed | `artifacts/usability-007-01/usability-results.json` |
+| Existing desktop suite | All 23 scenarios passed in two runs. Two earlier runs on the same binary did not: one lost its app window mid-run (“Target page, context or browser has been closed”) and one could not reach the native PDF save dialog (`NATIVE_DIALOG_UNAVAILABLE`); both use desktop automation that another window or process can disturb, and I did not establish what happened | `artifacts/desktop-007-03/`, `artifacts/desktop-007-04/` (passed); `desktop-007-01/`, `desktop-007-02/` (not counted) |
+| SSH suite | 6 consecutive runs of all 13 scenarios passed | `artifacts/ssh-007-01/` … `ssh-007-06/` |
+| Production distribution | Normal visible-start release and NSIS build with the production release feed. Executable and installer report TexyPaper 0.0.7 and are unsigned | `artifacts/texypaper-release-0.0.7/release-manifest.json`, `SHA256SUMS.txt` |
+| Package integrity | 655 files in the portable ZIP; every license/notices file matches source in both distributions and the ZIP executable equals the normal release executable. The executable inside the installer differs from it only in Tauri's three-byte bundle marker (`UNK` → `NSS`), confirmed by replacing the marker | `package-proof.json` |
+
+What Overleaf does, checked in its public source (`services/web/frontend/js/features/source-editor/extensions/line-numbers.ts`): it wraps CodeMirror's built-in `lineNumbers()` and only adds a gutter mouse handler that selects lines; it draws no marker on wrapped rows. TexyPaper does not copy that mouse handler.
+
+**Not exercised:** the installed 0.0.7 app is exercised only by being launched on the user's profile; clicking a line number to select the line (Overleaf's gutter handler) is not implemented here; the 0.0.5 limits below (Windows English dictionary branch, real Explorer drag and clipboard paste, Korean template compile, whole-app memory, 100% scale, live provider inference, tray, uninstall) still apply. macOS, signing, cloud accounts and cross-device sync are not supplied.
+
+## Previous release — TexyPaper 0.0.6 / 이전 릴리스
 
 Observed on Windows x64, 2026-11-08 (KST). This release changes the editor number column, the Home button and the "show in PDF" marker, and fixes two editor-state defects found while verifying 0.0.5. No native (Rust) source changed, so the 0.0.5 native results below still apply. Runtime checks used a separately compiled hidden-start verification binary of the 0.0.6 source (no baked-in update feed); the distributed binaries are normal-start builds. All fixtures and profiles were synthetic and isolated; no real paper or normal account store was used.
 
@@ -22,7 +40,7 @@ Harness mistakes found and fixed, not counted as passes: the SSH conflict step w
 
 **Not exercised:** the fade itself was not inspected frame by frame (the suite checks that the marker is gone and the stylesheet defines the fade); the Home hover state was checked by computed style and one render, not on a high-contrast or forced-colors theme; the installed 0.0.6 app is exercised only by being launched on the user's profile; the 0.0.5 limits below (Windows English dictionary branch, real Explorer drag and clipboard paste, Korean template compile, whole-app memory, 100% scale, live provider inference, tray, uninstall) still apply. macOS, signing, cloud accounts and cross-device sync are not supplied.
 
-## Previous release — TexyPaper 0.0.5 / 이전 릴리스
+## Earlier release — TexyPaper 0.0.5 / 이전 릴리스
 
 Observed on Windows x64, 2026-11-07 (KST). This release adds English spell check and word count, a bundled English dictionary fallback, project-wide replace, drop/paste figure import, checkpoints, paper templates and “Ask AI about this error”. Runtime checks used a separately compiled hidden-start verification binary of the 0.0.5 source (no baked-in update feed); the distributed binaries are normal-start builds. All fixtures and profiles were synthetic and isolated; no real paper or normal account store was used.
 

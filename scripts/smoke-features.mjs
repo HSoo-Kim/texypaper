@@ -91,21 +91,24 @@ try {
 
   await scenario('line-numbers-gutter-and-home-button', async () => {
     await quickOpen(page, 'spell-demo.tex');
+    // Overleaf rule: one number per source line on its first row; rows a long line wraps onto carry no number and no mark.
     const rows = () => page.locator('.cm-lineNumbers .cm-gutterElement').evaluateAll(elements => elements
       .filter(element => getComputedStyle(element).visibility !== 'hidden')
-      .map(element => ({ number: element.querySelector('.cm-wrapped-number')?.firstChild?.textContent ?? null, wrap: element.querySelector('.cm-wrapped-number')?.getAttribute('data-wrap') ?? null }))
-      .filter(row => row.number !== null));
-    const first = await waitFor(async () => { const value = await rows(); return value.length >= 6 ? value : false; }, { timeoutMs: 15000, label: 'line numbers rendered' });
-    assert(first.map(row => row.number).join(',') === '1,2,3,4,5,6', `Every source line keeps its own number: ${JSON.stringify(first)}`);
-    const wrapped = first.filter(row => row.wrap);
-    assert(wrapped.length === 1 && wrapped[0].number === '4' && wrapped[0].wrap.split('\n').every(mark => mark === '↳'), `Only the wrapped line 4 carries continuation marks: ${JSON.stringify(first)}`);
-    const activeNumber = await page.locator('.cm-lineNumbers .cm-activeLineGutter').first().innerText();
-    assert(/^\d+$/.test(activeNumber), `A wrapped marker must not leak into the number text: ${JSON.stringify(activeNumber)}`);
+      .map(element => ({ text: element.textContent?.trim() ?? '', height: element.getBoundingClientRect().height })));
+    const first = await waitFor(async () => {
+      const value = await rows();
+      if (value.length < 6) return false;
+      // The heights are estimates until CodeMirror has measured the freshly opened file.
+      const single = value[0].height;
+      return value.every((row, index) => index === 3 ? row.height / single >= 2.5 : Math.abs(row.height - single) < 1) ? value : false;
+    }, { timeoutMs: 20000, label: 'line numbers rendered with measured heights' });
+    assert(first.map(row => row.text).join(',') === '1,2,3,4,5,6', `Every source line keeps its own number and nothing else is drawn: ${JSON.stringify(first)}`);
+    const single = first[0].height, spans = first[3].height / single;
     await shot('wrapped-line-numbers');
-    // Narrowing the window wraps line 4 into more rows; the marks follow the layout.
-    const before = wrapped[0].wrap.split('\n').length;
+    // Narrowing the window wraps line 4 into more rows; its single number stays.
     await page.setViewportSize({ width: 1100, height: 900 });
-    await waitFor(async () => (await rows()).find(row => row.number === '4')?.wrap?.split('\n').length > before, { timeoutMs: 15000, label: 'more continuation marks after narrowing' });
+    await waitFor(async () => { const value = await rows(); return value[3]?.text === '4' && value[3].height / single > spans + 0.5; }, { timeoutMs: 15000, label: 'line 4 spans more rows after narrowing' });
+    assert((await rows()).map(row => row.text).join(',') === '1,2,3,4,5,6', 'Narrowing must not add numbers or marks');
     await page.setViewportSize({ width: 1440, height: 900 });
     const gutter = await page.locator('.cm-gutters').evaluate(element => {
       const style = getComputedStyle(element), editor = getComputedStyle(element.closest('.cm-editor'));
@@ -120,7 +123,7 @@ try {
     await waitFor(async () => !/rgba\(0, 0, 0, 0\)|transparent/.test(await border()), { timeoutMs: 5000, label: 'Home button shows its border on hover' });
     await shot('home-button-hover');
     await page.mouse.move(700, 450);
-    return { rows: first.length, continuationRows: before, gutter };
+    return { rows: first.length, line4Rows: Math.round(spans), gutter };
   });
 
   await scenario('ask-ai-about-build-error', async () => {

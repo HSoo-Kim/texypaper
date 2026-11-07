@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.7 — 2026-11-08
+
+### Editor
+
+- Line numbers follow Overleaf again. Overleaf uses CodeMirror's own line number gutter, which numbers each source line once, on its first row, and leaves the rows a long line wraps onto without a number or mark. The muted `↳` rows added in 0.0.6 are removed. The number column keeps its own background and divider and the highlighted current-line number from 0.0.6. The features suite now checks that exactly `1`…`6` are drawn, that only the wrapped source line spans several rows and that it spans more rows in a narrower window.
+
 ## 0.0.6 — 2026-11-08
 
 ### Editor and PDF

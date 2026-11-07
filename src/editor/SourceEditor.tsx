@@ -1,9 +1,7 @@
 import { t, useI18n } from '../ui/i18n';
 import { useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { Compartment, EditorState, type Extension } from '@codemirror/state';
-import { EditorView, highlightActiveLineGutter, highlightSpecialChars, drawSelection } from '@codemirror/view';
-// Source line numbers on the first row of a wrapped line, a muted "↳" on the following rows.
-import { wrappedLineNumbers as lineNumbers } from './wrappedLineNumbers';
+import { EditorView, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection } from '@codemirror/view';
 import { history } from '@codemirror/commands';
 import { bracketMatching, indentOnInput, StreamLanguage, syntaxHighlighting } from '@codemirror/language';
 import { classHighlighter } from '@lezer/highlight';
@@ -35,7 +33,6 @@ const editorTheme = EditorView.theme({
   '.cm-scroller':{fontFamily:'ui-monospace, "Cascadia Code", Consolas, monospace',lineHeight:'1.65'},
   '.cm-content':{padding:'1rem 0'}, '.cm-gutters':{background:'var(--sidebar)',color:'var(--secondary)',border:'none',borderRight:'1px solid var(--border)'},
   '.cm-activeLineGutter':{backgroundColor:'var(--selection)',color:'var(--text)'},
-  '.cm-wrapped-number[data-wrap]::after':{content:'attr(data-wrap)',display:'block',whiteSpace:'pre',opacity:'0.5'},
   '.cm-line':{padding:'0 1rem'}, '.cm-cursor':{borderLeftColor:'var(--text)'},
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection':{backgroundColor:'var(--selection)'},
   '.cm-panels':{background:'var(--sidebar)',color:'var(--text)'},
