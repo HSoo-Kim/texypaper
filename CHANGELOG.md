@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Documentation
+
+- The README is restructured into the usual project-page layout (header and badges, Key Capabilities, Quick Start, requirements, deep dives, features, shortcuts, data and compatibility, build, layout, license) and is available in English, Korean, Simplified Chinese and Japanese (`README.md`, `README.ko.md`, `README.zh-CN.md`, `README.ja.md`). Comparisons with and statements about other tools were removed.
+- Build, packaging, real-app smoke, memory measurement and the one-time Paperdock migration notes moved to `docs/DEVELOPMENT.md` (English) and `docs/DEVELOPMENT.ko.md` (Korean) without changing their content.
+
 ## 0.0.4 — 2026-11-07
 
 ### Explorer
