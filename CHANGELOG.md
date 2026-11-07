@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.4 — 2026-11-07
+
+### Explorer
+
+- Folder icons now follow the name-driven convention instead of one blue folder: a neutral blue-gray default for unknown names, and a distinct color plus a small glyph for common roles (docs, source, tests, results, figures, sections, paper/TeX, references). More names map to those roles (`plots`, `tables`, `appendix`, `bibliography`, `notes`, `lib`, `tex` and others); `node_modules`, `.git`, `.vscode` and similar tool folders stay dimmed. The artwork is original; folder color is cosmetic and is never evidence that a folder holds a paper.
+
 ## 0.0.3 — 2026-11-07
 
 ### Home, panes and navigation

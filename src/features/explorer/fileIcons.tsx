@@ -1,4 +1,4 @@
-import { memo, useId } from 'react';
+import { memo } from 'react';
 import './fileIcons.css';
 
 type FileKind = 'file' | 'directory' | 'symlink';
@@ -17,12 +17,15 @@ const extensions: Readonly<Record<string, FileIcon | undefined>> = {
 };
 const folders: Readonly<Record<string, FolderIcon | undefined>> = {
   figures: 'figures', figure: 'figures', images: 'figures', img: 'figures', assets: 'figures', pics: 'figures',
-  code: 'code', src: 'code', scripts: 'code', results: 'results', data: 'results', output: 'results', outputs: 'results', out: 'results',
-  sections: 'sections', chapters: 'sections', chapter: 'sections', parts: 'sections',
-  paper: 'paper', papers: 'paper', manuscript: 'paper', draft: 'paper', docs: 'docs', doc: 'docs', tests: 'tests', test: 'tests',
-  refs: 'references', references: 'references', bib: 'references',
-  node_modules: 'excluded', '.venv': 'excluded', venv: 'excluded', __pycache__: 'excluded', build: 'excluded', dist: 'excluded', target: 'excluded',
-  '.git': 'muted', '.texypaper': 'muted', '.paperdock': 'muted',
+  plots: 'figures', plot: 'figures', graphics: 'figures', pictures: 'figures', photos: 'figures', media: 'figures',
+  code: 'code', src: 'code', scripts: 'code', lib: 'code', utils: 'code', tools: 'code', notebooks: 'code',
+  results: 'results', data: 'results', output: 'results', outputs: 'results', out: 'results', tables: 'results', experiments: 'results', runs: 'results',
+  sections: 'sections', chapters: 'sections', chapter: 'sections', parts: 'sections', appendix: 'sections', appendices: 'sections', content: 'sections',
+  paper: 'paper', papers: 'paper', manuscript: 'paper', draft: 'paper', tex: 'paper', latex: 'paper',
+  docs: 'docs', doc: 'docs', documentation: 'docs', notes: 'docs', supplementary: 'docs', supplement: 'docs', tests: 'tests', test: 'tests',
+  refs: 'references', references: 'references', bib: 'references', bibliography: 'references', bibs: 'references', literature: 'references',
+  node_modules: 'excluded', '.venv': 'excluded', venv: 'excluded', __pycache__: 'excluded', build: 'excluded', dist: 'excluded', target: 'excluded', '.cache': 'excluded',
+  '.git': 'muted', '.texypaper': 'muted', '.paperdock': 'muted', '.vscode': 'muted', '.idea': 'muted', '.github': 'muted',
 };
 
 function basename(name: string): string {
@@ -47,7 +50,7 @@ export function fileIconId(kind: FileKind, name: string, open = false): string {
 }
 
 // Original 8×8 marks, drawn for this icon family rather than taken from an icon set.
-function Mark({ type }: { type: FileIcon | 'check' | 'chart' | 'book' | 'panes' | 'code' }) {
+function Mark({ type }: { type: FileIcon | 'check' | 'chart' | 'book' | 'code' }) {
   switch (type) {
     case 'tex': return <path d="M.8 1.5h4.4M3 1.5v5M1.7 6.5h2.6M5 4h2M5 4v2.5h2M5 5.3h1.5" />;
     case 'bib': return <path d="M1 2h2v2H1l1 2M5 2h2v2H5l1 2" />;
@@ -73,7 +76,6 @@ function Mark({ type }: { type: FileIcon | 'check' | 'chart' | 'book' | 'panes' 
     case 'check': return <path d="m1 4 2 2 4-4" />;
     case 'chart': return <path d="M1 1v6h6M3 5V4M5 5V2M7 5V.8" />;
     case 'book': return <><path d="M4 2C3 1.3 1.8 1.2.5 1.5v5C2 6.2 3 6.3 4 7c1-.7 2-1 3.5-.5v-5C6.2 1.2 5 1.3 4 2ZM4 2v5" /></>;
-    case 'panes': return <path d="M1 1h2v2H1zM5 1h2v2H5zM1 5h2v2H1zM5 5h2v2H5z" fill="currentColor" stroke="none" />;
     case 'code': return <path d="m2.5 1.5-2 2.5 2 2.5M5.5 1.5l2 2.5-2 2.5" />;
     case 'text':
     case 'build': return <path d="M1 2h6M1 4h6M1 6h4" />;
@@ -81,22 +83,19 @@ function Mark({ type }: { type: FileIcon | 'check' | 'chart' | 'book' | 'panes' 
   }
 }
 
-const folderMarks = {
-  default: 'panes', figures: 'image', code: 'code', results: 'chart', sections: 'text', paper: 'tex', docs: 'book',
-  tests: 'check', references: 'bib', excluded: 'panes', muted: 'panes',
-} as const;
+// Folders follow the usual name-driven convention: a role color, plus a small glyph on the front for known names.
+// Unknown names stay a neutral blue-gray folder; excluded and tool folders keep it and are dimmed in CSS.
+const folderMarks: Readonly<Partial<Record<FolderIcon, FileIcon | 'check' | 'chart' | 'book' | 'code'>>> = {
+  figures: 'image', code: 'code', results: 'chart', sections: 'text', paper: 'tex', docs: 'book', tests: 'check', references: 'bib',
+};
 
 function FolderArtwork({ type, open }: { type: FolderIcon; open: boolean }) {
-  // One small gradient per folder, scoped by React: repeated and recycled rows cannot collide.
-  const gradient = `folder-paint-${useId()}`;
+  const mark = folderMarks[type];
   return <>
-    <defs><linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1"><stop stopColor="var(--folder-top)" /><stop offset="1" stopColor="var(--folder-bottom)" /></linearGradient></defs>
-    <path className="file-icon-tab" d="M1 4V3a1 1 0 0 1 1-1h3.6L7 3.5h6a1 1 0 0 1 1 1V12H1Z" fill="var(--folder-tab)" />
-    {open && <path className="file-icon-sheet" d="M2 5h11v6H2Z" fill="#d3eaff" />}
-    <path className="file-icon-body" d={open ? 'M2.5 5.5h12a.7.7 0 0 1 .7.9L13.7 13H1.5L.8 6.6a1 1 0 0 1 1-1.1Z' : 'M1 4.5h5L7.3 6H14v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1Z'} fill={`url(#${gradient})`} stroke="var(--folder-edge)" strokeWidth=".55" />
-    <path className="file-icon-highlight" d={open ? 'M2 6.3h11.7' : 'M2 5.4h3.6L7 6.8h6'} fill="none" stroke="#fff" strokeOpacity=".35" strokeWidth=".65" />
-    {type !== 'default' && type !== 'excluded' && type !== 'muted' && <rect className="file-icon-badge" x="5" y="6.5" width="7.5" height="6.5" rx="1" fill="var(--folder-badge)" />}
-    <g className="file-icon-mark" transform="translate(5.6 7) scale(.75)" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"><Mark type={folderMarks[type]} /></g>
+    <path className="file-icon-tab" d="M1 4V3a1 1 0 0 1 1-1h3.6L7 3.5h6a1 1 0 0 1 1 1V12H1Z" fill="var(--folder-back)" stroke="var(--folder-edge)" strokeWidth=".55" />
+    {open && <path className="file-icon-sheet" d="M2 5h11v6H2Z" fill="#fff" fillOpacity=".75" />}
+    <path className="file-icon-body" d={open ? 'M2.5 5.5h12a.7.7 0 0 1 .7.9L13.7 13H1.5L.8 6.6a1 1 0 0 1 1-1.1Z' : 'M1 4.5h5L7.3 6H14v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1Z'} fill="var(--folder-front)" stroke="var(--folder-edge)" strokeWidth=".55" />
+    {mark && <g className="file-icon-mark" transform={`translate(${open ? 5.1 : 4.7} 7) scale(.7)`} fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><Mark type={mark} /></g>}
   </>;
 }
 

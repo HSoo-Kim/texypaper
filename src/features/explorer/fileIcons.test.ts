@@ -62,16 +62,16 @@ describe('file icon classification', () => {
 
 describe('folder icon classification', () => {
   it.each([
-    ['figures', ['figures', 'figure', 'images', 'img', 'assets', 'pics']],
-    ['code', ['code', 'src', 'scripts']],
-    ['results', ['results', 'data', 'output', 'outputs', 'out']],
-    ['sections', ['sections', 'chapters', 'chapter', 'parts']],
-    ['paper', ['paper', 'papers', 'manuscript', 'draft']],
-    ['docs', ['docs', 'doc']],
+    ['figures', ['figures', 'figure', 'images', 'img', 'assets', 'pics', 'plots', 'plot', 'graphics', 'pictures', 'photos', 'media']],
+    ['code', ['code', 'src', 'scripts', 'lib', 'utils', 'tools', 'notebooks']],
+    ['results', ['results', 'data', 'output', 'outputs', 'out', 'tables', 'experiments', 'runs']],
+    ['sections', ['sections', 'chapters', 'chapter', 'parts', 'appendix', 'appendices', 'content']],
+    ['paper', ['paper', 'papers', 'manuscript', 'draft', 'tex', 'latex']],
+    ['docs', ['docs', 'doc', 'documentation', 'notes', 'supplementary', 'supplement']],
     ['tests', ['tests', 'test']],
-    ['references', ['refs', 'references', 'bib']],
-    ['excluded', ['node_modules', '.venv', 'venv', '__pycache__', 'build', 'dist', 'target']],
-    ['muted', ['.git', '.texypaper', '.paperdock']],
+    ['references', ['refs', 'references', 'bib', 'bibliography', 'bibs', 'literature']],
+    ['excluded', ['node_modules', '.venv', 'venv', '__pycache__', 'build', 'dist', 'target', '.cache']],
+    ['muted', ['.git', '.texypaper', '.paperdock', '.vscode', '.idea', '.github']],
     ['default', ['research', 'main.tex', 'constructor', '__proto__', '']],
   ] as const)('maps %s folders, case-insensitively, with a distinct open variant', (id, names) => {
     for (const name of names) {

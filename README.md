@@ -2,7 +2,7 @@
 
 # TexyPaper
 
-**The Sexy LaTeX Editor · v0.0.3**
+**The Sexy LaTeX Editor · v0.0.4**
 
 **로컬과 SSH 서버의 논문을 원래 위치에서 편집하는 Windows용 개인 논문 IDE.** TeX 편집기, 호스트 측 LaTeX 빌드, PDF 미리 보기·원문 탐색, 댓글, 승인 기반 Codex/Claude 작업을 제공합니다. AI 대화는 오른쪽 패널이나 분리한 전용 창에서 사용할 수 있습니다.
 
@@ -14,7 +14,7 @@ Tauri 2 + Rust + React 19 + CodeMirror 6 + PDF.js로 구성한 독립 애플리�
 
 **지원 플랫폼: Windows x64.** macOS 데스크톱 앱은 아직 빌드하거나 검증하지 않았습니다. 소스를 Mac으로 넘겨 작업할 수는 있지만 macOS 실행 파일·설치 파일·지원 기능을 제공한다고 주장하지 않습니다. SSH 서버로 사용하는 macOS/POSIX 호스트와 macOS 데스크톱 지원은 별개입니다. 자체 클라우드 로그인·문서 동기화·실시간 공동 편집은 제공하지 않습니다.
 
-소스: [HSoo-Kim/texypaper](https://github.com/HSoo-Kim/texypaper) · Windows 다운로드: [v0.0.3 릴리스](https://github.com/HSoo-Kim/texypaper/releases/tag/v0.0.3). 실제 실행으로 확인한 범위와 미검증 항목은 [`docs/VERIFICATION.md`](docs/VERIFICATION.md)의 **현재 릴리스**에 구분해 기록했습니다.
+소스: [HSoo-Kim/texypaper](https://github.com/HSoo-Kim/texypaper) · Windows 다운로드: [v0.0.4 릴리스](https://github.com/HSoo-Kim/texypaper/releases/tag/v0.0.4). 실제 실행으로 확인한 범위와 미검증 항목은 [`docs/VERIFICATION.md`](docs/VERIFICATION.md)의 **현재 릴리스**에 구분해 기록했습니다.
 
 이 문서는 구현된 동작과 사용 방법을 설명합니다. **빌드 성공만으로 데스크톱·SSH·실제 모델·설치·메모리 검증이 끝난 것은 아닙니다.** 실행별 증거와 미충족 조건은 별도 [`docs/VERIFICATION.md`](docs/VERIFICATION.md)에 기록하는 것을 기준으로 하며, 이 README는 해당 실행 결과를 대신하지 않습니다. 내부 경계와 저장 구조는 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)를 참고하세요.
 
@@ -31,7 +31,7 @@ Tauri 2 + Rust + React 19 + CodeMirror 6 + PDF.js로 구성한 독립 애플리�
 
 TeX·Python·SSH·AI CLI는 앱에 포함되지 않으며 TexyPaper가 전역 패키지나 서버 패키지를 자동 설치하지 않습니다. SSH 서버에는 Codex·Claude·Node나 상시 데몬이 필요하지 않습니다. TeX가 없는 서버에서도 파일 편집은 가능하지만 빌드는 `TEX_TOOL_MISSING`으로 실패합니다.
 
-Windows 배포는 현재 사용자용 [NSIS 설치 파일](https://github.com/HSoo-Kim/texypaper/releases/download/v0.0.3/TexyPaper_0.0.3_x64-setup.exe)과 [portable ZIP](https://github.com/HSoo-Kim/texypaper/releases/download/v0.0.3/TexyPaper_0.0.3_windows_x64_portable.zip)입니다. ZIP에는 `texypaper.exe`, 루트 `LICENSE`, `THIRD_PARTY_NOTICES.md`와 전체 `licenses/` 트리가 함께 들어갑니다. [SHA-256 체크섬](https://github.com/HSoo-Kim/texypaper/releases/download/v0.0.3/SHA256SUMS.txt)도 제공합니다. **두 배포 파일 모두 코드 서명이 없어 Windows SmartScreen 경고가 나올 수 있습니다.** 설치·업데이트 검증 범위는 `docs/VERIFICATION.md`를 확인하세요. 새 PC의 WebView2 부트스트랩은 별도 전제입니다.
+Windows 배포는 현재 사용자용 [NSIS 설치 파일](https://github.com/HSoo-Kim/texypaper/releases/download/v0.0.4/TexyPaper_0.0.4_x64-setup.exe)과 [portable ZIP](https://github.com/HSoo-Kim/texypaper/releases/download/v0.0.4/TexyPaper_0.0.4_windows_x64_portable.zip)입니다. ZIP에는 `texypaper.exe`, 루트 `LICENSE`, `THIRD_PARTY_NOTICES.md`와 전체 `licenses/` 트리가 함께 들어갑니다. [SHA-256 체크섬](https://github.com/HSoo-Kim/texypaper/releases/download/v0.0.4/SHA256SUMS.txt)도 제공합니다. **두 배포 파일 모두 코드 서명이 없어 Windows SmartScreen 경고가 나올 수 있습니다.** 설치·업데이트 검증 범위는 `docs/VERIFICATION.md`를 확인하세요. 새 PC의 WebView2 부트스트랩은 별도 전제입니다.
 
 일상적으로 사용할 때는 **설치 파일(NSIS)을 권장**합니다. 현재 Windows 사용자에게 설치하고 시작 메뉴 바로가기와 제거 프로그램을 등록하며, 바탕 화면 바로가기는 설치 마지막 단계에서 선택할 수 있습니다. 설치 없이 쓰려면 portable ZIP 전체를 풀고 그 안의 `texypaper.exe`를 실행하세요. 라이선스·고지 파일도 같은 묶음으로 보관하세요. 앱 기능은 같고, 기본 실행에서는 두 형태 모두 `%APPDATA%\dev.texypaper.desktop`에 설정을 저장합니다. Portable은 profile까지 실행 파일 옆에 둔다는 뜻은 아닙니다. 실행 파일을 옮겨도 같은 Windows 계정의 설정은 유지되지만, 다른 PC와 자동으로 동기화되지는 않습니다. 업데이트 전에는 작업을 저장하고 **파일 → TexyPaper 완전 종료** 또는 트레이의 **종료**로 기존 앱을 완전히 닫으세요. v0.0.1에서는 트레이의 종료를 사용합니다. 자동 업데이트 설치는 지원하지 않습니다.
 
@@ -44,7 +44,7 @@ Windows 배포는 현재 사용자용 [NSIS 설치 파일](https://github.com/HS
 3. `.tex` 파일을 열어 둔 상태면 바로 컴파일할 수 있습니다. **`Ctrl+S`는 저장 후 컴파일**하고(설정의 `저장 후 자동 빌드`를 끄면 저장만), 입력을 멈춰도 자동 저장 뒤 컴파일됩니다. PDF 쪽 **다시 컴파일**, 상단 **빌드**, `Ctrl+Shift+B`도 같습니다. 주 문서는 따로 지정하지 않아도 이 순서로 찾습니다: 열린 파일의 `% !TeX root = ...` → 직접 고른 주 문서 → `\documentclass`가 있는 열린 파일 → 열린 파일의 폴더와 그 상위 폴더 중 `\documentclass` 파일이 하나뿐인 가장 가까운 폴더. 같은 폴더에 후보가 여럿이면 추측하지 않고 **빌드 옵션 → 주 문서**나 **다시 컴파일** 옆 메뉴에서 고르게 합니다. 직접 고른 주 문서는 `.texypaper/project.json`에 저장됩니다. 로그 버튼의 숫자는 오류·경고 수이며, 누르면 PDF 자리에 **로그 및 출력**이 열립니다. 빌드가 실패하면 마지막으로 성공한 PDF를 '갱신 필요' 상태로 계속 보여 줍니다. 로그는 표시할 PDF가 없을 때만 자동으로 열립니다.
 4. 소스·PDF·분할 보기로 전환합니다. 편집기 도구 막대에서 굵게·기울임·절·인용·참조·목록·수식을 선택 영역에 넣을 수 있습니다. 작은 창에서는 가운데 패널 하나와 오버레이 사이드 패널을 사용합니다. 소스와 PDF 사이 구분선을 끌거나 방향키로 움직여 두 창의 폭을 따로 조절하고(더블클릭하면 반반), 가운데 화살표로 한쪽을 접으면 같은 가장자리의 화살표로 이전 비율대로 다시 펼칩니다. `Ctrl+휠`이나 `Ctrl`+`+`/`-`로 소스 글자 크기와 PDF 배율을 각각 조절합니다(앱 전체 확대는 설정의 UI 확대이며 PDF 자체는 편집하지 않습니다).
 
-탐색기는 파일 종류별 컬러 아이콘(TeX·bib·PDF·이미지·코드 등)과 파란 폴더 아이콘을 보여 줍니다. 아이콘은 이 프로젝트의 원본 SVG 작업물입니다. `.tex`, `.ltx`, `.bib`, `.cls`, `.sty`, `.bst`, `.bbx`, `.cbx`가 **직접** 있는 폴더는 굵은 이름, 황색 밴드와 **TeX** 배지로 표시하고, 하위 폴더에서만 증거를 찾으면 흐린 **TeX** 배지를 붙입니다. 폴더를 펼치기 전에도 보이며 폴더 이름만으로 추측하지 않습니다. 미검색 상태는 논문 파일이 없다는 뜻이 아닙니다. 선택 강조와 논문 표식은 별개이며, 주 TeX에는 `Main` 배지가 붙습니다. PDF 하나만 있다고 LaTeX 프로젝트로 분류하지 않습니다.
+탐색기는 파일 종류별 컬러 아이콘(TeX·bib·PDF·이미지·코드 등)과, 이름에 따라 색과 기호가 달라지는 폴더 아이콘을 보여 줍니다. `docs`·`src`·`tests`·`results`·`figures`·`sections`·`paper`·`references` 같은 흔한 이름은 각자의 색과 기호를 갖고, 알 수 없는 이름은 회청색 기본 폴더, `node_modules`·`.git` 같은 도구 폴더는 흐리게 표시합니다. 폴더 아이콘은 이름만으로 정하는 꾸밈이며 논문 파일이 있다는 증거가 아닙니다. 아이콘은 이 프로젝트의 원본 SVG 작업물입니다. `.tex`, `.ltx`, `.bib`, `.cls`, `.sty`, `.bst`, `.bbx`, `.cbx`가 **직접** 있는 폴더는 굵은 이름, 황색 밴드와 **TeX** 배지로 표시하고, 하위 폴더에서만 증거를 찾으면 흐린 **TeX** 배지를 붙입니다. 폴더를 펼치기 전에도 보이며 폴더 이름만으로 추측하지 않습니다. 미검색 상태는 논문 파일이 없다는 뜻이 아닙니다. 선택 강조와 논문 표식은 별개이며, 주 TeX에는 `Main` 배지가 붙습니다. PDF 하나만 있다고 LaTeX 프로젝트로 분류하지 않습니다.
 
 자동 검색은 `.git`, `.texypaper`, `node_modules`, `.venv`, `venv`, `__pycache__`를 제외합니다. 설정에서 제외 목록을 볼 수 있고 탐색기에서 명시적으로 열 수 있습니다. 한 번에 최대 20,000개 항목을 조사하고 남은 검색은 **계속 찾기**로 이어갑니다. 파일 생성·이름 변경·이동·삭제를 지원하며, 삭제는 확인 후 프로젝트의 `.texypaper/trash/`로 이동합니다. 프로젝트 휴지통에서 복원할 수 있습니다.
 
@@ -205,7 +205,7 @@ pnpm tauri build --ci --target x86_64-pc-windows-msvc --bundles nsis -- --locked
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows-build.ps1
 ```
 
-실행 파일은 `src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.exe`, NSIS 패키지는 같은 release 아래 `bundle/nsis/TexyPaper_0.0.3_x64-setup.exe`에 생성하도록 구성되어 있습니다. `CARGO_TARGET_DIR`을 지정하면 그 경로를 사용합니다. 실제 생성 여부와 설치 결과는 별도로 확인해야 합니다.
+실행 파일은 `src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.exe`, NSIS 패키지는 같은 release 아래 `bundle/nsis/TexyPaper_0.0.4_x64-setup.exe`에 생성하도록 구성되어 있습니다. `CARGO_TARGET_DIR`을 지정하면 그 경로를 사용합니다. 실제 생성 여부와 설치 결과는 별도로 확인해야 합니다.
 
 ```powershell
 $app = (Resolve-Path 'src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.exe').Path
@@ -237,10 +237,10 @@ pnpm measure:memory -AppPath $app -DurationSeconds 120 -Provider codex -Authenti
 설치까지 검사하려면 생성한 NSIS 실행 파일을 정확히 지정합니다. 기존 TexyPaper 설치가 있으면 격리 설치 검사는 덮어쓰지 않고 거부합니다.
 
 ```powershell
-pnpm smoke:desktop --binary $app --installer 'C:\Builds\TexyPaper_0.0.3_x64-setup.exe' --output (Join-Path $run 'installer-desktop')
+pnpm smoke:desktop --binary $app --installer 'C:\Builds\TexyPaper_0.0.4_x64-setup.exe' --output (Join-Path $run 'installer-desktop')
 ```
 
-위 설치 파일 경로는 사용자가 실제 생성한 파일로 바꾸어야 하는 입력 예시입니다. 다음 통합 실행도 보이는 앱 창을 실행하므로 사용자 허가가 필요하며, 설치된 도구와 이름이 정확히 `TexyPaper_0.0.3_x64-setup.exe`인 NSIS 산출물을 요구합니다.
+위 설치 파일 경로는 사용자가 실제 생성한 파일로 바꾸어야 하는 입력 예시입니다. 다음 통합 실행도 보이는 앱 창을 실행하므로 사용자 허가가 필요하며, 설치된 도구와 이름이 정확히 `TexyPaper_0.0.4_x64-setup.exe`인 NSIS 산출물을 요구합니다.
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows-build.ps1 -RunSmoke -LiveAgents -MeasureMemory -OutputDirectory (Join-Path $env:TEMP ('texypaper-full-' + [guid]::NewGuid().ToString('N')))
@@ -254,7 +254,7 @@ fixture만 만들려면 별도의 새 디렉터리를 사용합니다.
 node scripts/create-smoke-fixtures.mjs --output (Join-Path $env:TEMP ('texypaper-fixtures-' + [guid]::NewGuid().ToString('N')))
 ```
 
-저메모리 설계는 단일 editor·PDF document/worker, 최대 3개 canvas, 깨끗한 비활성 editor state 최대 8개/소스 cache 8MiB 등을 사용합니다. **앱+전용 WebView2의 private working set 최대 300MiB는 측정 목표이지 하드 한도가 아닙니다.** 리브랜딩 이전 개발 빌드의 Windows 배율 125% 측정에서는 표준 작업 최대 282.7MiB, 20회 전환 후 같은 상태 증가 12.0MiB였습니다. 이는 현재 TexyPaper v0.0.3이나 분리 채팅 창을 포함한 최신 빌드의 측정값이 아니며, 100% 배율 표준 판정도 아닙니다([`docs/VERIFICATION.md`](docs/VERIFICATION.md)의 이전 기준선). 메모리 스크립트는 워밍업 후 120초 동안 1초 간격 표본, 반복 전환과 별도 high-DPI/실제 AI 단계를 수행하며 TeX·SSH·AI 프로세스를 별도 항목과 전체 합계로 보고합니다. commit을 private working set으로 바꾸어 보고하지 않으며 원격 호스트 비용을 0으로 간주하지 않습니다.
+저메모리 설계는 단일 editor·PDF document/worker, 최대 3개 canvas, 깨끗한 비활성 editor state 최대 8개/소스 cache 8MiB 등을 사용합니다. **앱+전용 WebView2의 private working set 최대 300MiB는 측정 목표이지 하드 한도가 아닙니다.** 리브랜딩 이전 개발 빌드의 Windows 배율 125% 측정에서는 표준 작업 최대 282.7MiB, 20회 전환 후 같은 상태 증가 12.0MiB였습니다. 이는 현재 TexyPaper v0.0.4나 분리 채팅 창을 포함한 최신 빌드의 측정값이 아니며, 100% 배율 표준 판정도 아닙니다([`docs/VERIFICATION.md`](docs/VERIFICATION.md)의 이전 기준선). 메모리 스크립트는 워밍업 후 120초 동안 1초 간격 표본, 반복 전환과 별도 high-DPI/실제 AI 단계를 수행하며 TeX·SSH·AI 프로세스를 별도 항목과 전체 합계로 보고합니다. commit을 private working set으로 바꾸어 보고하지 않으며 원격 호스트 비용을 0으로 간주하지 않습니다.
 
 ### Mac 개발자에게 소스 넘기기
 

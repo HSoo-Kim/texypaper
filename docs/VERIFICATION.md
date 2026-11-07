@@ -1,8 +1,28 @@
-# Verification — TexyPaper 0.0.3
+# Verification — TexyPaper 0.0.4
 
 Evidence is generated under ignored `artifacts/` directories. The scripts use isolated synthetic papers and app-data; no user paper is a writable fixture. A passing unit suite is not presented as proof of a desktop, SSH, model or installer interaction.
 
-## Current release — TexyPaper 0.0.3 / 현재 릴리스
+## Current release — TexyPaper 0.0.4 / 현재 릴리스
+
+Observed on Windows x64, 2026-11-07 (KST). This release changes only the explorer's folder icon artwork and name mapping. Runtime checks used a separately compiled hidden-start verification binary of the 0.0.4 source (no baked-in update feed); the distributed binaries are normal-start builds. All fixtures and profiles were synthetic and isolated; no real paper or normal account store was used.
+
+| Exercise | Observed result | Evidence |
+| --- | --- | --- |
+| Frontend | TypeScript check passed; 284 tests across 24 files passed, including the folder-name mapping (case-insensitive, distinct open variants, no paper-evidence inference) | `pnpm typecheck`, `pnpm test` |
+| Native | Formatting and strict Clippy passed; 118 tests across 6 suites passed (no native source changed in this release) | Cargo command output |
+| Isolated icon render | The real icon component and app stylesheet were rendered for light and dark themes: unknown names gray-blue, eight role colors with glyphs, open variants, dimmed tool folders. From the palette values, glyph-to-fill contrast is at least 4.9:1 and the folder outline against the light sidebar at least 3.4:1 (the dimmed tool folders are lower by design) | `artifacts/icon-preview-01/` |
+| Usability suite | All 14 scenarios passed in the real WebView2 app, including the explorer file/folder icon scenario (no duplicate DOM ids). Real-app renders in light and dark themes were inspected: role-colored folders beside the unchanged TeX badges | `artifacts/usability-004-01/usability-results.json`, `explorer-icons-light.png`, `explorer-icons-dark.png` |
+| Existing desktop suite | All 23 scenarios passed against a real 30-page local LaTeX build | `artifacts/desktop-004-01/desktop-results.json` |
+| SSH suite | All 12 scenarios passed over native OpenSSH to a loopback host and actual WSL Python/LaTeX | `artifacts/ssh-004-01/ssh.json` |
+| Production distribution | Normal visible-start release and NSIS build with the production release feed. Executable and installer report TexyPaper 0.0.4 and are unsigned | `artifacts/texypaper-release-0.0.4/release-manifest.json`, `SHA256SUMS.txt` |
+| Package integrity | 651 files in the portable ZIP; every license/notices file matches source in both distributions and the ZIP executable equals the normal release executable. The executable inside the installer differs from it only in Tauri's three-byte bundle marker (`UNK` → `NSS`), confirmed by replacing the marker | `package-proof.json` |
+| Local installation | The current user's TexyPaper was updated from 0.0.3 with the silent installer while no TexyPaper process was running; nothing was terminated and the app was not launched. `settings.json` and the profile file list were unchanged, and the installed payload matches source | `artifacts/texypaper-release-0.0.4/local-installation.json` |
+
+The README screenshot was retaken from the same usability run with the new icons; its lower update-notice strip (a verification-build artifact) is cropped.
+
+**Not exercised:** forced-colors and 200%-zoom rendering of the new folder icons; the installed 0.0.4 app was not launched; detached-window chat zoom at runtime; live Codex/Claude inference (`smoke:agents` and `smoke:chat` require `--live` and an official login); physical tray Open/double-click/Exit; a visible (non-hidden) startup; memory aggregates; uninstall or fresh-machine WebView2 bootstrap. macOS, signing, cloud accounts and cross-device sync are not supplied. The 0.0.3 limits below otherwise still apply.
+
+## Previous release — TexyPaper 0.0.3 / 이전 릴리스
 
 Observed on Windows x64, 2026-11-07 (KST). Runtime checks used a separately compiled hidden-start verification binary of the 0.0.3 source (no baked-in update feed); the distributed binaries are normal-start builds. All fixtures and profiles were synthetic and isolated; no real paper or normal account store was used.
 
@@ -23,7 +43,7 @@ The SSH suite's real-mouse drag across the tiny PDF text spans does not extend a
 
 **Not exercised:** detached-window chat zoom at runtime; the one-time cloud consent against a real provider (covered by unit and native tests only, and by the first-use checkbox in the real app); live Codex/Claude inference (`smoke:agents` and `smoke:chat` require `--live` and an official login); physical tray Open/double-click/Exit; a visible (non-hidden) startup; memory aggregates; uninstall or fresh-machine WebView2 bootstrap. macOS, signing, cloud accounts and cross-device sync are not supplied. Reduced-motion and forced-color behavior is styled but was not re-verified as an accessibility certification.
 
-## Previous release — TexyPaper 0.0.2
+## Earlier release — TexyPaper 0.0.2
 
 Observed on Windows x64, 2026-11-07 (KST). The normal distribution is separate from the hidden-start verification binary. No real paper or normal account store was used as a development fixture.
 

@@ -31,28 +31,22 @@
 .file-icon--env { --file-icon-fill:#e6ebc7; --file-icon-edge:#98a35e; --file-icon-ink:#66752c; }
 .file-icon--license { --file-icon-fill:#e5e0f4; --file-icon-edge:#9c8fba; --file-icon-ink:#74608d; }
 
+/* Folder roles: back panel, front panel, outline and glyph ink. Unknown names stay the neutral blue-gray default. */
 .file-icon--folder {
-  --folder-top:#4aa3f0;
-  --folder-bottom:#1f78d8;
-  --folder-tab:#81c3f6;
-  --folder-edge:#226bb2;
-  --folder-badge:#e0f0ff;
-  --file-icon-ink:#d8eeff;
+  --folder-back:#7e97ab;
+  --folder-front:#a8bccc;
+  --folder-edge:#566f84;
+  --file-icon-ink:#2c4457;
 }
-.file-icon--folder.file-icon--figures { --folder-badge:#f9d9ee; --file-icon-ink:#984c86; }
-.file-icon--folder.file-icon--code,.file-icon--folder.file-icon--tests { --folder-badge:#d6f2de; --file-icon-ink:#28774d; }
-.file-icon--folder.file-icon--results { --folder-badge:#ffe3bf; --file-icon-ink:#9d5d22; }
-.file-icon--folder.file-icon--sections { --folder-badge:#cef3ec; --file-icon-ink:#287c70; }
-.file-icon--folder.file-icon--paper,.file-icon--folder.file-icon--docs { --file-icon-ink:#236394; }
-.file-icon--folder.file-icon--references { --folder-badge:#ffebbc; --file-icon-ink:#92651f; }
-.file-icon--folder:is(.file-icon--excluded,.file-icon--muted) {
-  --folder-top:#92a9bb;
-  --folder-bottom:#70899f;
-  --folder-tab:#a6bac9;
-  --folder-edge:#6e8395;
-  --file-icon-ink:#dce5ed;
-  opacity:.72;
-}
+.file-icon--folder.file-icon--docs { --folder-back:#3f86d6; --folder-front:#6fabee; --folder-edge:#2a62a8; --file-icon-ink:#0b3670; }
+.file-icon--folder.file-icon--code { --folder-back:#3ea663; --folder-front:#6dca8b; --folder-edge:#2b7a47; --file-icon-ink:#0d4726; }
+.file-icon--folder.file-icon--tests { --folder-back:#86b32c; --folder-front:#b3da58; --folder-edge:#5f8418; --file-icon-ink:#34510a; }
+.file-icon--folder.file-icon--results { --folder-back:#e58a2b; --folder-front:#f7b563; --folder-edge:#b0611a; --file-icon-ink:#693506; }
+.file-icon--folder.file-icon--figures { --folder-back:#d65f98; --folder-front:#f293bf; --folder-edge:#a23c71; --file-icon-ink:#681d44; }
+.file-icon--folder.file-icon--sections { --folder-back:#2aa4bb; --folder-front:#62cddf; --folder-edge:#1b788a; --file-icon-ink:#093f4c; }
+.file-icon--folder.file-icon--paper { --folder-back:#2ca78a; --folder-front:#66cfb3; --folder-edge:#1c7861; --file-icon-ink:#08463a; }
+.file-icon--folder.file-icon--references { --folder-back:#d6a21f; --folder-front:#f3cc5e; --folder-edge:#a3760f; --file-icon-ink:#5d4106; }
+.file-icon--folder:is(.file-icon--excluded,.file-icon--muted) { opacity:.72; }
 
 /* Keep the existing 1rem symbol column and label position; the chevron lives in its gutter. */
 .file-symbol:has(>.file-type-icon) { position:relative; }
@@ -84,10 +78,8 @@
   .file-type-icon .file-icon-body,
   .file-type-icon .file-icon-tab,
   .file-type-icon .file-icon-sheet,
-  .file-type-icon .file-icon-fold,
-  .file-type-icon .file-icon-badge { fill:Canvas; fill-opacity:1; stroke:currentColor; stroke-width:.8; }
+  .file-type-icon .file-icon-fold { fill:Canvas; fill-opacity:1; stroke:currentColor; stroke-width:.8; }
   .file-type-icon .file-icon-mark { color:inherit; }
-  .file-type-icon .file-icon-highlight { display:none; }
   .file-type-icon .file-icon-mark [fill]:not([fill=none]) { fill:currentColor; }
   .file-icon--git .file-icon-mark path:not([fill]) { stroke:Canvas; }
   .file-icon--git .file-icon-mark circle { fill:Canvas!important; }
