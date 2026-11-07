@@ -1,8 +1,12 @@
 use super::transactions::{self, Change};
 use crate::contracts::{AppError, AppResult, Entry, Revision};
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+use std::io::Write;
+use std::sync::{LazyLock, Mutex};
+use std::time::{Duration, Instant};
 use std::{
     collections::{BTreeMap, VecDeque},
     fs::{self, File},
@@ -786,6 +790,10 @@ pub(crate) fn invalidate_paths(root: &Path, data_dir: &Path, paths: &[String]) -
 struct SearchState {
     query: String,
     base: String,
+    #[serde(default)]
+    case_sensitive: bool,
+    #[serde(default)]
+    agent_policy: bool,
     pending: VecDeque<(String, usize)>,
 }
 fn search(root: &Path, data_dir: &Path, args: &Value) -> AppResult<Value> {
@@ -797,6 +805,12 @@ fn search(root: &Path, data_dir: &Path, args: &Value) -> AppResult<Value> {
         ));
     }
     let base = args["path"].as_str().unwrap_or("");
+    let case_sensitive = args["caseSensitive"].as_bool().unwrap_or(false);
+    let agent_policy = args["_agentPolicy"] == true;
+    let matcher = regex::RegexBuilder::new(&regex::escape(query))
+        .case_insensitive(!case_sensitive)
+        .build()
+        .map_err(|_| AppError::new("SEARCH_INVALID", "Unable to match literal query"))?;
     resolve(root, base, false)?;
     let folder = data_dir
         .join("search")
@@ -816,10 +830,16 @@ fn search(root: &Path, data_dir: &Path, args: &Value) -> AppResult<Value> {
         SearchState {
             query: query.into(),
             base: base.into(),
+            case_sensitive,
+            agent_policy,
             pending: VecDeque::from([(base.into(), 0)]),
         }
     };
-    if state.query != query || state.base != base {
+    if state.query != query
+        || state.base != base
+        || state.case_sensitive != case_sensitive
+        || state.agent_policy != agent_policy
+    {
         return Err(AppError::new(
             "CURSOR_INVALID",
             "Search cursor belongs to a different query",
@@ -835,6 +855,13 @@ fn search(root: &Path, data_dir: &Path, args: &Value) -> AppResult<Value> {
             break;
         }
         scanned += 1;
+        if relative.split('/').any(|part| {
+            [".git", ".texypaper", ".paperdock"]
+                .iter()
+                .any(|reserved| part.eq_ignore_ascii_case(reserved))
+        }) {
+            continue;
+        }
         let target = match resolve(root, &relative, false) {
             Ok(path) => path,
             Err(_) => continue,
@@ -876,9 +903,10 @@ fn search(root: &Path, data_dir: &Path, args: &Value) -> AppResult<Value> {
                 Ok(line) => line,
                 Err(_) => break,
             };
-            if text.len() <= 65536 && text.contains(query) {
-                rendered_bytes += text.len();
-                matches.push(json!({"path":relative,"line":index+1,"text":text}));
+            if matcher.is_match(&text) {
+                let excerpt: String = text.chars().take(2000).collect();
+                rendered_bytes += excerpt.len();
+                matches.push(json!({"path":relative,"line":index+1,"text":excerpt}));
             }
             if matches.len() >= 200
                 || rendered_bytes >= 65536
@@ -1003,6 +1031,281 @@ fn project_update(root: &Path, args: &Value) -> AppResult<Value> {
     transactions::atomic_write(&path, &serde_json::to_vec_pretty(&clean)?)?;
     Ok(clean)
 }
+
+const ASSET_LIMIT: u64 = 20 * 1024 * 1024;
+const ASSET_CHUNK: usize = 192 * 1024;
+struct AssetUpload {
+    root: PathBuf,
+    workspace: String,
+    relative: String,
+    directory: PathBuf,
+    temp: PathBuf,
+    file: File,
+    _parents: Vec<File>,
+    total: u64,
+    received: u64,
+    index: u64,
+    sha256: String,
+    touched: Instant,
+}
+impl Drop for AssetUpload {
+    fn drop(&mut self) {
+        // Windows permits deletion of this handle because it was opened with delete sharing.
+        let _ = fs::remove_file(&self.temp);
+    }
+}
+static ASSET_UPLOADS: LazyLock<Mutex<BTreeMap<String, AssetUpload>>> =
+    LazyLock::new(|| Mutex::new(BTreeMap::new()));
+
+pub(super) fn abort_asset_uploads(root: &Path, workspace: &str) {
+    if let Ok(mut uploads) = ASSET_UPLOADS.lock() {
+        uploads.retain(|_, upload| upload.root != root || upload.workspace != workspace);
+    }
+}
+
+fn asset_directory(root: &Path, relative: &str) -> AppResult<(PathBuf, Vec<File>)> {
+    let mut directory = root.to_path_buf();
+    let mut guards = Vec::new();
+    for part in std::iter::once("").chain(relative.split('/').filter(|p| !p.is_empty())) {
+        if !part.is_empty() {
+            directory.push(part);
+            match fs::create_dir(&directory) {
+                Ok(()) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+                Err(error) => return Err(error.into()),
+            }
+        }
+        if fs::symlink_metadata(&directory)?.file_type().is_symlink()
+            || !fs::canonicalize(&directory)?.starts_with(root)
+        {
+            return Err(AppError::new(
+                "PATH_OUTSIDE_WORKSPACE",
+                "Asset directories cannot be symlinks",
+            ));
+        }
+        let mut options = fs::OpenOptions::new();
+        options.read(true);
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            // Pin every parent against rename/reparse replacement until upload cleanup.
+            options.custom_flags(0x02000000).share_mode(3);
+        }
+        let handle = options.open(&directory)?;
+        if !handle.metadata()?.is_dir() {
+            return Err(AppError::new(
+                "NOT_DIRECTORY",
+                "Asset parent must be a directory",
+            ));
+        }
+        if !fs::canonicalize(&directory)?.starts_with(root) {
+            return Err(AppError::new(
+                "PATH_OUTSIDE_WORKSPACE",
+                "Asset parent changed outside workspace",
+            ));
+        }
+        #[cfg(unix)]
+        {
+            use std::os::fd::AsRawFd;
+            directory = PathBuf::from(format!("/proc/self/fd/{}", handle.as_raw_fd()));
+        }
+        guards.push(handle);
+    }
+    Ok((directory, guards))
+}
+
+fn asset_execute(
+    root: &Path,
+    workspace: &str,
+    data_dir: &Path,
+    op: &str,
+    args: &Value,
+) -> AppResult<Value> {
+    let mut uploads = ASSET_UPLOADS
+        .lock()
+        .map_err(|_| AppError::new("UPLOAD_LOCK", "Asset upload lock failed"))?;
+    uploads.retain(|_, upload| upload.touched.elapsed() < Duration::from_secs(300));
+    if op == "asset_import_begin" {
+        let relative = str_arg(args, "path")?;
+        validate_relative(relative)?;
+        if relative.is_empty()
+            || relative.split('/').any(|part| {
+                let stem = part.split('.').next().unwrap_or("").to_ascii_uppercase();
+                part.ends_with([' ', '.'])
+                    || part.chars().any(|ch| ch < ' ' || "<>\"|?*".contains(ch))
+                    || matches!(
+                        part.to_ascii_lowercase().as_str(),
+                        ".git" | ".texypaper" | ".paperdock"
+                    )
+                    || matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+                    || (stem.starts_with("COM") || stem.starts_with("LPT"))
+                        && stem.len() == 4
+                        && stem.as_bytes()[3].is_ascii_digit()
+            })
+        {
+            return Err(AppError::new(
+                "PATH_INVALID",
+                "Reserved or invalid asset path",
+            ));
+        }
+        let extension = Path::new(relative)
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        if !["png", "jpg", "jpeg", "gif", "webp", "pdf", "eps", "svg"].contains(&extension.as_str())
+        {
+            return Err(AppError::new(
+                "ASSET_EXTENSION",
+                "Unsupported image or figure extension",
+            ));
+        }
+        let total = args["byteLength"]
+            .as_u64()
+            .ok_or_else(|| AppError::new("ARGUMENT_INVALID", "byteLength required"))?;
+        if total > ASSET_LIMIT {
+            return Err(AppError::new(
+                "ASSET_TOO_LARGE",
+                "Assets must be at most 20 MiB",
+            ));
+        }
+        let sha256 = str_arg(args, "sha256")?;
+        if sha256.len() != 64
+            || !sha256
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        {
+            return Err(AppError::new(
+                "ARGUMENT_INVALID",
+                "Lowercase SHA-256 required",
+            ));
+        }
+        if uploads
+            .values()
+            .filter(|upload| upload.root == root && upload.workspace == workspace)
+            .count()
+            >= 2
+        {
+            return Err(AppError::new(
+                "UPLOAD_BUSY",
+                "At most two asset uploads may be staged",
+            ));
+        }
+        let (parent, name) = relative.rsplit_once('/').unwrap_or(("", relative));
+        let (directory, parents) = asset_directory(root, parent)?;
+        if fs::symlink_metadata(directory.join(name)).is_ok() {
+            return Err(AppError::new(
+                "ALREADY_EXISTS",
+                "Asset destination already exists",
+            ));
+        }
+        let id = uuid::Uuid::new_v4().simple().to_string();
+        let temp = directory.join(format!(".texypaper-asset-{id}.tmp"));
+        let file = fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .read(true)
+            .open(&temp)?;
+        uploads.insert(
+            id.clone(),
+            AssetUpload {
+                root: root.into(),
+                workspace: workspace.into(),
+                relative: relative.into(),
+                directory,
+                temp,
+                file,
+                _parents: parents,
+                total,
+                received: 0,
+                index: 0,
+                sha256: sha256.into(),
+                touched: Instant::now(),
+            },
+        );
+        return Ok(json!({"uploadId":id}));
+    }
+    let id = str_arg(args, "uploadId")?;
+    if op == "asset_import_abort" {
+        let owned = uploads
+            .get(id)
+            .is_some_and(|upload| upload.root == root && upload.workspace == workspace);
+        if owned {
+            uploads.remove(id);
+        }
+        return Ok(json!({"aborted":owned}));
+    }
+    if !uploads
+        .get(id)
+        .is_some_and(|upload| upload.root == root && upload.workspace == workspace)
+    {
+        return Err(AppError::new(
+            "UPLOAD_NOT_FOUND",
+            "Unknown or expired asset upload",
+        ));
+    }
+    let mut upload = uploads.remove(id).unwrap();
+    if op == "asset_import_chunk" {
+        let index = args["index"]
+            .as_u64()
+            .ok_or_else(|| AppError::new("ARGUMENT_INVALID", "index required"))?;
+        let encoded = str_arg(args, "data")?;
+        if encoded.len() > ASSET_CHUNK.div_ceil(3) * 4 {
+            return Err(AppError::new(
+                "UPLOAD_CHUNK_LIMIT",
+                "Asset chunk exceeds 192 KiB",
+            ));
+        }
+        let data = base64::engine::general_purpose::STANDARD
+            .decode(encoded)
+            .map_err(|_| AppError::new("ARGUMENT_INVALID", "Invalid base64 asset chunk"))?;
+        if index != upload.index
+            || data.len() > ASSET_CHUNK
+            || upload.received + data.len() as u64 > upload.total
+            || data.is_empty()
+        {
+            return Err(AppError::new(
+                "UPLOAD_SEQUENCE",
+                "Asset chunks must be sequential and bounded",
+            ));
+        }
+        upload.file.write_all(&data)?;
+        upload.received += data.len() as u64;
+        upload.index += 1;
+        upload.touched = Instant::now();
+        let received = upload.received;
+        uploads.insert(id.into(), upload);
+        return Ok(json!({"received":received}));
+    }
+    if upload.received != upload.total || upload.file.metadata()?.len() != upload.total {
+        return Err(AppError::new(
+            "UPLOAD_INCOMPLETE",
+            "Asset upload is incomplete",
+        ));
+    }
+    upload.file.sync_all()?;
+    upload.file.seek(SeekFrom::Start(0))?;
+    if hash_reader(&mut upload.file)? != upload.sha256 {
+        return Err(AppError::new(
+            "ASSET_HASH_MISMATCH",
+            "Asset SHA-256 does not match",
+        ));
+    }
+    let name = upload.relative.rsplit('/').next().unwrap();
+    let destination = upload.directory.join(name);
+    // An atomic hard-link publication is the portable no-replace equivalent of rename:
+    // unlike POSIX rename, it cannot overwrite a competing writer's destination.
+    fs::hard_link(&upload.temp, &destination).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::AlreadyExists {
+            AppError::new("ALREADY_EXISTS", "Asset destination already exists")
+        } else {
+            error.into()
+        }
+    })?;
+    // Publication is committed; index failure must not turn it into a replayable failure.
+    let _ = invalidate_paths(root, data_dir, &[upload.relative.clone()]);
+    Ok(json!({"path":upload.relative,"byteLength":upload.total,"sha256":upload.sha256}))
+}
 pub fn execute(
     root: &Path,
     workspace_id: &str,
@@ -1012,6 +1315,10 @@ pub fn execute(
 ) -> AppResult<Value> {
     crate::migration::migrate_project(root)?;
     match op {
+        "asset_import_begin"
+        | "asset_import_chunk"
+        | "asset_import_commit"
+        | "asset_import_abort" => asset_execute(root, workspace_id, data_dir, op, &args),
         "list_dir" => list_dir(root, data_dir, &args),
         "read_text" => {
             let path = str_arg(&args, "path")?;
@@ -1072,6 +1379,33 @@ pub fn execute(
             if args["_agentPolicy"] == true {
                 transactions::apply_agent_proposal(root, &transaction_id(&args), changes)
             } else {
+                for change in &changes {
+                    let target = resolve(root, &change.path, change.action == "create")?;
+                    let canonical = target.strip_prefix(root).map_err(|_| {
+                        AppError::new("PATH_OUTSIDE_ROOT", "Proposal escapes workspace")
+                    })?;
+                    let private = |part: &str| {
+                        [".git", ".texypaper", ".paperdock"]
+                            .iter()
+                            .any(|reserved| part.eq_ignore_ascii_case(reserved))
+                    };
+                    if change.path.split('/').any(private)
+                        || canonical
+                            .components()
+                            .any(|part| private(&part.as_os_str().to_string_lossy()))
+                    {
+                        return Err(AppError::new(
+                            "PATH_RESERVED",
+                            "Private metadata is not replaceable source",
+                        ));
+                    }
+                    if change.action == "edit" && fs::metadata(&target)?.len() > 4 * 1024 * 1024 {
+                        return Err(AppError::new(
+                            "LARGE_FILE",
+                            "Project replacement cannot edit files over 4 MiB",
+                        ));
+                    }
+                }
                 transactions::apply_proposal(root, &transaction_id(&args), changes)
             }
         }

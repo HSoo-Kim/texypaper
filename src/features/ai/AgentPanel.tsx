@@ -219,7 +219,7 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
       const intent = parseAttachmentIntent((event as CustomEvent<unknown>).detail);
       if (!intent) { update({ contextNotice: 'invalid' }); return; }
       const result = addChatAttachment(state.current.context, intent);
-      update(previous => ({ ...previous, context: result.context, contextNotice: result.notice, ...(intent.focus ? { settingsOpen: false, composerFocus: (previous.composerFocus ?? 0) + 1 } : {}) }));
+      update(previous => ({ ...previous, context: result.context, contextNotice: result.notice, ...(intent.kind === 'source' && intent.prompt && !previous.prompt.trim() ? { prompt: intent.prompt } : {}), ...(intent.focus ? { settingsOpen: false, composerFocus: (previous.composerFocus ?? 0) + 1 } : {}) }));
       if (intent.focus && detachedRef.current) window.dispatchEvent(new Event('texypaper:chat-focus'));
     };
     window.addEventListener('texypaper:ai-attach', attach);

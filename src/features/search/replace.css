@@ -1,0 +1,28 @@
+.project-search-panel>.replace-toggle { display:flex; align-items:center; gap:.375rem; margin:.125rem .75rem .5rem; padding:.25rem .375rem; border:0; background:transparent; align-self:flex-start; }
+.replace-toggle[aria-expanded=false]>svg { transform:rotate(-90deg); }
+.replace-container { flex:0 1 auto; min-height:0; overflow:auto; }
+.project-replace { display:flex; flex-direction:column; gap:.5rem; padding:0 .75rem .75rem; border-bottom:1px solid var(--border); }
+.project-replace>label { font-size:.6875rem; color:var(--secondary); }
+.replace-options { display:flex; flex-wrap:wrap; gap:.375rem .75rem; }
+.replace-options>label { display:flex; align-items:center; gap:.375rem; font-size:.6875rem; }
+.project-replace .replace-options input { width:auto; margin:0; accent-color:var(--action); }
+.replace-actions { display:flex; flex-wrap:wrap; gap:.375rem; }
+.replace-actions>button { flex:1; }
+.replace-note,.replace-error,.replace-review>p { margin:0; font-size:.6875rem; white-space:pre-wrap; overflow-wrap:anywhere; }
+.replace-note { color:var(--secondary); }
+.replace-error { color:var(--error); }
+.replace-success { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; font-size:.6875rem; }
+.replace-review { min-width:0; font-size:.6875rem; }
+.replace-review details { margin-top:.5rem; padding-top:.5rem; border-top:1px solid var(--border); }
+.replace-review summary { overflow-wrap:anywhere; }
+.replace-review summary:focus-visible { outline:2px solid var(--action); outline-offset:2px; }
+.replace-review ul { margin:.375rem 0 0; padding-left:1rem; overflow-wrap:anywhere; }
+.replace-preview-line { margin-top:.5rem; }
+.replace-preview-line>strong { font-size:.625rem; color:var(--secondary); }
+.replace-diff pre { margin:.25rem 0; padding:.25rem; white-space:pre-wrap; overflow-wrap:anywhere; font: .6875rem/1.5 ui-monospace,"Cascadia Mono",Consolas,monospace; background:var(--surface); }
+.replace-diff del,.replace-diff ins { font-weight:700; background:var(--selection); color:var(--text); }
+.replace-diff del { text-decoration:line-through; }
+.replace-diff ins { text-decoration:underline; text-decoration-thickness:2px; text-underline-offset:2px; }
+@media (forced-colors:active) {
+  .replace-diff del,.replace-diff ins { background:Canvas; color:CanvasText; outline:1px solid CanvasText; }
+}

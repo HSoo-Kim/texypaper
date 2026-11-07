@@ -1,6 +1,6 @@
 {
   "name": "texypaper",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -19,6 +19,7 @@
     "smoke:desktop": "node scripts/smoke-desktop.mjs",
     "smoke:preferences": "node scripts/smoke-preferences.mjs",
     "smoke:usability": "node scripts/smoke-usability.mjs",
+    "smoke:features": "node scripts/smoke-features.mjs",
     "smoke:ssh": "node scripts/smoke-ssh.mjs",
     "smoke:agents": "node scripts/smoke-agents.mjs",
     "smoke:chat": "node scripts/smoke-chat.mjs",

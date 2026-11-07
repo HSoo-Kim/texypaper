@@ -1,0 +1,39 @@
+BUNDLED ENGLISH HUNSPELL DICTIONARY
+=================================
+
+Package: dictionary-en 4.0.0 (wooorm/dictionaries)
+Dictionary: en_US, SCOWL size 60, version 2020.12.07 [5ef55f9]
+Pinned repository commit: 836d7c2032167880e639a1fe522748733e528c2d
+Source directory:
+https://github.com/wooorm/dictionaries/tree/836d7c2032167880e639a1fe522748733e528c2d/dictionaries/en
+
+Exact unmodified files embedded with include_str!:
+src-tauri/resources/spelling/en_US.aff
+  Source: https://raw.githubusercontent.com/wooorm/dictionaries/836d7c2032167880e639a1fe522748733e528c2d/dictionaries/en/index.aff
+  Bytes: 3086
+  SHA-256: 8ae1f19d4840d957728ad90555d5a8dff6cc5c046279c95ff0c00fc0a0136c7b
+src-tauri/resources/spelling/en_US.dic
+  Source: https://raw.githubusercontent.com/wooorm/dictionaries/836d7c2032167880e639a1fe522748733e528c2d/dictionaries/en/index.dic
+  Bytes: 551762
+  SHA-256: f0b1a234bd178bdd01875b2a392a9647f888b8fe879f79c52aae62c2759b3647
+Total embedded dictionary source size: 554848 bytes.
+
+LICENSE is copied verbatim from dictionaries/en/license at this commit:
+https://raw.githubusercontent.com/wooorm/dictionaries/836d7c2032167880e639a1fe522748733e528c2d/dictionaries/en/license
+It contains the complete SCOWL source, copyright and permission notices,
+including Kevin Atkinson, Geoff Kuenning (Ispell), Princeton University
+(WordNet), Benjamin Titze, J Ross Beresford (UKACD) and public-domain sources.
+The upstream package declares (MIT AND BSD); that label does not replace the
+individual permissive, BSD-style, WordNet and public-domain terms in LICENSE.
+The affix and dictionary files have not been changed by TexyPaper.
+
+LICENSE-MIT preserves the repository's separate packaging-code MIT notice:
+https://raw.githubusercontent.com/wooorm/dictionaries/836d7c2032167880e639a1fe522748733e528c2d/license
+Copyright (c) 2015 Titus Wormer <tituswormer@gmail.com>.
+No upstream JavaScript packaging code is bundled.
+
+Runtime: spellbook 0.4.2, MPL-2.0; exact crate LICENSE is retained under
+licenses/rust/spellbook-0.4.2/LICENSE. Windows system dictionaries remain
+preferred. This American English dictionary is parsed once, on the first
+check/suggestion only if Windows has no English checker. Status probes do
+not parse it. The fallback reports en-US, not British English.

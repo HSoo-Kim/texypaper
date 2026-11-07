@@ -29,7 +29,7 @@ class RemoteProposalContract(unittest.TestCase):
         self.worker.open_root(dict(root=str(self.root), workspaceId=uuid.uuid4().hex, epoch=1), self.cancel, b'')
 
     def proposal(self, action='edit'):
-        return dict(transactionId=uuid.uuid4().hex, summary='Change literal result', files=[
+        return dict(transactionId=uuid.uuid4().hex, summary='Change literal result', _agentPolicy=True, files=[
             dict(path='main.tex', action=action, baseSha256=hashlib.sha256(self.original).hexdigest(),
                  content='\\documentclass{article}\nResult 43.\n')])
 

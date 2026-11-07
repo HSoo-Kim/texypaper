@@ -209,6 +209,7 @@ impl WorkspaceManager {
             }
             match &workspace.inner.backend {
                 Backend::Local(root) => {
+                    local::abort_asset_uploads(root, &workspace.reference.id);
                     let _ = crate::latex::local_execute(root, "build_cancel", json!({}));
                 }
                 Backend::Ssh(remote) => remote.close()?,
@@ -278,6 +279,10 @@ impl Workspace {
                 | "undo_transaction"
                 | "comments_update"
                 | "project_update"
+                | "asset_import_begin"
+                | "asset_import_chunk"
+                | "asset_import_commit"
+                | "asset_import_abort"
         );
         let _guard =
             if mutation {
@@ -289,7 +294,13 @@ impl Workspace {
             };
         let _index_guard = if matches!(
             op,
-            "list_dir" | "scan_step" | "create" | "rename" | "trash" | "restore"
+            "list_dir"
+                | "scan_step"
+                | "create"
+                | "rename"
+                | "trash"
+                | "restore"
+                | "asset_import_commit"
         ) {
             Some(
                 self.inner

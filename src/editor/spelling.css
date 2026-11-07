@@ -1,0 +1,36 @@
+.cm-spell-error {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: var(--error);
+  text-decoration-thickness: 1px;
+  text-underline-offset: .2em;
+  cursor: help;
+}
+.cm-tooltip.cm-spell-tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  min-width: 10rem;
+  max-width: min(22rem, 90vw);
+  padding: .5rem;
+  border: 1px solid var(--border);
+  border-radius: .375rem;
+  background: var(--surface);
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+  font-size: .8125rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.cm-spell-suggestions { display: flex; flex-direction: column; gap: .125rem; color: var(--secondary); }
+.cm-spell-tooltip button { width: 100%; padding: .25rem .5rem; text-align: left; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: .25rem; cursor: pointer; }
+.cm-spell-tooltip button:hover { background: var(--sidebar); }
+.cm-spell-tooltip button:focus-visible { outline: 2px solid var(--action); outline-offset: 1px; }
+.cm-spell-tooltip button:active { background: var(--selection); }
+.cm-spell-tooltip button:disabled { cursor: not-allowed; color: var(--secondary); }
+@media (forced-colors: active) {
+  .cm-spell-error { text-decoration-color: LinkText; }
+  .cm-tooltip.cm-spell-tooltip, .cm-spell-tooltip button { background: Canvas; color: CanvasText; border-color: CanvasText; }
+  .cm-spell-tooltip button:focus-visible { outline-color: Highlight; }
+  .cm-spell-tooltip button:disabled { color: GrayText; }
+}

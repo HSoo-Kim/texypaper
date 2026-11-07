@@ -35,6 +35,11 @@ A Windows desktop LaTeX editor built with Tauri 2, Rust, React and CodeMirror. I
 | **`Ctrl+S`, then PDF** | Saving compiles with latexmk on the machine that holds the paper. The main document is found from `% !TeX root`, your choice or `\documentclass`, so there is usually nothing to configure. [Details](#compile-and-read-the-pdf) |
 | **Source and PDF side by side** | `Ctrl+click` the PDF to jump to the source line; `Ctrl+Alt+J` highlights the matching PDF spot (SyncTeX). Drag the divider, and zoom the source, the PDF and the chat independently. |
 | **Overleaf-style editing** | Overleaf's default shortcuts (`Ctrl+D` delete line, `Ctrl+/` comment, multiple cursors, folding), a numbered section outline, and citation and label completion. |
+| **Spelling and word count** | English spell check for prose only, so TeX commands, math, comments and citation keys are never flagged, with suggestions on click or `Alt+F8`. The status bar shows the word count, or the count of the selection. [Details](#spelling-and-word-count) |
+| **Project-wide replace** | Preview every changed line per file, then replace across up to 16 files as one undoable save. [Details](#project-wide-replace) |
+| **Figures by drop or paste** | Drop an image or PDF on the explorer, or paste a screenshot into the source: the file is copied into the project and a ready-to-fill figure block is inserted. [Details](#figures-from-drop-or-paste) |
+| **Checkpoints** | Named snapshots of the project's text files, a per-file diff against the current state and a restore that can be undone. [Details](#checkpoints) |
+| **New paper from template** | Start from an English article, Korean article, slide deck or chapter-based report in an existing folder, local or over SSH. [Details](#start-from-a-template) |
 | **Edit text from the PDF** | Select rendered text and send a proven literal prose span to a before/after diff. Applying it is one undoable save followed by a rebuild. [Details](#fix-text-from-the-pdf) |
 | **Comments** | Comment on a source or PDF selection. Threads live in `.texypaper/comments.json` and reattach by quote and context after edits. |
 | **AI that proposes, you apply** | Codex and Claude run through their official CLIs on your own subscription. They can read the project and propose changes; nothing is written until you press **Apply changes**. [Details](#ai-codex-and-claude) |
@@ -94,6 +99,8 @@ The main document is found without setup, in this order: `% !TeX root = ...` in 
 
 One build runs at a time, and overlapping saves collapse into the newest rebuild request. The default time limit is 120 seconds, and cancelling stops the process tree the app started. If a build fails, is cancelled or times out, the last good PDF stays visible marked as out of date. The number on the log button counts errors and warnings; the log opens by itself only when there is no PDF to show.
 
+When a build fails and the log shows an error with a source location, **Ask AI about this error** attaches the source around the first error (20 lines either side) to the AI chat and fills in a question if the input box is empty. Nothing is sent until you press send.
+
 The PDF pane has page navigation, fit width, actual size, zoom, 90° rotation, per-page text search and PDF export. A reference PDF you opened separately is never replaced by a rebuild of the main document; **Return to built PDF** returns to it. PNG, JPEG, WebP and non-executing SVG files preview in place.
 
 ### Fix text from the PDF
@@ -108,6 +115,48 @@ Repeated sentences, macros, math, citations, tables, selections across files or 
 ### Comments
 
 Create a comment from a source or PDF selection, then reply, edit, delete, resolve or reopen it. Comments are stored in `.texypaper/comments.json` on the project's real host; they are never inserted as TeX `%` comments. App edits move the byte anchor; after outside edits a comment reattaches only when its quote and surrounding context match uniquely in the same file, otherwise it shows as **Orphaned** so you can reselect it. A PDF-only comment belongs to that PDF's hash and is not moved to the same page number of a new PDF.
+
+## Write and revise
+
+### Spelling and word count
+
+Turn **Spell check (English)** on or off under **Settings → Source editing** (on by default). Misspelled words in the visible part of the source get a wavy underline; hover or click one, or put the cursor on it and press `Alt+F8`, to see up to five suggestions and **Ignore word**.
+
+- **What is checked:** only rendered prose. TeX commands and their option arguments, math, comments, verbatim text, labels and citation keys are skipped, and so are words with digits, all-capital acronyms, camelCase and hyphen/underscore identifiers. Text in other scripts, such as Korean, is not checked. Matches are marked only after you stop typing for a moment.
+- **Dictionary:** the English (US or UK) dictionary of Windows is used when the PC has one. A Windows PC with only another language installed, as is common with a Korean-only setup, has no English dictionary, so TexyPaper falls back to a built-in English dictionary (SCOWL, about 0.5 MB, loaded on the first check only; about 3 MB of extra working set was measured for loading it). **Settings** shows which one is in use.
+- **Ignored words:** **Ignore word** saves the word in TexyPaper's own settings (up to 500; **Clear ignored words** empties the list). The Windows custom dictionary is never modified.
+- **Word count:** the status bar shows the words and characters of the prose, not of TeX commands, math or comments, and the count of the selection while text is selected. A run of Hangul or other CJK characters counts as one word because no segmentation is attempted, a contraction or hyphenated word counts once, and standalone numbers do not count. Characters include the spaces and punctuation of prose. It is an estimate of the source and does not expand macros.
+
+### Project-wide replace
+
+Open the **Project search** panel in the left rail, enter the text to find and open **Replace**. **Preview** lists every file with its changed lines before and after, and **Replace all** applies them.
+
+- **Scope:** UTF-8 text files only. Files over 4 MiB, binary files, non-UTF-8 files and the app's private metadata are listed as skipped and left alone. **Match case** and **Whole word** are available.
+- **Limits:** at most 16 files and 2,000 matches at a time. A bigger result is refused with a message and nothing is written, so narrow the search first.
+- **One undoable save:** the application re-reads every file and checks its SHA-256 against the preview, saves open editors first, and writes all files as one transaction with the same BOM and line endings. If any file changed after the preview, nothing is written. **Undo** next to the result restores the previous content of every file.
+- Works for local and SSH projects alike.
+
+### Figures from drop or paste
+
+Drop PNG, JPEG, GIF, WebP, SVG, PDF or EPS files on the file tree (a folder row chooses that folder; anywhere else uses the `figures` folder when there is one, otherwise the project root), or drop them or paste a clipboard image into the source editor. Files dropped on the explorer are only copied; a drop or paste in the editor also inserts a `\begin{figure}` block with `\includegraphics`, an empty caption and a label at the cursor, with the path relative to the open file.
+
+- **Safe copy:** at most 20 MiB per file and only the extensions above. The name is made filesystem-safe, an existing file is never overwritten (a number is added instead), the content hash is verified after the transfer, and the file appears atomically. A folder on a file system without hard links therefore fails with an error instead of being written half-way.
+- A pasted image is saved as `pasted-image-<date>-<time>.png` (a non-PNG clipboard image is converted to PNG first). Whether LaTeX can include a format depends on your engine; pdfLaTeX takes PNG, JPEG and PDF. Local and SSH projects both work, and for SSH the bytes go over the existing connection.
+
+### Checkpoints
+
+The **Checkpoints** item in the left rail keeps named snapshots of the project's text files, a lighter safety net than a version-control repository and independent of it.
+
+- **Create checkpoint** saves open files first, then stores the project's source-type text files in TexyPaper's app data, not in your project: UTF-8, writable `.tex`, `.ltx`, `.bib`, `.bst`, `.cls`, `.sty`, `.bbx`, `.cbx`, `.dtx`, `.ins`, `.md`, `.txt`, `.csv`, `.tsv`, `.json`, `.yaml`, `.yml`, `.toml`, `.py`, `.r`, `.m`, `.jl` and `.sh` files. Hidden files and folders (such as `.git` and `.texypaper`), `node_modules`, `venv`, `__pycache__`, `build`, `dist` and `target` are left out, as are files that cannot be read as UTF-8 text.
+- **Limits:** a file over 1 MiB, read-only or not UTF-8 is skipped and listed; a checkpoint holds at most 400 files and 8 MiB in total, and a project over that is refused with an explanation instead of being saved partly. At most 50 checkpoints are kept and the oldest are pruned.
+- **Compare** lists changed, added and removed files against the current project and shows a line diff for each.
+- **Restore** can bring back all changed files, selected files or one file, up to 16 at a time. It asks first, creates a **Before restore** checkpoint, writes the files as one transaction and offers **Undo**. Files added after the checkpoint are never deleted.
+
+### Start from a template
+
+On Home, **New paper from template** creates a starter paper in a folder that already exists and is best empty. Choose a computer or SSH environment, the folder, and one of **English article**, **Korean article** (XeLaTeX with ko.TeX), **Presentation slides** (Beamer) or **Chapter-based report**, then **Create and open**.
+
+TexyPaper only creates new files; if any of the template's files or folders already exists, nothing is created and the paths are listed. The main document and engine are saved in `.texypaper/project.json` and the paper opens ready to compile.
 
 ## AI: Codex and Claude
 
@@ -204,13 +253,14 @@ The Claude subscription link is meant for personal use. Before distributing to o
 | `Ctrl+Shift+C` | Comment on the selection (the earlier `Ctrl+Shift+A` was removed because it clashes with Overleaf's track-changes shortcut) |
 | `Ctrl+wheel` / `Ctrl`+`+` / `Ctrl`+`-` | Zoom the source, PDF or AI chat under the pointer or in the selected pane |
 | `Ctrl+Shift+Q` | Confirm work and unsaved changes, then quit completely |
+| `Alt+F8` | Open spelling suggestions for the underlined word at the cursor |
 | `Escape` | Close a popup or selection; cancel an open SSH prompt |
 
 Source editing shortcuts follow Overleaf's defaults; the in-app help lists them all.
 
 ## Data and compatibility
 
-- **App data:** the per-user directory is `%APPDATA%\dev.texypaper.desktop` (override with `--data-dir`). It can hold settings, recent projects, recovery content, the visible AI conversation and the Codex account the CLI owns, so don't share it wholesale. Nothing is synced to other PCs.
+- **App data:** the per-user directory is `%APPDATA%\dev.texypaper.desktop` (override with `--data-dir`). It can hold settings, recent projects, recovery content, checkpoints, the visible AI conversation and the Codex account the CLI owns, so don't share it wholesale. Nothing is synced to other PCs.
 - **Project data:** `.texypaper/comments.json` and `project.json` travel with the project. `build`, `transactions` and `trash` are generated or recovery records; check for unfinished work before deleting them.
 - **Portable:** the portable ZIP saves to the same `%APPDATA%` location; moving the executable keeps the same Windows account's settings.
 - **From Paperdock:** the first start renames an old `%APPDATA%\dev.paperdock.desktop` profile and a project's `.paperdock` folder to the new names without reading or copying credentials. Conflicts stop with an explicit error and nothing is merged or deleted. See [the migration notes](docs/DEVELOPMENT.md#one-time-migration-from-paperdock-data).
@@ -235,17 +285,23 @@ Output: `src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.exe` and `bun
 ```text
 src/                         React front end
   ui/                        App shell, toolbar, Home, themes, shortcut help
-  editor/                    CodeMirror editor, TeX shortcuts, folding, buffers
+  editor/                    CodeMirror editor, TeX shortcuts, folding, buffers, spelling, word count, image paste
   pdf/                       PDF.js viewer, text layer, range transport
   features/
     explorer/                File tree, paper index, outline, file icons
     ai/                      Chat, proposals, command review, chat history
     comments/                Comment threads and anchors
+    search/                  Project-wide replace plan and review
+    templates/               Paper templates and create-only project start
+    assets/                  Figure import (drop and paste)
+    history/                 Checkpoints, diff and restore
     pdf-edit/                Selection actions and the source-edit review
   state/                     Workspace and reading-position state
 src-tauri/
   src/
     workspace/               Local and SSH workspaces, transactions, SSH config
+    spell.rs                 English spell check (Windows dictionary, built-in fallback)
+    checkpoints.rs           Checkpoint storage in app data
     latex/                   latexmk scheduler, diagnostics, SyncTeX, prose mapping
     ai/                      Codex/Claude adapters, MCP broker, proposals, model catalog
     execution.rs             Approved command execution

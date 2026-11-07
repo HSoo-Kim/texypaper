@@ -13,8 +13,11 @@ uses args_begin/chunk/execute/abort (8 MiB staged maximum, 1 MiB wire frames).
 Builds reply synchronously; queued builds are observed through build_status.
 """
 import concurrent.futures
+import collections
 import contextlib
 import datetime
+import base64
+import binascii
 import hashlib
 import json
 import math
@@ -320,6 +323,8 @@ class Worker:
         self.process_lock = threading.Lock()
         self.processes = set()
         self.uploads = {}
+        self.searches = {}
+        self.search_lock = threading.Lock()
         self.generation = 0
         self.build_state = dict(status='idle', diagnostics=[], logTail='')
         self.main_tex = None
@@ -903,11 +908,152 @@ class Worker:
 
     def save_text_abort(self, args, cancel, payload):
         with self.mutations:
-            upload = self.uploads.pop(token(args.get('uploadId')), None)
+            ident = token(args.get('uploadId'))
+            upload = self.uploads.get(ident)
+            require(upload is None or upload['kind'] in ('text', 'args'), 'UPLOAD_KIND', 'Not a source or argument upload')
+            self.uploads.pop(ident, None)
             if upload:
                 with contextlib.suppress(FileNotFoundError):
                     upload['path'].unlink()
             return dict(aborted=upload is not None), b''
+
+    def asset_cleanup(self, upload):
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(upload['temp'], dir_fd=upload['directory'])
+        os.close(upload['directory'])
+
+    def asset_import_begin(self, args, cancel, payload):
+        with self.mutations:
+            self.canceled(cancel)
+            self.check_root()
+            for ident, upload in list(self.uploads.items()):
+                if upload['kind'] == 'asset' and time.monotonic() - upload['touched'] >= 300:
+                    self.uploads.pop(ident)
+                    self.asset_cleanup(upload)
+            relative = args.get('path')
+            require(isinstance(relative, str) and relative and not relative.startswith('/') and '\\' not in relative
+                    and ':' not in relative and '\x00' not in relative, 'INVALID_PATH', 'Expected a relative asset path')
+            parts = relative.split('/')
+            for part in parts:
+                stem = part.split('.')[0].upper()
+                require(part not in ('', '.', '..') and part.casefold() not in {'.git', *PRIVATE_STATE_NAMES}
+                        and not part.endswith((' ', '.')) and not any(ord(c) < 32 or c in '<>"|?*' for c in part)
+                        and stem not in ('CON', 'PRN', 'AUX', 'NUL')
+                        and re.fullmatch(r'(COM|LPT)[0-9]', stem) is None,
+                        'INVALID_PATH', 'Reserved or invalid asset path')
+            require(pathlib.PurePosixPath(relative).suffix.lower() in {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.pdf', '.eps', '.svg'},
+                    'ASSET_EXTENSION', 'Unsupported image or figure extension')
+            require('byteLength' in args, 'INVALID_ARGUMENT', 'byteLength required')
+            total = integer(args.get('byteLength'))
+            require(total <= 20 * PAYLOAD_LIMIT, 'ASSET_TOO_LARGE', 'Assets must be at most 20 MiB')
+            expected = args.get('sha256')
+            require(isinstance(expected, str) and HEX.fullmatch(expected), 'INVALID_ARGUMENT', 'Lowercase SHA-256 required')
+            require(len(self.uploads) < 2,
+                    'UPLOAD_BUSY', 'At most two asset uploads may be staged', retryable=True)
+            directory = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            temp = None
+            try:
+                info = os.fstat(directory)
+                require((info.st_dev, info.st_ino) == self.root_identity, 'WORKSPACE_ROOT_CHANGED', 'Workspace root changed')
+                # Directory descriptors and O_NOFOLLOW prevent both symlink escapes and parent-swap races.
+                for part in parts[:-1]:
+                    with contextlib.suppress(FileExistsError):
+                        os.mkdir(part, dir_fd=directory)
+                    child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+                    os.close(directory)
+                    directory = child
+                try:
+                    os.stat(parts[-1], dir_fd=directory, follow_symlinks=False)
+                except FileNotFoundError:
+                    pass
+                else:
+                    raise Failure('ALREADY_EXISTS', 'Asset destination already exists')
+                ident = uuid.uuid4().hex
+                temp = '.texypaper-asset-' + ident + '.tmp'
+                descriptor = os.open(temp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600, dir_fd=directory)
+                os.close(descriptor)
+                self.uploads[ident] = dict(kind='asset', directory=directory, temp=temp, path=self.root / relative,
+                                          relative=relative, name=parts[-1], total=total, received=0, index=0,
+                                          sha256=expected, touched=time.monotonic())
+                return dict(uploadId=ident), b''
+            except BaseException:
+                if temp:
+                    with contextlib.suppress(FileNotFoundError):
+                        os.unlink(temp, dir_fd=directory)
+                os.close(directory)
+                raise
+
+    def asset_import_chunk(self, args, cancel, payload):
+        with self.mutations:
+            ident = token(args.get('uploadId'))
+            upload = self.uploads.get(ident)
+            require(upload is not None and upload['kind'] == 'asset', 'UPLOAD_NOT_FOUND', 'Unknown asset upload')
+            try:
+                self.canceled(cancel)
+                require(time.monotonic() - upload['touched'] < 300, 'UPLOAD_NOT_FOUND', 'Asset upload expired')
+                if 'data' in args:
+                    encoded = args['data']
+                    require(isinstance(encoded, str) and len(encoded) <= 256 * 1024, 'UPLOAD_CHUNK_LIMIT', 'Asset chunk exceeds 192 KiB')
+                    try:
+                        payload = base64.b64decode(encoded, validate=True)
+                    except (ValueError, binascii.Error):
+                        raise Failure('INVALID_ARGUMENT', 'Invalid base64 asset chunk')
+                require('index' in args, 'INVALID_ARGUMENT', 'index required')
+                require(integer(args.get('index')) == upload['index'] and 0 < len(payload) <= 192 * 1024
+                        and upload['received'] + len(payload) <= upload['total'],
+                        'UPLOAD_SEQUENCE', 'Asset chunks must be sequential and bounded')
+                descriptor = os.open(upload['temp'], os.O_WRONLY | os.O_APPEND | os.O_NOFOLLOW, dir_fd=upload['directory'])
+                with os.fdopen(descriptor, 'ab') as stream:
+                    stream.write(payload)
+                upload['received'] += len(payload)
+                upload['index'] += 1
+                upload['touched'] = time.monotonic()
+                return dict(received=upload['received']), b''
+            except BaseException:
+                self.uploads.pop(ident)
+                self.asset_cleanup(upload)
+                raise
+
+    def asset_import_commit(self, args, cancel, payload):
+        with self.mutations:
+            ident = token(args.get('uploadId'))
+            upload = self.uploads.get(ident)
+            require(upload is not None and upload['kind'] == 'asset', 'UPLOAD_NOT_FOUND', 'Unknown asset upload')
+            self.uploads.pop(ident)
+            try:
+                self.canceled(cancel)
+                require(time.monotonic() - upload['touched'] < 300, 'UPLOAD_NOT_FOUND', 'Asset upload expired')
+                require(upload['received'] == upload['total'], 'UPLOAD_INCOMPLETE', 'Asset upload is incomplete')
+                descriptor = os.open(upload['temp'], os.O_RDONLY | os.O_NOFOLLOW, dir_fd=upload['directory'])
+                h = hashlib.sha256()
+                with os.fdopen(descriptor, 'rb') as stream:
+                    require(os.fstat(stream.fileno()).st_size == upload['total'], 'UPLOAD_INCOMPLETE', 'Asset byte length does not match')
+                    for chunk in iter(lambda: stream.read(65536), b''):
+                        h.update(chunk)
+                    os.fsync(stream.fileno())
+                require(h.hexdigest() == upload['sha256'], 'ASSET_HASH_MISMATCH', 'Asset SHA-256 does not match')
+                try:
+                    # Atomic no-replace publication: rename() would overwrite a competing writer on POSIX.
+                    os.link(upload['temp'], upload['name'], src_dir_fd=upload['directory'],
+                            dst_dir_fd=upload['directory'], follow_symlinks=False)
+                except FileExistsError:
+                    raise Failure('ALREADY_EXISTS', 'Asset destination already exists')
+                os.fsync(upload['directory'])
+                self.generation += 1
+                return dict(path=upload['relative'], byteLength=upload['total'], sha256=upload['sha256']), b''
+            finally:
+                self.asset_cleanup(upload)
+
+    def asset_import_abort(self, args, cancel, payload):
+        with self.mutations:
+            ident = token(args.get('uploadId'))
+            upload = self.uploads.get(ident)
+            if upload is not None and upload['kind'] == 'asset':
+                self.uploads.pop(ident)
+                self.asset_cleanup(upload)
+                return dict(aborted=True), b''
+            return dict(aborted=False), b''
+
     def args_begin(self, args, cancel, payload):
         with self.mutations:
             self.canceled(cancel)
@@ -969,15 +1115,36 @@ class Worker:
             for item in files:
                 self.canceled(cancel)
                 relative = item.get('path')
-                require(isinstance(relative, str) and pathlib.PurePosixPath(relative).suffix.lower() in PAPER_SUFFIXES,
-                        'WRITE_NOT_ALLOWED', 'Proposals may change only TeX/bibliography/style files')
+                require(isinstance(relative, str), 'INVALID_ARGUMENT', 'Proposal path must be a string')
                 action = item.get('action')
                 require(action in ('edit', 'create'), 'INVALID_ARGUMENT', 'Proposal action must be edit or create')
-                path = self.agent_path(relative, allow_new=action == 'create', write=True)
+                agent = args.get('_agentPolicy') is True
+                if agent:
+                    require(pathlib.PurePosixPath(relative).suffix.lower() in PAPER_SUFFIXES,
+                            'WRITE_NOT_ALLOWED', 'Proposals may change only TeX/bibliography/style files')
+                    path = self.agent_path(relative, allow_new=action == 'create', write=True)
+                else:
+                    path = self.path(relative, missing=action == 'create')
+                    parts = pathlib.PurePosixPath(relative).parts + path.resolve(strict=path.exists()).relative_to(self.root).parts
+                    require(not any(part.casefold() in {'.git', *PRIVATE_STATE_NAMES} for part in parts),
+                            'PATH_RESERVED', 'Private metadata is not replaceable source', path=relative)
+                    require(action != 'edit' or path.stat().st_size <= TEXT_LIMIT,
+                            'LARGE_FILE', 'Project replacement cannot edit files over 4 MiB', path=relative)
                 original = path.read_bytes() if path.exists() else b''
-                data = self.text_bytes(item.get('content'), original)
-                total += len(data) if data else 0
-                require(total <= PAYLOAD_LIMIT, 'PROPOSAL_LIMIT', 'Proposal changed text exceeds 1 MiB')
+                content = item.get('content')
+                require(isinstance(content, str), 'INVALID_ARGUMENT', 'Proposal content must be a string')
+                if agent:
+                    data = self.text_bytes(content, original)
+                else:
+                    require(not binary_bytes(original), 'BINARY_FILE', 'Binary files cannot be overwritten', path=relative)
+                    try:
+                        original.decode('utf-8-sig')
+                    except UnicodeError:
+                        raise Failure('ENCODING_UNSUPPORTED', 'Non-UTF-8 source cannot be overwritten', path=relative)
+                    data = (b'\xef\xbb\xbf' if original.startswith(b'\xef\xbb\xbf') else b'') + content.encode('utf-8')
+                total += len(data)
+                maximum = PAYLOAD_LIMIT if agent else 8 * PAYLOAD_LIMIT
+                require(total <= maximum, 'PROPOSAL_LIMIT', 'Proposal changed text exceeds bounded upload limit')
                 changes.append(dict(path=relative, baseSha256=item.get('baseSha256'), action=action, data=data))
             result = self.apply_files(token(args.get('transactionId')), changes, args.get('summary', ''))
             return dict(transactionId=result['transactionId'], status=result['status'], changed=result['revisions']), b''
@@ -1279,56 +1446,82 @@ class Worker:
 
     def search_text(self, args, cancel, payload):
         query = args.get('query')
-        require(isinstance(query, str) and 0 < len(query) <= 4096, 'INVALID_ARGUMENT', 'Search requires a bounded nonempty literal query')
+        require(isinstance(query, str) and 0 < len(query.encode('utf-8')) <= 4096,
+                'INVALID_ARGUMENT', 'Search requires a bounded nonempty literal query')
         root_relative = args.get('path', '')
-        root = self.agent_path(root_relative) if args.get('_agentPolicy') else self.path(root_relative)
+        agent = args.get('_agentPolicy') is True
+        root = self.agent_path(root_relative) if agent else self.path(root_relative)
         require(not root.is_symlink(), 'INVALID_PATH', 'Search does not recursively traverse symlinks')
         case_sensitive = args.get('caseSensitive', False)
+        require(isinstance(case_sensitive, bool), 'INVALID_ARGUMENT', 'caseSensitive must be boolean')
+        matcher = re.compile(re.escape(query), 0 if case_sensitive else re.IGNORECASE)
         needle = query if case_sensitive else query.casefold()
         limit = integer(args.get('limit'), 100, 256)
-        results = []
-        visited = 0
-        truncated = False
-        start = time.monotonic()
-        iterator = os.walk(root, followlinks=False) if root.is_dir() else [(str(root.parent), [], [root.name])]
-        for current, dirs, files in iterator:
-            dirs[:] = [d for d in sorted(dirs) if d not in EXCLUDED and not (pathlib.Path(current) / d).is_symlink()]
-            for name in sorted(files):
+        require(limit > 0, 'INVALID_ARGUMENT', 'Search limit must be positive')
+        identity = (str(self.root), self.workspace_id, self.epoch, root_relative, query, case_sensitive, agent)
+        with self.search_lock:
+            cursor = args.get('cursor')
+            if cursor is not None:
+                require(isinstance(cursor, str) and IDENT.fullmatch(cursor),
+                        'CURSOR_INVALID', 'Invalid search cursor')
+                state = self.searches.get(cursor)
+                require(state is not None and state['identity'] == identity,
+                        'CURSOR_INVALID', 'Search cursor belongs to a different query or workspace')
+            else:
+                cursor = uuid.uuid4().hex
+                state = dict(identity=identity, pending=collections.deque([(root_relative, 0)]))
+            results, visited, rendered = [], 0, 0
+            start = time.monotonic()
+            pending = state['pending']
+            while pending:
                 self.canceled(cancel)
-                visited += 1
-                if visited > 20000 or time.monotonic() - start > 10:
-                    truncated = True
+                if visited >= 20000 or time.monotonic() - start > 0.5:
                     break
-                path = pathlib.Path(current) / name
-                if path.is_symlink() or path.stat().st_size > TEXT_LIMIT:
+                relative, skip = pending.popleft()
+                visited += 1
+                if any(part.casefold() in {'.git', *PRIVATE_STATE_NAMES}
+                       for part in pathlib.PurePosixPath(relative).parts):
                     continue
-                relative = self.relative(path)
-                self.path(relative)
-                if args.get('_agentPolicy'):
-                    try:
-                        self.agent_path(relative)
-                    except Failure:
-                        continue
                 try:
+                    path = self.agent_path(relative) if agent else self.path(relative)
+                    if path.is_symlink():
+                        continue
+                    if path.is_dir():
+                        pending.extend((self.relative(child), 0) for child in sorted(path.iterdir())
+                                       if child.name.casefold() not in EXCLUDED and not child.is_symlink())
+                        continue
+                    if not path.is_file() or path.stat().st_size > TEXT_LIMIT:
+                        continue
                     data = path.read_bytes()
-                    if b'\x00' in data:
+                    if binary_bytes(data):
                         continue
                     text = data.decode('utf-8-sig')
-                except (UnicodeError, OSError):
+                except (Failure, UnicodeError, OSError):
                     continue
-                for line_number, line in enumerate(text.splitlines(), 1):
-                    haystack = line if case_sensitive else line.casefold()
-                    position = haystack.find(needle)
+                for index, line in enumerate(text.splitlines()):
+                    if index < skip:
+                        continue
+                    position = (line if case_sensitive else line.casefold()).find(needle) if agent else (
+                        match.start() if (match := matcher.search(line)) else -1)
                     if position >= 0:
-                        results.append(dict(path=relative, line=line_number, line1=line_number, column=position + 1, text=line[:2000]))
-                        if len(results) >= limit:
-                            truncated = True
-                            break
-                if truncated:
+                        excerpt = line[:2000]
+                        rendered += len(excerpt.encode('utf-8'))
+                        results.append(dict(path=relative, line=index + 1, line1=index + 1,
+                                            column=position + 1, text=excerpt))
+                    if len(results) >= limit or rendered >= 65536 or time.monotonic() - start > 0.5:
+                        pending.appendleft((relative, index + 1))
+                        break
+                if len(results) >= limit or rendered >= 65536:
                     break
-            if truncated:
-                break
-        return dict(matches=results, truncated=truncated, visited=visited), b''
+            more = bool(pending)
+            if more:
+                if cursor not in self.searches and len(self.searches) >= 32:
+                    self.searches.pop(next(iter(self.searches)))
+                self.searches[cursor] = state
+            else:
+                self.searches.pop(cursor, None)
+            return dict(matches=results, nextCursor=cursor if more else None,
+                        truncated=more, incomplete=more, visited=visited), b''
 
     def validate_threads(self, threads):
         require(isinstance(threads, list) and len(threads) <= 10000, 'INVALID_COMMENTS', 'Invalid comment threads')
@@ -2198,6 +2391,7 @@ class Worker:
                    'project_update', 'build_start', 'build_status', 'artifact_manifest', 'build_validate',
                    'save_text_begin', 'save_text_chunk', 'save_text_commit', 'save_text_abort', 'canonical_path',
                    'args_begin', 'args_chunk', 'args_execute', 'args_abort',
+                   'asset_import_begin', 'asset_import_chunk', 'asset_import_commit', 'asset_import_abort',
                    'command_start', 'command_status', 'command_cancel'}
         require(op in allowed, 'UNKNOWN_OPERATION', 'Unsupported operation')
         if args.get('_agentPolicy') and op in ('read_text', 'read_range', 'list_dir', 'search_text', 'stat_many'):
@@ -2244,8 +2438,11 @@ class Worker:
             record['done'].wait()
         with self.mutations:
             for upload in self.uploads.values():
-                with contextlib.suppress(FileNotFoundError):
-                    upload['path'].unlink()
+                if upload['kind'] == 'asset':
+                    self.asset_cleanup(upload)
+                else:
+                    with contextlib.suppress(FileNotFoundError):
+                        upload['path'].unlink()
             self.uploads.clear()
         thread = self.queued_thread
         if thread is not None and thread is not threading.current_thread():

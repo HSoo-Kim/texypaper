@@ -1,0 +1,10 @@
+import { describe, expect, it } from 'vitest';
+import { diffLines } from './diffLines';
+describe('line diff',()=>{
+ it('returns no hunks for unchanged text or CRLF-only changes',()=>{expect(diffLines('same','same')).toEqual([]);expect(diffLines('a\r\nb\r\n','a\nb\n')).toEqual([]);});
+ it('includes numbered additions, deletions and context',()=>{const hunks=diffLines('one\ntwo\nthree','one\nnew\nthree');expect(hunks).toEqual([{beforeStart:1,afterStart:1,lines:[{kind:'context',text:'one',beforeLine:1,afterLine:1},{kind:'removed',text:'two',beforeLine:2},{kind:'added',text:'new',afterLine:2},{kind:'context',text:'three',beforeLine:3,afterLine:3}]}]);});
+ it('separates distant changes into context hunks',()=>{const before=Array.from({length:30},(_,i)=>`line ${i}`),after=[...before];after[2]='changed first';after[25]='changed last';const hunks=diffLines(before.join('\n'),after.join('\n'),2);expect(hunks).toHaveLength(2);expect(hunks[0].beforeStart).toBe(1);expect(hunks[1].beforeStart).toBe(24);expect(hunks[0].lines.filter(line=>line.kind==='context')).toHaveLength(4);});
+ it('reconstructs both inputs from the line operations with full context',()=>{for(const [before,after] of [['a\nb\na','a\na\nc'],['','hello'],['a\n','a'],['only',''],['a\nb','x\na\nb\ny']]){const lines=diffLines(before,after,100).flatMap(hunk=>hunk.lines);expect(lines.filter(line=>line.kind!=='added').map(line=>line.text).join('\n')).toBe(before);expect(lines.filter(line=>line.kind!=='removed').map(line=>line.text).join('\n')).toBe(after);}});
+ it('falls back to two complete text blocks beyond 5,000 lines',()=>{const before=Array.from({length:5001},()=> 'line').join('\n'),hunks=diffLines(before,'new');expect(hunks).toHaveLength(1);expect(hunks[0].blockReplace).toBe(true);expect(hunks[0].lines).toEqual([{kind:'removed',text:before,beforeLine:1},{kind:'added',text:'new',afterLine:1}]);});
+ it('bounds quadratic work even below the line-count guard',()=>{expect(diffLines('a\n'.repeat(3000),'b\n'.repeat(3000))[0].blockReplace).toBe(true);});
+});

@@ -53,4 +53,14 @@ describe('explicit source and PDF attachment intents', () => {
     expect(removed.pdfs).toBe(sent.pdfs);
     expect(sent.sources).toHaveLength(1);
   });
+  it('carries an optional bounded prompt on a source intent without storing it in the attached context', () => {
+    const asked = parseAttachmentIntent({ ...source, prompt: 'Why does the build fail?' });
+    expect(asked).toMatchObject({ kind: 'source', prompt: 'Why does the build fail?' });
+    expect(parseAttachmentIntent({ ...source, prompt: '' })).toBeNull();
+    expect(parseAttachmentIntent({ ...source, prompt: 'p'.repeat(4001) })).toBeNull();
+    expect(parseAttachmentIntent({ ...source, prompt: 'bad\0prompt' })).toBeNull();
+    expect(parseAttachmentIntent({ ...pdf, prompt: 'not for pdf' })).toBeNull();
+    const { context } = addChatAttachment({}, asked!);
+    expect(context.sources?.[0]).toEqual({ path: 'main.tex', startLine: 42, endLine: 45, text: 'Selected paragraph' });
+  });
 });

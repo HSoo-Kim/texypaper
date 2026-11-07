@@ -1,6 +1,29 @@
 # Changelog
 
-## Unreleased
+## 0.0.5 — 2026-11-07
+
+### Writing
+
+- English spell check for rendered prose only: TeX commands and option arguments, math, comments, verbatim text, labels, citation keys, words with digits, acronyms and identifiers are skipped. Suggestions open on hover, click or `Alt+F8` and **Ignore word** keeps a bounded list (500) in TexyPaper's own settings; the Windows custom dictionary is never touched. It uses the Windows English (US/UK) dictionary through `ISpellChecker` and falls back to a bundled SCOWL en_US dictionary (about 0.5 MB, parsed on the first check only; about 3 MB of extra working set measured) when Windows has no English dictionary, as on a Korean-only installation. `spell_status`, `spell_check` and `spell_suggest` run on the Windows client for local and SSH projects alike. New settings: `spellCheck` (default on, `Spell check (English)`) and `spellIgnore`.
+- The status bar shows the prose word and character count, and the count of the selection. Hangul and other CJK runs count once, contractions and hyphenated words count once, standalone numbers do not count.
+- **Ask AI about this error** in the build log attaches the source around the first diagnostic (20 lines either side) as a chip and pre-fills a question when the composer is empty. It never sends anything by itself.
+- **New paper from template** on Home creates an English article, Korean article (XeLaTeX with ko.TeX), Beamer presentation or chapter-based report in an existing folder, local or SSH. It only creates new files, refuses and lists the paths when any template file or folder already exists, records the main document and engine in `.texypaper/project.json` and opens the paper.
+
+### Project
+
+- Project-wide **Replace** in the project search panel: a preview of the changed lines per file, **Match case** and **Whole word**, then one transaction for up to 16 UTF-8 files and 2,000 matches with **Undo**. Every base SHA-256 is re-checked, open editors are saved first, BOM and line endings are preserved, and non-UTF-8, over-4-MiB, read-only and private files are skipped and listed. The native project search now honors case sensitivity and cursor pagination on local and SSH projects, and the generic `apply_proposal` path accepts user-driven edits of other UTF-8 text files (the AI path keeps its TeX/Bib/style restriction).
+- Figures by drop or paste: dropping PNG, JPEG, GIF, WebP, SVG, PDF or EPS files on the file tree, or dropping or pasting an image into the editor, copies it into the project through a new chunked binary import (`asset_import_begin/chunk/commit/abort`; 20 MiB per file, extension allow-list, no overwrite, hash-verified, atomic publication, local and SSH). The editor also inserts a figure block with a relative `\includegraphics` path.
+- **Checkpoints** rail item: named snapshots of source-type text files stored in the app data (at most 50 checkpoints, 400 files, 1 MiB per file, 8 MiB in total), a per-file line diff against the current project, and restore of all changed, selected or single files (up to 16 per transaction) that first creates a **Before restore** checkpoint, never deletes files added later and offers **Undo**.
+
+### Fixes
+
+- The diagnostics of a failed local build kept the TeX log's build-directory spelling (`./main.tex`), and the project path check rejected it with `PATH_OUTSIDE_WORKSPACE`. They are now normalized to project-relative paths like the diagnostics of a published build; entries outside the project are no longer clickable.
+
+### Packaging and verification
+
+- New `pnpm smoke:features` real-window scenario suite (word count and spell check, ask-AI-about-error, project replace with BOM/CRLF and the 16-file limit, drop and paste import, checkpoints, templates compiled with the Windows TeX Live), and a new SSH scenario for remote replace, binary import, checkpoints and template creation. `smoke:usability` and `smoke:features` now also run in `scripts/windows-build.ps1 -RunSmoke`. New native and worker tests cover spelling, checkpoints, asset import and project replace. Evidence and limits are in `docs/VERIFICATION.md`.
+- New third-party components: the pure-Rust `spellbook` crate (MPL-2.0) and the SCOWL en_US dictionary data; their exact license texts and provenance are in `licenses/` and `THIRD_PARTY_NOTICES.md`.
+
 
 ### Documentation
 

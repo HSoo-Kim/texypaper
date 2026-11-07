@@ -256,6 +256,7 @@ export async function startSshSmokeHost({ outputDir, distribution = 'Ubuntu-24.0
       root, directory, distribution, probe, environment, proxyEnvironment, password, passphrase, config, knownHosts,
       get events() { return [...events]; },
       async read(relative) { return (await wsl('import pathlib,sys; sys.stdout.buffer.write((pathlib.Path(sys.argv[1])/sys.argv[2]).read_bytes())', [root, relative])).stdout; },
+      async digest(relative) { return (await wsl('import hashlib,pathlib,sys; print(hashlib.sha256((pathlib.Path(sys.argv[1])/sys.argv[2]).read_bytes()).hexdigest())', [root, relative])).stdout.trim(); },
       async write(relative, text) { await wsl('import pathlib,sys; p=pathlib.Path(sys.argv[1])/sys.argv[2]; p.parent.mkdir(parents=True,exist_ok=True); p.write_bytes(sys.stdin.buffer.read())', [root, relative], { input: text }); },
       async list(relative = '.texypaper') { return JSON.parse((await wsl('import pathlib,json,sys; r=pathlib.Path(sys.argv[1]); p=r/sys.argv[2]; print(json.dumps([str(x.relative_to(r)) for x in p.rglob("*") if x.is_file()]))', [root, relative])).stdout); },
       async ownedJobs() {

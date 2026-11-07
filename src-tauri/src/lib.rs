@@ -1,6 +1,7 @@
 pub mod activation;
 pub mod ai;
 pub mod chat_window;
+pub mod checkpoints;
 pub mod comments;
 pub mod contracts;
 pub mod execution;
@@ -9,6 +10,7 @@ pub mod media;
 pub mod migration;
 pub mod process;
 pub mod resources;
+pub mod spell;
 pub mod ssh_askpass;
 pub mod state;
 pub mod tray;
@@ -145,6 +147,7 @@ async fn app_settings(
     }
     updates::validate_settings(&settings)?;
     validate_chat_settings(&settings)?;
+    spell::validate_settings(&settings)?;
     let mut stored = state.settings.lock().map_err(|_| lock_error())?;
     let mut merged = stored.as_object().cloned().unwrap_or_default();
     for (key, value) in settings.as_object().expect("validated settings object") {
@@ -267,6 +270,10 @@ async fn dispatch(
             | "undo_transaction"
             | "recovery_write"
             | "recovery_clear"
+            | "apply_proposal"
+            | "asset_import_chunk"
+            | "asset_import_commit"
+            | "checkpoint_put"
     );
     let (workspace, guard) = {
         let manager = state.manager.lock().map_err(|_| lock_error())?;
@@ -285,6 +292,7 @@ async fn dispatch(
   let emit:Arc<dyn Fn(AppEvent)+Send+Sync>=Arc::new({let app=app.clone();move|mut event|{event.sequence=event_state.sequence.fetch_add(1,Ordering::Relaxed)+1;if let Some(channel)=&events{let _=channel.send(event.clone());}let _=app.emit("texypaper:event",event);}});
   let event_context=json!({"path":args.get("path"),"rootTex":args.get("rootTex")});
   let result=match command {
+   "spell_status"|"spell_check"|"spell_suggest"=>spell::execute(command,&args),
    "project_trust"=>{
     let trusted=args.get("trusted").and_then(Value::as_bool).unwrap_or(false);
     if trusted {
@@ -295,6 +303,7 @@ async fn dispatch(
     }
     state::set_project_trust(&state.data_dir,&workspace,trusted)?;Ok(json!({"trusted":trusted}))
    },
+   "checkpoint_put"|"checkpoint_list"|"checkpoint_get"|"checkpoint_delete"=>checkpoints::execute(&state.data_dir,&workspace.reference.id,command,&args),
    "recovery_read"|"recovery_write"|"recovery_clear"=>state.recovery(&workspace,command,&args),
    "provider_status"|"provider_login"|"provider_models"|"agent_start"|"agent_cancel"|"proposal_decide"|"proposal_list"|"agent_history"=>{let mut args=args;args["_dataDir"]=json!(state.data_dir);args["_exePath"]=json!(std::env::current_exe()?);ai::execute(&workspace,command,args,emit.clone())},
    "command_list"|"command_permission"|"command_decide"|"command_cancel"=>{let mut args=args;args["_dataDir"]=json!(state.data_dir);execution::execute(&workspace,command,args,emit.clone())},
@@ -336,7 +345,7 @@ async fn dispatch(
      Some("running")=>"build/started",
      _=>"build/failed",
     }),
-    "file_save"|"file_create"|"file_rename"|"file_trash"|"file_restore"|"undo_transaction"=>Some("workspace/changed"),
+    "file_save"|"file_create"|"file_rename"|"file_trash"|"file_restore"|"undo_transaction"|"apply_proposal"|"asset_import_commit"=>Some("workspace/changed"),
     _=>None
    };
    if let Some(kind)=kind {emit(state.event(&workspace,kind,json!({"result":value,"args":event_context})));}
@@ -388,7 +397,19 @@ workspace_commands!(
     recovery_read,
     recovery_write,
     recovery_clear,
-    open_external
+    open_external,
+    apply_proposal,
+    asset_import_begin,
+    asset_import_chunk,
+    asset_import_commit,
+    asset_import_abort,
+    checkpoint_put,
+    checkpoint_list,
+    checkpoint_get,
+    checkpoint_delete,
+    spell_status,
+    spell_check,
+    spell_suggest
 );
 workspace_commands!(
     image_metadata,
@@ -859,7 +880,19 @@ pub fn run() {
             export_file,
             resource_snapshot,
             workspace_state_read,
-            workspace_state_write
+            workspace_state_write,
+            apply_proposal,
+            asset_import_begin,
+            asset_import_chunk,
+            asset_import_commit,
+            asset_import_abort,
+            checkpoint_put,
+            checkpoint_list,
+            checkpoint_get,
+            checkpoint_delete,
+            spell_status,
+            spell_check,
+            spell_suggest
             ];
             move |invoke: tauri::ipc::Invoke| {
                 // App commands are otherwise callable by every local webview.

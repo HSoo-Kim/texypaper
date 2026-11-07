@@ -16,8 +16,8 @@ Versions come from actual installed package manifests, `pnpm-lock.yaml`,
 `src-tauri/Cargo.lock`, and Cargo's locked Windows x64 dependency resolution.
 [`licenses/DEPENDENCIES.tsv`](licenses/DEPENDENCIES.tsv) records exact versions,
 declared license expressions, retained license files and exact-version source
-URLs for 338 Cargo packages in the normal/build closure and 35 installed npm
-production-tree packages. The inventory deliberately includes build dependencies
+URLs for 339 Cargo packages in the normal/build closure, 35 installed npm
+production-tree packages and the bundled English dictionary. The inventory deliberately includes build dependencies
 and optional Node support; it does not assert that every entry is linked/emitted.
 [`licenses/ORIGINS.txt`](licenses/ORIGINS.txt) explains collection and pinned
 upstream sources used when a crate omitted its own root license file.
@@ -174,6 +174,7 @@ that the native graphics stack has been audited for redistribution.
 | `serde` | 1.0.229 | MIT OR Apache-2.0 | `licenses/rust/serde-1.0.229/` |
 | `serde_json` | 1.0.154 | MIT OR Apache-2.0 | `licenses/rust/serde_json-1.0.154/` |
 | `sha2` | 0.10.9 | MIT OR Apache-2.0 | `licenses/rust/sha2-0.10.9/` |
+| `spellbook` | 0.4.2 | MPL-2.0 | `licenses/rust/spellbook-0.4.2/` |
 | `tauri` | 2.12.5 | Apache-2.0 OR MIT | `licenses/rust/tauri-2.12.5/` |
 | `tauri-build` | 2.7.4 | Apache-2.0 OR MIT | `licenses/rust/tauri-build-2.7.4/` |
 | `tokio` | 1.54.1 | MIT | `licenses/rust/tokio-1.54.1/` |
@@ -199,6 +200,40 @@ in [`licenses/microsoft-webview2-sdk-1.0.3800.47/`](licenses/microsoft-webview2-
 The separately installed Microsoft Edge WebView2 Runtime has its own Microsoft
 terms; the SDK license is not a grant to redistribute an arbitrary browser runtime.
 
+### Bundled English spell checking
+
+Windows system English dictionaries remain preferred. If no Windows English
+checker is available, `src-tauri/src/spell.rs` lazily loads the embedded American
+English Hunspell dictionary using **spellbook 0.4.2**, a pure-Rust library under
+**Mozilla Public License 2.0**. The crate identifies **Michael Davis** as its
+author; its unmodified full license contains no separate dated copyright notice.
+Full text: [`licenses/rust/spellbook-0.4.2/LICENSE`](licenses/rust/spellbook-0.4.2/LICENSE).
+Exact source: [spellbook 0.4.2 archive](https://crates.io/api/v1/crates/spellbook/0.4.2/download);
+upstream project: [helix-editor/spellbook](https://github.com/helix-editor/spellbook).
+The crate is not modified. Its existing dependencies `hashbrown 0.17.1`
+(MIT OR Apache-2.0) and `foldhash 0.2.0` (Zlib) were already inventoried; their
+full notices remain under `licenses/rust/`.
+
+The dictionary and affix data are **dictionary-en 4.0.0**, derived from **SCOWL
+en_US 2020.12.07**, at
+[wooorm/dictionaries commit 836d7c2032167880e639a1fe522748733e528c2d](https://github.com/wooorm/dictionaries/tree/836d7c2032167880e639a1fe522748733e528c2d/dictionaries/en).
+The upstream package labels these data **(MIT AND BSD)**. This shorthand does
+not replace the complete SCOWL permissive permissions, Ispell BSD-style terms,
+WordNet terms, public-domain declarations and other source notices retained
+verbatim in [`licenses/dictionary-en-4.0.0/LICENSE`](licenses/dictionary-en-4.0.0/LICENSE).
+Those notices identify **Kevin Atkinson** (SCOWL/VarCon), **Geoff Kuenning**
+(Ispell, copyright 1993), **Princeton University** (WordNet, copyright 1997),
+**Benjamin Titze** (copyright 2016), and **J Ross Beresford**
+(UKACD, copyright 1993–1999), with the exact applicability and terms preserved
+in that file. The separate repository packaging-code MIT notice, **copyright
+2015 Titus Wormer**, is preserved in `licenses/dictionary-en-4.0.0/LICENSE-MIT`;
+no upstream JavaScript package code is bundled.
+
+The embedded `.aff` and `.dic` files are unmodified and total **554,848 bytes**.
+Pinned download URLs, individual SHA-256 digests, version and source details:
+[`licenses/dictionary-en-4.0.0/ORIGIN.txt`](licenses/dictionary-en-4.0.0/ORIGIN.txt).
+Retain the complete notices when redistributing the embedded dictionary.
+
 ### MPL-2.0 source availability
 
 The resolved Cargo closure includes the following MPL packages, some build-only.
@@ -209,6 +244,7 @@ Dependencies were not modified. Recipients can obtain exact-version source from:
 - [dtoa-short 0.3.5](https://crates.io/api/v1/crates/dtoa-short/0.3.5/download)
 - [option-ext 0.2.0](https://crates.io/api/v1/crates/option-ext/0.2.0/download)
 - [selectors 0.38.0](https://crates.io/api/v1/crates/selectors/0.38.0/download)
+- [spellbook 0.4.2](https://crates.io/api/v1/crates/spellbook/0.4.2/download)
 
 Full MPL-2.0 text is retained in each applicable crate directory. For `selectors`,
 whose crate omits it, the standard MPL text is supplied; see `licenses/ORIGINS.txt`.

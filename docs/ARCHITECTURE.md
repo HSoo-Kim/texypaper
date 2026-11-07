@@ -49,6 +49,9 @@ Windows의 `activation.rs`는 같은 사용자 SID와 canonical profile 경로�
 | `src-tauri/resources/remote_worker.py` | 서버 파일·빌드·SyncTeX 작업, bounded protocol |
 | `src-tauri/src/latex/` | scheduler, diagnostics, immutable artifacts, mapping proof |
 | `src-tauri/src/comments.rs` | sidecar revision과 anchor 이동/재연결 |
+| `src-tauri/src/spell.rs`, `src/editor/spelling.ts`, `proseRanges.ts` | 영어 맞춤법: Windows `ISpellChecker` 우선, 없으면 내장 SCOWL 사전; 산문 범위만 검사 |
+| `src-tauri/src/checkpoints.rs`, `src/features/history/` | app-data 체크포인트 저장·검증과 비교·복원 UI |
+| `src/features/search/`, `assets/`, `templates/` | 프로젝트 바꾸기 계획, 그림 가져오기, 템플릿 생성(모두 기존 transaction/create 경로 재사용) |
 | `src-tauri/src/ai/` | 공식 CLI, broker/MCP, 읽기 정책과 staged proposal |
 | `src-tauri/src/execution.rs` | 사용자 명령 권한, 불변 승인 요청, 호스트 실행·출력·취소 |
 | `src-tauri/src/chat_window.rs`, `tray.rs` | 분리 창 역할 경계, 숨김·복원, 보호된 앱 종료 |
@@ -253,6 +256,7 @@ MCP 파일 읽기는 private key·`.env*`·credential·`.git` 내부·auth/histo
 | `workspaces/<id>/recovery/` | 미저장 source와 base hash/불확실한 transaction ID |
 | app-data의 index/frontier/history/proposal/session 파일 | 필요한 부분만 읽는 cache·보이는 대화·승인/재개 기록 |
 | `providers/codex/` | 공식 CLI 소유 private account/config store; 토큰 직접 처리 금지 |
+| `workspaces/<id>/checkpoints/<uuid>.json` | 이름 붙은 텍스트 스냅샷(최대 50개·400파일·8MiB); 프로젝트에는 쓰지 않음 |
 | `agent-workspaces/<id>/` | CLI control cwd와 앱 생성 MCP config |
 | 프로젝트 `.texypaper/project.json`, `comments.json` | 실제 호스트의 이동 가능한 설정·댓글 |
 | 프로젝트 `.texypaper/transactions/`, `trash/` | 복구/undo 원본, 명시적 삭제의 복원 자료 |
@@ -275,3 +279,12 @@ Windows는 하위 파일 handle이 열린 디렉터리의 rename을 거부합니
 
 
 Windows MSVC/WebView2, 로컬/원격 TeX와 글꼴, POSIX Python, OpenSSH 인증, 공식 provider 버전·구독 login, CDP 허용 정책은 외부 전제입니다. 일반 desktop/SSH/agent/preferences/memory suite는 보이는 앱 창을 실행하므로 사용자 허가가 필요하며 background/headless 검증에 사용하지 않습니다. 트레이 자동화의 기존 headed 안전 게이트도 유지합니다. smoke 도구는 `--output`/`-OutputDirectory`로 선택한 새 디렉터리에서 합성 fixture를 사용합니다. SSH smoke는 loopback SSH+WSL 실제 worker이며 live-agent gate는 실제 subscription inference가 필요합니다. 도구 누락이나 인증 실패는 nonzero/실패 기록으로 남겨야 합니다. 설치 파일 생성, 설치된 앱 실행, Unicode source mapping, host-key 처리, 접근성, 실제 모델의 local/SSH proposal, RAM 목표는 각각 별도 증거가 필요한 acceptance gate입니다.
+
+## 13. 맞춤법·그림 가져오기·체크포인트·바꾸기
+
+- **맞춤법:** 검사 대상은 `proseRanges.ts`가 TeX 명령·수식·주석·verbatim·키를 건너뛰고 뽑은 UTF-16 구간뿐입니다. `spell_status`는 Windows 팩토리에 en-US/en-GB 검사기가 있는지 보고, 없을 때만 내장 영어 사전(SCOWL en_US, `spellbook` crate)을 첫 검사 때 지연 로드합니다. 상태 조회는 사전을 파싱하지 않습니다. 모든 검사는 Windows 클라이언트에서 실행하므로 SSH 프로젝트의 파일 내용이 서버 밖의 다른 서비스로 나가지 않습니다. 무시 목록은 앱 설정이며 Windows 사용자 사전은 수정하지 않습니다.
+- **프로젝트 바꾸기:** 미리 보기는 읽기 전용이며 적용은 기존 `apply_proposal` 트랜잭션에 사용자 편집(`action:edit`)을 최대 16파일 보냅니다. 모든 base SHA-256이 쓰기 전에 다시 검사되고, AI 경로의 TeX/Bib/style 제한은 그대로입니다.
+- **그림 가져오기:** 텍스트 전용 `create`를 쓰지 않고 `asset_import_begin/chunk/commit/abort`로 청크 업로드합니다(20MiB, 확장자 허용 목록, 덮어쓰기 금지, 해시 검증, 하드 링크 후 unlink로 원자적 공개). SSH는 base64 청크를 worker가 원본 바이트로 다시 씁니다.
+- **체크포인트:** 저장은 `checkpoint_put/list/get/delete`가 app-data에서 검증합니다. 복원은 먼저 현재 상태를 "Before restore"로 저장한 뒤 `apply_proposal`로 한 트랜잭션(최대 16파일)을 쓰며 추가된 파일은 지우지 않습니다.
+- **템플릿:** 존재하는 폴더에서 충돌을 먼저 확인하고 `file_create`/디렉터리 생성만 사용합니다. 덮어쓰기 경로가 없습니다.
+

@@ -4,8 +4,9 @@ LICENSE TEXT SOURCES
 DEPENDENCIES.tsv records exact resolved versions and manifest license
 expressions from the installed pnpm dependency tree and Cargo's locked
 Windows x86_64-pc-windows-msvc normal/build dependency resolution. It lists
-338 third-party Cargo packages including build tools and 35 installed npm
-production-tree manifests. An entry does not assert that every package is
+339 third-party Cargo packages including build tools, 35 installed npm
+production-tree manifests and the bundled English Hunspell dictionary.
+An entry does not assert that every package is
 linked into the executable or emitted into JavaScript. Native Node canvas
 binaries are optional PDF.js Node support, not browser assets to redistribute.
 Development dependencies other than the explicitly attributed ssh2 example
@@ -45,6 +46,18 @@ copyright notice. Exact selectors source is linked in DEPENDENCIES.tsv.
 PDF.js asset license originals are from pdfjs-dist 6.5.438's LICENSE, cmaps/,
 standard_fonts/ and wasm/ directories. Font and Microsoft loader provenance
 and source/checksum details are in their respective ORIGIN.txt files.
+
+English spell checking adds unmodified spellbook 0.4.2 (MPL-2.0):
+  https://crates.io/api/v1/crates/spellbook/0.4.2/download
+  Archive SHA-256: 0d204abcbdf8e88729306a8d0ca01a79d8a49969fe1f84696909d6dbc4321c1a
+Its exact archive LICENSE is in licenses/rust/spellbook-0.4.2/LICENSE.
+The archive declares author Michael Davis; its license contains no separate
+dated copyright notice, so none has been invented. Existing hashbrown 0.17.1
+and foldhash 0.2.0 are reused; no new transitive packages were added.
+The unmodified dictionary-en 4.0.0 / SCOWL en_US 2020.12.07 files and complete
+composite notices are pinned to commit 836d7c2032167880e639a1fe522748733e528c2d.
+Exact source URLs, file sizes, SHA-256 digests and upstream copyright sources
+are recorded in licenses/dictionary-en-4.0.0/ORIGIN.txt.
 
 This inventory preserves known dependency license material. It is not an
 exhaustive legal audit of all source-level embedded notices, generated

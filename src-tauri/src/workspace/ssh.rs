@@ -3,6 +3,7 @@ use crate::{
     process::OwnedChild,
     ssh_askpass::AskpassBroker,
 };
+use base64::Engine;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
@@ -264,6 +265,38 @@ impl SshBackend {
                 "BINARY_RANGE_REQUIRED",
                 "Use the raw-byte range transport for binary reads",
             ));
+        }
+        if op == "asset_import_chunk" {
+            let upload_id = args["uploadId"].clone();
+            let outcome = (|| -> AppResult<Value> {
+                let encoded = args
+                    .as_object_mut()
+                    .and_then(|object| object.remove("data"))
+                    .and_then(|value| value.as_str().map(str::to_owned))
+                    .ok_or_else(|| {
+                        AppError::new("ARGUMENT_INVALID", "Base64 asset data required")
+                    })?;
+                if encoded.len() > 256 * 1024 {
+                    return Err(AppError::new(
+                        "UPLOAD_CHUNK_LIMIT",
+                        "Asset chunk exceeds 192 KiB",
+                    ));
+                }
+                let bytes = base64::engine::general_purpose::STANDARD
+                    .decode(encoded)
+                    .map_err(|_| AppError::new("ARGUMENT_INVALID", "Invalid base64 asset chunk"))?;
+                // Binary bytes belong in the framed payload, never in the 64 KiB JSON header.
+                Ok(self
+                    .request_payload(op, args, std::borrow::Cow::Owned(bytes))?
+                    .result)
+            })();
+            if outcome.is_err()
+                && upload_id.is_string()
+                && !self.inner.closed.load(Ordering::Acquire)
+            {
+                let _ = self.request("asset_import_abort", json!({"uploadId":upload_id}));
+            }
+            return outcome;
         }
         if op == "save_text"
             && args

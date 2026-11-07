@@ -2507,33 +2507,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "texypaper"
-version = "0.0.4"
-dependencies = [
- "base64 0.22.1",
- "flate2",
- "jsonschema",
- "notify",
- "rand 0.9.5",
- "regex",
- "reqwest 0.12.28",
- "rfd",
- "rmcp",
- "semver",
- "serde",
- "serde_json",
- "sha2",
- "tauri",
- "tauri-build",
- "tempfile",
- "tokio",
- "unicode-normalization",
- "unicode-segmentation",
- "uuid",
- "windows",
-]
-
-[[package]]
 name = "parking_lot"
 version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3619,6 +3592,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "spellbook"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d204abcbdf8e88729306a8d0ca01a79d8a49969fe1f84696909d6dbc4321c1a"
+dependencies = [
+ "foldhash",
+ "hashbrown 0.17.1",
+]
+
+[[package]]
 name = "stable_deref_trait"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4033,6 +4016,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5fed54709c5b3a53d09bb1c113ea4f5ceafd1e772ddcb0030a82e1d56c087b08"
 dependencies = [
  "new_debug_unreachable",
+]
+
+[[package]]
+name = "texypaper"
+version = "0.0.5"
+dependencies = [
+ "base64 0.22.1",
+ "flate2",
+ "jsonschema",
+ "notify",
+ "rand 0.9.5",
+ "regex",
+ "reqwest 0.12.28",
+ "rfd",
+ "rmcp",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2",
+ "spellbook",
+ "tauri",
+ "tauri-build",
+ "tempfile",
+ "tokio",
+ "unicode-normalization",
+ "unicode-segmentation",
+ "uuid",
+ "windows",
 ]
 
 [[package]]

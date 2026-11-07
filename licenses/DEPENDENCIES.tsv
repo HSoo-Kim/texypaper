@@ -235,6 +235,7 @@ cargo	slab	0.4.12	MIT	transitive runtime graph	licenses/rust/slab-0.4.12/LICENSE
 cargo	smallvec	1.16.4	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/smallvec-1.16.4/LICENSE-APACHE;licenses/rust/smallvec-1.16.4/LICENSE-MIT	https://crates.io/api/v1/crates/smallvec/1.16.4/download
 cargo	socket2	0.6.5	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/socket2-0.6.5/LICENSE-APACHE;licenses/rust/socket2-0.6.5/LICENSE-MIT	https://crates.io/api/v1/crates/socket2/0.6.5/download
 cargo	softbuffer	0.4.8	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/softbuffer-0.4.8/LICENSE-APACHE;licenses/rust/softbuffer-0.4.8/LICENSE-MIT	https://crates.io/api/v1/crates/softbuffer/0.4.8/download
+cargo	spellbook	0.4.2	MPL-2.0	direct runtime graph	licenses/rust/spellbook-0.4.2/LICENSE	https://crates.io/api/v1/crates/spellbook/0.4.2/download
 cargo	stable_deref_trait	1.2.1	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/stable_deref_trait-1.2.1/LICENSE-APACHE;licenses/rust/stable_deref_trait-1.2.1/LICENSE-MIT	https://crates.io/api/v1/crates/stable_deref_trait/1.2.1/download
 cargo	static_vcruntime	3.0.0	MIT OR Apache-2.0 OR Zlib	transitive build graph	licenses/rust/static_vcruntime-3.0.0/LICENSE;licenses/rust/static_vcruntime-3.0.0/LICENSE-APACHE;licenses/rust/static_vcruntime-3.0.0/LICENSE-MIT;licenses/rust/static_vcruntime-3.0.0/LICENSE-ZLIB	https://crates.io/api/v1/crates/static_vcruntime/3.0.0/download
 cargo	string_cache	0.9.0	MIT OR Apache-2.0	transitive runtime graph	licenses/rust/string_cache-0.9.0/LICENSE-APACHE;licenses/rust/string_cache-0.9.0/LICENSE-MIT	https://crates.io/api/v1/crates/string_cache/0.9.0/download
@@ -372,3 +373,4 @@ npm	react-dom	19.3.1	MIT	direct frontend	licenses/npm/react-dom-19.3.1/LICENSE	h
 npm	scheduler	0.28.0	MIT	transitive frontend	licenses/npm/scheduler-0.28.0/LICENSE	https://registry.npmjs.org/scheduler/-/scheduler-0.28.0.tgz
 npm	style-mod	4.1.4	MIT	transitive frontend	licenses/npm/style-mod-4.1.4/LICENSE	https://registry.npmjs.org/style-mod/-/style-mod-4.1.4.tgz
 npm	w3c-keyname	2.2.8	MIT	transitive frontend	licenses/npm/w3c-keyname-2.2.8/LICENSE	https://registry.npmjs.org/w3c-keyname/-/w3c-keyname-2.2.8.tgz
+data	dictionary-en	4.0.0	(MIT AND BSD)	bundled English Hunspell dictionary	licenses/dictionary-en-4.0.0/LICENSE;licenses/dictionary-en-4.0.0/LICENSE-MIT	https://github.com/wooorm/dictionaries/tree/836d7c2032167880e639a1fe522748733e528c2d/dictionaries/en

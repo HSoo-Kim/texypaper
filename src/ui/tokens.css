@@ -336,6 +336,8 @@ kbd { border:1px solid var(--border); border-radius:3px; padding:0 .25rem; font-
 .diagnostics>.pane-heading { position:sticky; top:0; z-index:1; background:var(--surface); min-height:2rem; }
 .diagnostic-failure { margin:0; padding:.5rem .75rem; color:var(--error); overflow-wrap:anywhere; }
 .diagnostics>button { display:block; width:100%; text-align:left; border:0; border-radius:0; white-space:normal; }
+.diagnostics>button.diagnostic-ask-ai { display:flex; align-items:center; justify-content:center; gap:.375rem; width:auto; margin:.5rem .75rem; padding:.375rem .75rem; border:1px solid var(--action); border-radius:var(--control-radius); background:transparent; color:var(--action); font-weight:600; }
+.diagnostics>button.diagnostic-ask-ai:hover:not(:disabled) { background:var(--selection); }
 .diagnostics pre { white-space:pre-wrap; overflow-wrap:anywhere; padding:.75rem; font-size:.75rem; }
 .comments-panel { height:100%; display:flex; flex-direction:column; min-height:0; }
 .inspector-subheading { display:flex; align-items:center; gap:.5rem; padding:.75rem; }

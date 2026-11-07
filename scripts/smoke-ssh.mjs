@@ -228,6 +228,104 @@ async function remoteMutations(page, host) {
   return { name: 'remote-create-rename-trash-restore', sha256: sha(original), observedDialogs };
 }
 
+// 1x1 PNG: enough to prove binary framing, chunk hashing and the atomic remote publication.
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64');
+
+async function remoteFeatures(page, host) {
+  const ok = (op) => host.events.some((event) => event.kind === 'worker-reply' && event.op === op && event.ok);
+  const showFiles = async () => {
+    const tree = page.getByTestId('file-tree');
+    if (!await tree.isVisible()) await page.getByRole('button', { name: '탐색기 표시', exact: true }).click();
+    await tree.waitFor({ state: 'visible', timeout: 15000 });
+  };
+  const quiet = () => waitFor(async () => !['running', 'queued', 'building', 'cancelling'].includes(await page.getByTestId('build-status').getAttribute('data-status')), { timeoutMs: 150000, label: 'no build running' });
+  const evidence = { name: 'remote-project-replace-assets-checkpoints-template' };
+
+  // Project-wide replace through the real worker: exact bytes, BOM and CRLF, then undo.
+  const files = { 'replace-remote/a.tex': 'one REMOTE_TOKEN\nsecond REMOTE_TOKEN\n', 'replace-remote/b.tex': '\ufeffbom REMOTE_TOKEN\r\nkeep CRLF\r\n' };
+  for (const [relative, text] of Object.entries(files)) await host.write(relative, text);
+  await page.getByRole('button', { name: '프로젝트 검색', exact: true }).click();
+  const search = page.locator('.project-search-panel input[type="search"]');
+  await search.fill('REMOTE_TOKEN');
+  await search.press('Enter');
+  await page.getByTestId('replace-toggle').click();
+  await page.getByTestId('replace-input').fill('BETA_TOKEN');
+  await page.getByTestId('replace-match-case').check();
+  await page.getByTestId('replace-preview').click();
+  const review = page.getByTestId('replace-review');
+  await waitFor(async () => /3.*2/.test(await review.innerText().catch(() => '')), { timeoutMs: 60000, label: 'remote replace preview: 3 matches in 2 files' });
+  await page.getByTestId('replace-apply').click();
+  await page.getByTestId('replace-undo').waitFor({ timeout: 60000 });
+  for (const [relative, text] of Object.entries(files)) assert(await host.digest(relative) === sha(text.replaceAll('REMOTE_TOKEN', 'BETA_TOKEN')), `${relative} was not replaced byte-exactly over SSH`);
+  await page.getByTestId('replace-undo').click();
+  await waitFor(async () => { for (const [relative, text] of Object.entries(files)) if (await host.digest(relative) !== sha(text)) return false; return true; }, { timeoutMs: 60000, label: 'remote replace undo restores exact bytes' });
+  assert(ok('apply_proposal'), 'The worker never confirmed an apply_proposal transaction');
+  evidence.replace = 'applied-and-undone';
+  await page.getByRole('button', { name: '검색 패널 닫기', exact: true }).click();
+
+  // Binary drop import: framed raw payloads, hash verification and atomic publication on the server.
+  await showFiles();
+  await page.evaluate((base64) => {
+    const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([bytes], 'Remote Drop 1.png', { type: 'image/png' }));
+    const tree = document.querySelector('[data-testid="file-tree"]');
+    for (const type of ['dragenter', 'dragover', 'drop']) tree.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: transfer }));
+  }, PNG.toString('base64'));
+  await waitFor(async () => await host.digest('Remote_Drop_1.png').catch(() => '') === sha(PNG), { timeoutMs: 60000, label: 'dropped PNG arrived byte-identical on the server' });
+  for (const op of ['asset_import_begin', 'asset_import_chunk', 'asset_import_commit']) assert(ok(op), `The worker never confirmed ${op}`);
+  assert(!(await host.list('.')).some((name) => /\.tmp|\.part|\.upload/i.test(name) && !name.startsWith('.texypaper/')), 'An import temp file was left on the server');
+  evidence.assetImport = 'byte-identical';
+
+  // Checkpoints: snapshot, edit, compare, restore and undo against a real remote file.
+  const scratch = 'scratch-remote.tex';
+  const scratchText = '\\documentclass{article}\n\\begin{document}\nRemote scratch.\n\\end{document}\n';
+  await host.write(scratch, scratchText);
+  await page.locator(`[role="treeitem"][data-path=${JSON.stringify(scratch)}]`).waitFor({ timeout: 30000 });
+  await openFile(page, scratch);
+  await page.getByRole('button', { name: '체크포인트', exact: true }).click();
+  await page.getByTestId('checkpoint-create').click();
+  await page.getByTestId('checkpoint-row').first().waitFor({ timeout: 60000 });
+  await page.locator('.cm-content[contenteditable="true"]').click();
+  await page.keyboard.press('Control+End');
+  await page.keyboard.type('\n%% remote checkpoint change\n');
+  await page.keyboard.press('Control+S');
+  await waitFor(async () => (await host.read(scratch)).includes('remote checkpoint change'), { timeoutMs: 30000, label: 'remote edit saved' });
+  await page.getByTestId('checkpoint-compare').first().click();
+  await page.locator('.checkpoint-files').getByText(scratch).first().click();
+  await page.getByTestId('checkpoint-diff').waitFor({ timeout: 60000 });
+  page.once('dialog', (dialog) => void dialog.accept());
+  await page.getByTestId('checkpoint-restore').first().click();
+  await waitFor(async () => await host.digest(scratch) === sha(scratchText), { timeoutMs: 60000, label: 'remote restore wrote the checkpoint text exactly' });
+  assert(await page.getByTestId('checkpoint-row').filter({ hasText: 'Before restore' }).count() >= 1, 'A "Before restore" checkpoint must exist after a remote restore');
+  await page.getByTestId('checkpoint-undo').click();
+  await waitFor(async () => (await host.read(scratch)).includes('remote checkpoint change'), { timeoutMs: 60000, label: 'remote restore undo brings the edit back' });
+  evidence.checkpoints = 'created-compared-restored-undone';
+  await page.getByRole('button', { name: '탐색기 표시', exact: true }).click().catch(() => {});
+
+  // Template creation on the server, then back to the original project.
+  await quiet();
+  await host.write('template-target/.keep', '');
+  await page.getByTestId('home-button').click();
+  await page.getByTestId('dashboard-template').click();
+  const environmentValue = await page.getByTestId('template-environment').locator('option').filter({ hasText: host.environment.label }).last().getAttribute('value');
+  assert(environmentValue, 'The SSH environment is missing from the template picker');
+  await page.getByTestId('template-environment').selectOption(environmentValue);
+  await page.getByTestId('template-path').fill(`${host.root}/template-target`);
+  const consent = page.getByTestId('template-helper-consent');
+  if (await consent.count()) await consent.check();
+  await page.getByTestId('template-choice-article').check();
+  await page.getByTestId('template-create').click();
+  await waitFor(async () => (await host.read('template-target/main.tex').catch(() => '')).includes('\\documentclass'), { timeoutMs: 90000, label: 'template files created on the server' });
+  const project = JSON.parse(await host.read('template-target/.texypaper/project.json'));
+  assert(project.rootTex === 'main.tex' && project.engine === 'pdflatex', `Template project settings: ${JSON.stringify(project)}`);
+  evidence.template = 'created-on-server';
+  await connectSshUi(page, host.environment, host.root, { reuse: true });
+  await showFiles();
+  await openFile(page, 'main.tex');
+  return evidence;
+}
+
 async function main() {
   const args = parseArgs();
   const run = await createRun(args, 'ssh');
@@ -250,6 +348,7 @@ async function main() {
     await replaceEditor(page, updated);
     await waitFor(async () => await host.read('main.tex') === updated, { timeoutMs: 30000, label: 'real remote hash-checked source save' });
     report.scenarios.push({ name: 'remote-read-edit-save', beforeSha256: sha(original), afterSha256: sha(updated) });
+    report.scenarios.push(await remoteFeatures(page, host));
     const build = await compileFromUi(page);
     const published = (await host.list()).filter((name) => /\/published\/[^/]+\/manifest\.json$/.test(name));
     assert(published.length > 0, 'GUI build did not publish any actual remote manifest');

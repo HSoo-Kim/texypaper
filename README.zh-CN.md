@@ -37,6 +37,11 @@
 | **`Ctrl+S`，然后查看 PDF** | 保存时，在论文所在的机器上通过 latexmk 编译。主文档根据 `% !TeX root`、你的选择或 `\documentclass` 确定，通常无需配置。[详情](#编译与-pdf) |
 | **源文件与 PDF 并排显示** | 在 PDF 中 `Ctrl+click` 可跳转到源文件对应行；`Ctrl+Alt+J` 可高亮 PDF 中的对应位置（SyncTeX）。可拖动分隔线，并分别缩放源文件、PDF 和聊天内容。 |
 | **Overleaf 风格的编辑体验** | Overleaf 默认快捷键（`Ctrl+D` 删除行、`Ctrl+/` 注释、多光标、折叠）、带编号的章节大纲，以及文献引用和标签补全。 |
+| **拼写检查与字数统计** | 仅检查正文的英语拼写，不会标记 TeX 命令、数学公式、注释或文献引用键；点击或按 `Alt+F8` 可查看建议。状态栏显示全文字数或选区字数。[详情](#拼写检查与字数统计) |
+| **项目内批量替换** | 按文件预览每一行修改，然后对最多 16 个文件执行一次可撤销的批量保存。[详情](#项目内批量替换) |
+| **拖放或粘贴插图** | 将图片或 PDF 拖放到文件浏览器，或将截图粘贴到源文件中：文件会复制到项目内，并插入待填写的插图代码块。[详情](#拖放或粘贴插图) |
+| **检查点** | 为项目文本文件创建命名快照，逐文件查看与当前状态的差异，并执行可撤销的恢复。[详情](#检查点) |
+| **从模板新建论文** | 在本地或 SSH 服务器上的现有文件夹中，以英语文章、韩语文章、幻灯片或分章报告为起点创建项目。[详情](#从模板开始) |
 | **从 PDF 修改文字** | 选择渲染后的文字，将经过验证的字面正文片段送入修改前后的差异视图。应用修改时，会执行一次可撤销的保存，然后重新编译。[详情](#在-pdf-中修改文字) |
 | **评论** | 为源文件或 PDF 中的选区添加评论。评论串保存在 `.texypaper/comments.json`，编辑后会根据引用文字及其上下文重新定位。 |
 | **AI 提议，由你应用** | Codex 和 Claude 通过官方 CLI 使用你自己的订阅运行。它们可以读取项目并提出修改；在你点击 **Apply changes** 前，不会写入任何内容。[详情](#aicodex-与-claude) |
@@ -96,6 +101,8 @@
 
 同一时间只运行一次编译，重叠的保存会合并为最新的重新编译请求。默认时限为 120 秒；取消时会终止应用启动的进程树。编译失败、取消或超时时，上一次成功生成的 PDF 会继续显示，并标记为已过期。日志按钮上的数字表示错误和警告总数；只有没有 PDF 可显示时，日志才会自动打开。
 
+编译失败且日志中出现带源文件位置的错误时，**Ask AI about this error** 会将第一个错误周围的源文件内容（前后各 20 行）附加到 AI 聊天；如果输入框为空，还会填入一个问题。点击发送之前，不会发送任何内容。
+
 PDF 面板提供页面导航、适合宽度、实际大小、缩放、90° 旋转、逐页文字搜索和 PDF 导出。单独打开的参考 PDF 不会被主文档重新编译的结果替换；点击 **Return to built PDF** 可返回编译生成的 PDF。PNG、JPEG、WebP 和不执行代码的 SVG 文件可直接预览。
 
 ### 在 PDF 中修改文字
@@ -110,6 +117,48 @@ PDF 面板提供页面导航、适合宽度、实际大小、缩放、90° 旋�
 ### 评论
 
 可从源文件或 PDF 选区创建评论，然后回复、编辑、删除、解决或重新打开。评论存储在项目实际所在主机的 `.texypaper/comments.json` 中，绝不会作为 TeX `%` 注释插入。应用内的编辑会调整字节锚点；外部编辑后，只有引用文字及其周围上下文在同一文件中唯一匹配时，评论才会重新定位，否则显示为 **Orphaned**，以便你重新选择关联位置。仅针对 PDF 的评论绑定于该 PDF 的哈希，不会迁移到新 PDF 的相同页码。
+
+## 写作与修订
+
+### 拼写检查与字数统计
+
+在 **Settings → Source editing** 中开启或关闭 **Spell check (English)**（默认开启）。源文件可见区域中的拼写错误会以波浪下划线标记；悬停或点击单词，或将光标放在单词上并按 `Alt+F8`，即可查看最多五条建议和 **Ignore word**。
+
+- **检查范围：**仅检查渲染后的正文。跳过 TeX 命令及其可选参数、数学公式、注释、原样文本、标签和文献引用键，也跳过含数字的单词、全大写缩略词、camelCase 和包含连字符或下划线的标识符。不检查韩文等其他文字系统的文本。只有停止输入片刻后，才会标记匹配项。
+- **词典：**电脑上有 Windows 英语（美国或英国）词典时，优先使用该词典。仅安装其他语言的 Windows 电脑（例如常见的纯韩语配置）没有英语词典，此时 TexyPaper 会使用内置英语词典（SCOWL，约 0.5 MB，仅在首次检查时加载；实测加载后工作集额外增加约 3 MB）。**Settings** 会显示当前使用的词典。
+- **忽略的单词：** **Ignore word** 将单词保存到 TexyPaper 自己的设置中（最多 500 个；**Clear ignored words** 清空列表）。绝不会修改 Windows 自定义词典。
+- **字数统计：**状态栏显示正文的单词数和字符数，不计 TeX 命令、数学公式或注释；选中文字时显示选区的统计结果。由于不进行分词，连续的韩文或其他 CJK 字符计为一个单词，缩约词或带连字符的单词也计为一个单词，独立数字不计入单词数。字符数包含正文中的空格和标点。这是对源文件的估算，不会展开宏。
+
+### 项目内批量替换
+
+打开左侧栏的 **Project search** 面板，输入要查找的文字，再打开 **Replace**。**Preview** 按文件列出修改前后的每一行，**Replace all** 应用这些修改。
+
+- **范围：**仅限 UTF-8 文本文件。超过 4 MiB 的文件、二进制文件、非 UTF-8 文件和应用私有元数据会列为已跳过，保持不变。支持 **Match case** 和 **Whole word**。
+- **限制：**每次最多 16 个文件、2,000 处匹配。超出限制会提示并拒绝操作，不写入任何内容，因此请先缩小搜索范围。
+- **一次可撤销的保存：**应用会重新读取每个文件，将其 SHA-256 与预览时的值比较，先保存已打开的编辑器，再以一次事务写入所有文件，保留原有 BOM 和换行符。如果任何文件在预览后发生变更，就不会写入任何内容。结果旁的 **Undo** 可恢复每个文件之前的内容。
+- 本地和 SSH 项目均支持。
+
+### 拖放或粘贴插图
+
+将 PNG、JPEG、GIF、WebP、SVG、PDF 或 EPS 文件拖放到文件树上（放到文件夹行时使用该文件夹；放到其他位置时，若存在 `figures` 文件夹则使用它，否则使用项目根目录），也可将文件拖放到源文件编辑器，或将剪贴板图片粘贴到编辑器中。拖放到文件浏览器只会复制文件；在编辑器中拖放或粘贴，还会在光标处插入包含 `\includegraphics`、空图题和标签的 `\begin{figure}` 代码块，路径相对于当前打开的文件。
+
+- **安全复制：**每个文件最多 20 MiB，且仅支持上述扩展名。文件名会处理为文件系统安全的名称，绝不覆盖现有文件（改为添加数字）；传输后会验证内容哈希，文件以原子方式出现。因此，目标文件夹所在的文件系统若不支持硬链接，操作会报错失败，而不是留下写到一半的文件。
+- 粘贴的图片保存为 `pasted-image-<date>-<time>.png`（非 PNG 剪贴板图片会先转换为 PNG）。LaTeX 能否插入某种格式取决于所用引擎；pdfLaTeX 支持 PNG、JPEG 和 PDF。本地和 SSH 项目均支持；SSH 项目的字节数据通过现有连接传输。
+
+### 检查点
+
+左侧栏的 **Checkpoints** 为项目文本文件保留命名快照，提供比版本控制仓库更轻量、且独立于仓库的保护。
+
+- **Create checkpoint** 先保存打开的文件，再将项目中属于源文件类型的文本文件存储到 TexyPaper 应用数据中，而不是项目内：支持可写的 UTF-8 `.tex`、`.ltx`、`.bib`、`.bst`、`.cls`、`.sty`、`.bbx`、`.cbx`、`.dtx`、`.ins`、`.md`、`.txt`、`.csv`、`.tsv`、`.json`、`.yaml`、`.yml`、`.toml`、`.py`、`.r`、`.m`、`.jl` 和 `.sh` 文件。隐藏文件和文件夹（例如 `.git` 和 `.texypaper`）、`node_modules`、`venv`、`__pycache__`、`build`、`dist` 和 `target`，以及无法作为 UTF-8 文本读取的文件均被排除。
+- **限制：**超过 1 MiB、只读或非 UTF-8 的文件会被跳过并列出；每个检查点最多包含 400 个文件、总计 8 MiB，项目超出限制时会说明原因并拒绝创建，而不是仅保存部分内容。最多保留 50 个检查点，最旧的会被清理。
+- **Compare** 列出与当前项目相比已修改、新增和删除的文件，并逐文件显示行级差异。
+- **Restore** 可恢复所有已修改文件、所选文件或单个文件，每次最多 16 个。操作前会询问，创建一个 **Before restore** 检查点，再以一次事务写入文件，并提供 **Undo**。检查点创建后新增的文件绝不会被删除。
+
+### 从模板开始
+
+在 **Home** 上，**New paper from template** 可在已存在、最好为空的文件夹中创建论文起始项目。选择本机或 SSH 环境、文件夹，以及 **English article**、**Korean article**（使用 ko.TeX 的 XeLaTeX）、**Presentation slides**（Beamer）或 **Chapter-based report**，再点击 **Create and open**。
+
+TexyPaper 只创建新文件；模板中的任一文件或文件夹若已存在，就不会创建任何内容，并会列出这些路径。主文档和引擎保存在 `.texypaper/project.json` 中，论文打开后即可编译。
 
 ## AI：Codex 与 Claude
 
@@ -206,13 +255,14 @@ Claude 订阅连接旨在供个人使用。向他人分发前，请重新阅读[
 | `Ctrl+Shift+C` | 为选区添加评论（此前的 `Ctrl+Shift+A` 因与 Overleaf 的修订跟踪快捷键冲突而移除） |
 | `Ctrl+wheel` / `Ctrl`+`+` / `Ctrl`+`-` | 缩放指针下方或当前所选面板中的源文件、PDF 或 AI 聊天 |
 | `Ctrl+Shift+Q` | 确认运行中的任务和未保存修改后，完全退出 |
+| `Alt+F8` | 打开光标所在的带下划线单词的拼写建议 |
 | `Escape` | 关闭弹出窗口或取消选区；取消已打开的 SSH 提示 |
 
 源文件编辑快捷键遵循 Overleaf 默认设置；应用内帮助列出了全部快捷键。
 
 ## 数据与兼容性
 
-- **应用数据：**每用户目录为 `%APPDATA%\dev.texypaper.desktop`（可通过 `--data-dir` 覆盖）。其中可能包含设置、最近项目、恢复内容、可见的 AI 对话和 CLI 管理的 Codex 账户，因此请勿整体分享。不会同步到其他电脑。
+- **应用数据：**每用户目录为 `%APPDATA%\dev.texypaper.desktop`（可通过 `--data-dir` 覆盖）。其中可能包含设置、最近项目、恢复内容、检查点、可见的 AI 对话和 CLI 管理的 Codex 账户，因此请勿整体分享。不会同步到其他电脑。
 - **项目数据：**`.texypaper/comments.json` 和 `project.json` 随项目一起移动。`build`、`transactions` 和 `trash` 是生成文件或恢复记录；删除前请检查是否有未完成的操作。
 - **便携版：**便携 ZIP 版保存到相同的 `%APPDATA%` 位置；移动可执行文件后，同一 Windows 账户的设置仍会保留。
 - **从 Paperdock 迁移：**首次启动会将旧的 `%APPDATA%\dev.paperdock.desktop` 配置和项目的 `.paperdock` 文件夹重命名为新名称，不会读取或复制凭据。发生冲突时会明确报错并停止，不会合并或删除任何内容。参见[迁移说明](docs/DEVELOPMENT.md#one-time-migration-from-paperdock-data)。
@@ -237,17 +287,23 @@ pnpm tauri build --ci --target x86_64-pc-windows-msvc --bundles nsis -- --locked
 ```text
 src/                         React front end
   ui/                        App shell, toolbar, Home, themes, shortcut help
-  editor/                    CodeMirror editor, TeX shortcuts, folding, buffers
+  editor/                    CodeMirror editor, TeX shortcuts, folding, buffers, spelling, word count, image paste
   pdf/                       PDF.js viewer, text layer, range transport
   features/
     explorer/                File tree, paper index, outline, file icons
     ai/                      Chat, proposals, command review, chat history
     comments/                Comment threads and anchors
+    search/                  Project-wide replace plan and review
+    templates/               Paper templates and create-only project start
+    assets/                  Figure import (drop and paste)
+    history/                 Checkpoints, diff and restore
     pdf-edit/                Selection actions and the source-edit review
   state/                     Workspace and reading-position state
 src-tauri/
   src/
     workspace/               Local and SSH workspaces, transactions, SSH config
+    spell.rs                 English spell check (Windows dictionary, built-in fallback)
+    checkpoints.rs           Checkpoint storage in app data
     latex/                   latexmk scheduler, diagnostics, SyncTeX, prose mapping
     ai/                      Codex/Claude adapters, MCP broker, proposals, model catalog
     execution.rs             Approved command execution

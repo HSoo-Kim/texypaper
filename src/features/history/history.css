@@ -1,0 +1,29 @@
+.checkpoint-panel { flex:1; min-height:0; overflow:auto; padding:0 .625rem .75rem; background:var(--sidebar); color:var(--text); }
+.checkpoint-panel .pane-heading { margin-inline:-.625rem; }
+.checkpoint-panel .pane-heading strong { display:flex; align-items:center; gap:.375rem; }
+.checkpoint-create { margin-top:.625rem; }
+.checkpoint-create label { margin-bottom:.375rem; }
+.checkpoint-create input,.checkpoint-create button { width:100%; }
+.checkpoint-hint,.checkpoint-notice,.checkpoint-empty { margin:.625rem 0; overflow-wrap:anywhere; }
+.checkpoint-hint,.checkpoint-list time,.checkpoint-list li>span { color:var(--secondary); font-size:.6875rem; }
+.checkpoint-list,.checkpoint-files { list-style:none; padding:0; margin:.75rem 0; }
+.checkpoint-list>li { padding:.625rem 0; border-bottom:1px solid var(--border); display:flex; flex-direction:column; gap:.1875rem; overflow-wrap:anywhere; }
+.checkpoint-list strong,.checkpoint-path { overflow-wrap:anywhere; }
+.checkpoint-actions { display:flex; flex-wrap:wrap; gap:.375rem; margin-top:.3125rem; }
+.checkpoint-actions button { white-space:normal; text-align:left; }
+.checkpoint-undo button { display:inline-flex; align-items:center; gap:.375rem; }
+.checkpoint-comparison { padding-top:.75rem; border-top:1px solid var(--border); }
+.checkpoint-comparison h3 { margin-bottom:.375rem; }
+.checkpoint-files li { display:flex; align-items:center; gap:.25rem; min-width:0; margin:.25rem 0; }
+.checkpoint-files button { flex:1; display:flex; flex-direction:column; align-items:flex-start; white-space:normal; text-align:left; min-width:0; overflow-wrap:anywhere; }
+.checkpoint-files small { font-size:.6875rem; }
+.checkpoint-files input { flex:none; }
+.checkpoint-diff { margin-top:.5rem; max-height:26rem; overflow:auto; border:1px solid var(--border); background:var(--surface); }
+.checkpoint-diff pre { margin:0; min-width:max-content; font: .6875rem/1.6 Consolas,monospace; tab-size:4; }
+.checkpoint-line { display:block; padding:0 .25rem; white-space:pre; }
+.checkpoint-line.added { color:var(--success); background:color-mix(in srgb,var(--success) 8%,var(--surface)); }
+.checkpoint-line.removed { color:var(--error); background:color-mix(in srgb,var(--error) 8%,var(--surface)); }
+.checkpoint-line-number { color:var(--secondary); display:inline-block; min-width:5rem; text-align:right; padding-right:.5rem; font-variant-numeric:tabular-nums; }
+.checkpoint-diff p { padding:.5rem; max-width:60ch; white-space:normal; }
+@media (forced-colors:active) { .checkpoint-line.added,.checkpoint-line.removed { color:CanvasText; background:Canvas; } .checkpoint-line.removed { text-decoration:line-through; } }
+@media (prefers-reduced-motion:reduce) { .checkpoint-panel button { transition:none; } }

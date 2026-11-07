@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { ProjectSettings } from '../state/workspace';
 import type { AppSettings } from './theme';
+import type { SpellStatus } from '../editor/spelling';
 import { ThemeColors } from './ThemeColors';
 import { UpdateSettings, type UpdateController } from './Updates';
 import { Icon } from './Icon';
@@ -8,12 +9,17 @@ import { t } from './i18n';
 function SettingsGroup({title,description,children}:{title:string;description:string;children:ReactNode}) {
   return <section className="settings-section"><div className="settings-section-heading"><h3>{title}</h3><p>{description}</p></div><div className="settings-section-content">{children}</div></section>;
 }
-export function SettingsSheet({settings,onChange,updates,project,onProject,onClose}:{settings:AppSettings;onChange:(patch:Partial<AppSettings>)=>void;updates:UpdateController;project:ProjectSettings|null;onProject:(patch:Partial<ProjectSettings>)=>void;onClose:()=>void}) {
+export function SettingsSheet({settings,onChange,updates,project,onProject,onClose,spellAvailable,spellEngine}:{settings:AppSettings;onChange:(patch:Partial<AppSettings>)=>void;updates:UpdateController;project:ProjectSettings|null;onProject:(patch:Partial<ProjectSettings>)=>void;onClose:()=>void;spellAvailable?:boolean;spellEngine?:SpellStatus['engine']}) {
   return <section className="modal settings-dialog" role="dialog" aria-modal="true" aria-label={t('설정')}>
     <header className="settings-sheet-header"><div><Icon name="settings" size={20}/><h2>{t('설정')}</h2></div><button onClick={onClose}>{t('닫기')}</button></header>
     <div className="settings-sheet-content">
       <SettingsGroup title={t('일반','General')} description={t('작업 공간의 언어와 표시 크기입니다.','Language and display size for your workspace.')}>
         <div className="settings-control-grid"><label>{t('언어 / Language')}<select data-testid="ui-locale" aria-label="Language / 언어" value={settings.locale} onChange={event=>onChange({locale:event.target.value as 'ko'|'en'})}><option value="ko">한국어</option><option value="en">English</option></select></label><label>{t('UI 확대')}<select data-testid="ui-zoom" aria-label={t('UI 확대')} value={settings.zoom} onChange={event=>onChange({zoom:Number(event.target.value)})}><option value={1}>100%</option><option value={1.25}>125%</option><option value={1.5}>150%</option><option value={2}>200%</option></select></label></div>
+      </SettingsGroup>
+      <SettingsGroup title={t('소스 편집','Source editing')} description={t('영어 맞춤법 검사는 이 PC에서 수행합니다. Windows 사전이 없으면 내장 영어 사전을 사용합니다.','English spelling runs on this PC, using the built-in English dictionary when a Windows dictionary is unavailable.')}>
+        <label className="check settings-toggle"><input data-testid="settings-spellcheck" type="checkbox" checked={settings.spellCheck} disabled={spellAvailable!==true} aria-describedby={spellAvailable!==true?'spellcheck-unavailable':undefined} onChange={event=>onChange({spellCheck:event.target.checked})}/>{t('맞춤법 검사 (영어)','Spell check (English)')}{spellEngine&&<span className="settings-note" data-testid="settings-spell-engine">{spellEngine==='windows'?t('Windows 사전','Windows dictionary'):t('내장 영어 사전','Built-in English dictionary')}</span>}</label>
+        {spellAvailable!==true&&<p className="settings-note" id="spellcheck-unavailable">{spellAvailable===false?t('맞춤법 검사를 사용할 수 없습니다. 프로젝트를 다시 연결한 뒤 확인하세요.','Spell checking is unavailable. Reconnect the project and try again.'):t('프로젝트를 열면 영어 맞춤법 검사를 사용할 수 있는지 확인합니다.','Open a project to check English spell checker availability.')}</p>}
+        {settings.spellIgnore.length>0&&<button type="button" data-testid="settings-spell-clear" onClick={()=>onChange({spellIgnore:[]})}>{t('무시한 단어 지우기','Clear ignored words')} ({settings.spellIgnore.length})</button>}
       </SettingsGroup>
       <SettingsGroup title={t('모양','Appearance')} description={t('밝기와 색상을 작업 환경에 맞춥니다. PDF 용지는 흰색으로 유지됩니다.','Adjust brightness and colors for your workspace. PDF paper stays white.')}>
         <label className="settings-theme-mode">{t('테마')}<select data-testid="ui-theme" aria-label={t('테마')} value={settings.theme} onChange={event=>onChange({theme:event.target.value as AppSettings['theme']})}><option value="system">{t('시스템')}</option><option value="light">{t('밝게')}</option><option value="dark">{t('어둡게')}</option></select></label>

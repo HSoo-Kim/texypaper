@@ -383,8 +383,9 @@ fn build(root: &Path, args: &Value, cancel: &AtomicBool) -> AppResult<Value> {
         let (ok, log) = run(&mut command, cancel, timeout)?;
         tail = log;
         if !ok {
+            let diagnostics = project_diagnostics(diagnostics::parse(&tail), cwd, &root);
             return Ok(
-                json!({"status":"failed","diagnostics":diagnostics::parse(&tail),"logTail":tail,"error":{"code":"BUILD_FAILED","message":"LaTeX 빌드가 실패했습니다. 이전 PDF를 유지합니다","retryable":true}}),
+                json!({"status":"failed","diagnostics":diagnostics,"logTail":tail,"error":{"code":"BUILD_FAILED","message":"LaTeX 빌드가 실패했습니다. 이전 PDF를 유지합니다","retryable":true}}),
             );
         }
         let (pdf, sync, fls) = find_artifacts(&work)?;
@@ -466,15 +467,7 @@ fn build(root: &Path, args: &Value, cancel: &AtomicBool) -> AppResult<Value> {
     }
     let mut seen = std::collections::HashSet::new();
     diagnostic.retain(|d| seen.insert((d.path.clone(), d.line, d.message.clone())));
-    for d in &mut diagnostic {
-        if let Some(path) = &d.path {
-            let candidate = cwd.join(path);
-            d.path = candidate
-                .canonicalize()
-                .ok()
-                .and_then(|p| relative(&root, &p).ok());
-        }
-    }
+    let diagnostic = project_diagnostics(diagnostic, cwd, &root);
     fs::write(
         stage.join("diagnostics.json"),
         serde_json::to_vec(&diagnostic)?,
@@ -520,4 +513,42 @@ fn build(root: &Path, args: &Value, cancel: &AtomicBool) -> AppResult<Value> {
     )?;
     prune_generations(&root, &root_id, &id)?;
     Ok(json!({"status":"published","manifest":manifest,"diagnostics":diagnostic,"logTail":tail}))
+}
+
+/// TeX logs name files relative to the build directory (`./main.tex`), but the UI opens files by
+/// project-relative path. Keep only the locations that resolve to a file inside the project.
+fn project_diagnostics(
+    mut list: Vec<diagnostics::Diagnostic>,
+    cwd: &Path,
+    root: &Path,
+) -> Vec<diagnostics::Diagnostic> {
+    for d in &mut list {
+        if let Some(path) = &d.path {
+            d.path = cwd
+                .join(path)
+                .canonicalize()
+                .ok()
+                .and_then(|p| relative(root, &p).ok());
+        }
+    }
+    list
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn failed_build_diagnostics_open_by_project_relative_path_or_not_at_all() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        fs::create_dir(root.join("sections")).unwrap();
+        fs::write(root.join("sections/a.tex"), "x").unwrap();
+        let parsed = diagnostics::parse(
+            "./sections/a.tex:3: Undefined control sequence.\n/nowhere/else.tex:1: Missing $ inserted.\n",
+        );
+        let list = project_diagnostics(parsed, &root, &root);
+        assert_eq!(list[0].path.as_deref(), Some("sections/a.tex"));
+        assert_eq!(list[1].path, None);
+    }
 }

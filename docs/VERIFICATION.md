@@ -1,8 +1,30 @@
-# Verification — TexyPaper 0.0.4
+# Verification — TexyPaper 0.0.5
 
 Evidence is generated under ignored `artifacts/` directories. The scripts use isolated synthetic papers and app-data; no user paper is a writable fixture. A passing unit suite is not presented as proof of a desktop, SSH, model or installer interaction.
 
-## Current release — TexyPaper 0.0.4 / 현재 릴리스
+## Current release — TexyPaper 0.0.5 / 현재 릴리스
+
+Observed on Windows x64, 2026-11-07 (KST). This release adds English spell check and word count, a bundled English dictionary fallback, project-wide replace, drop/paste figure import, checkpoints, paper templates and “Ask AI about this error”. Runtime checks used a separately compiled hidden-start verification binary of the 0.0.5 source (no baked-in update feed); the distributed binaries are normal-start builds. All fixtures and profiles were synthetic and isolated; no real paper or normal account store was used.
+
+| Exercise | Observed result | Evidence |
+| --- | --- | --- |
+| Frontend | TypeScript check passed; 445 tests across 33 files passed (prose ranges and word count, spelling, replace planning, checkpoints and diff, templates, asset import with a 3 MiB end-to-end hash, image paste) | `pnpm typecheck`, `pnpm test` |
+| Native | Formatting and strict Clippy passed; 144 tests across 9 suites passed (spelling with the bundled engine forced, checkpoint storage limits and corruption, chunked asset import, user replacement bytes and undo, diagnostic path normalization) | Cargo command output |
+| SSH worker | The Python worker tests passed in WSL Ubuntu 24.04: proposals 18, execution 7, asset import 6, project replace 10 | `src-tauri/tests/remote_*.py` |
+| New feature suite | All 6 scenarios passed in the real WebView2 app: word count and spell check (the bundled dictionary flagged `sentense`, `mispeled`, `wrod`, `anoter` and none of the TeX commands, `amsmath` or math; a suggestion replaced a word; turning the setting off removed the underlines), ask-AI-about-build-error (chip and pre-filled question, nothing sent), project replace across 3 files with BOM and CRLF preserved byte for byte, undo restoring the exact bytes and the over-limit result refusing to apply, drop and paste import (byte-identical files, figure snippet inserted), checkpoints (create, compare, restore with a **Before restore** checkpoint, undo), and templates created in empty folders with the article, report and beamer papers compiled by the Windows TeX Live (the Korean template was only created and its settings checked) | `artifacts/features-005-04/features-results.json` and renders |
+| Usability suite | All 14 scenarios passed | `artifacts/usability-005-03/usability-results.json` |
+| Existing desktop suite | All 23 scenarios passed against a real 30-page local LaTeX build | `artifacts/desktop-005-03/desktop-results.json` |
+| SSH suite | All 13 scenarios passed, twice, over native OpenSSH to a loopback host and actual WSL Python/LaTeX. The new scenario ran project replace and undo with BOM/CRLF bytes, a byte-identical binary drop import through the framed worker protocol with no temp file left, checkpoints with restore and undo, and a template created on the server before the original project was reopened | `artifacts/ssh-005-07/ssh.json`, `artifacts/ssh-005-08/ssh.json` |
+| Bundled dictionary memory | Loading the dictionary on the first check increased a fresh release-profile process by about 3.04–3.05 MB of working set and 2.22 MB of private bytes in three runs; later checks added none. This measures the engine in isolation, not the whole app | measurement by the spell lane (throwaway, removed) |
+| Production distribution | Normal visible-start release and NSIS build with the production release feed. Executable and installer report TexyPaper 0.0.5 and are unsigned | `artifacts/texypaper-release-0.0.5/release-manifest.json`, `SHA256SUMS.txt` |
+| Package integrity | 655 files in the portable ZIP; every license/notices file matches source in both distributions and the ZIP executable equals the normal release executable. The executable inside the installer differs from it only in Tauri's three-byte bundle marker (`UNK` → `NSS`), confirmed by replacing the marker | `package-proof.json` |
+| Local installation | The current user's TexyPaper was updated from 0.0.4 with the silent installer while no TexyPaper process was running; nothing was terminated and the app was not launched. `settings.json` and the profile file list were unchanged, and the installed payload matches source | `artifacts/texypaper-release-0.0.5/local-installation.json` |
+
+Runtime checks found and fixed these defects in the new work: the Windows spell checker has no English dictionary on a Korean-only installation (this machine), so the feature was dead until the bundled fallback was added; the diagnostics of a **failed** build kept the TeX log's `./main.tex` spelling and the project path check refused them with `PATH_OUTSIDE_WORKSPACE`, so they are now normalized to project-relative paths; a descriptive note on the Home page contained the word “conflict” (충돌), and the desktop suite's text locator for the conflict dialog picked that hidden note first and waited on an invisible element, so the note was reworded. Earlier harness mistakes (a missing fixture file, the explorer left hidden by a previous scenario, a log panel toggled closed by the auto-open rule, starting a project switch while an autosave build was still running) are not counted as passes. One earlier SSH run failed the same-size conflict step and later runs passed; the worker log of the failed run shows a re-read of the changed file just before an accepted save, which is consistent with a race inside that step, but this was not proven further.
+
+**Not exercised:** the Windows `ISpellChecker` branch with a real English dictionary (this PC has none, so only the bundled engine ran in the app; the Windows branch has no test that could run here because its unit test returns early without an English dictionary); a real Explorer file drag and a real clipboard image paste (both were simulated with `DataTransfer` events carrying a `File` inside the real WebView, with the native drop handler disabled as configured); the Korean template compiled with ko.TeX; memory aggregates of the whole app and a 100%-scale measurement; the installed 0.0.5 app was not launched; live Codex/Claude inference; detached-window chat zoom; physical tray Open/double-click/Exit; a visible (non-hidden) startup; uninstall or fresh-machine WebView2 bootstrap. macOS, signing, cloud accounts and cross-device sync are not supplied. The older limits below otherwise still apply.
+
+## Previous release — TexyPaper 0.0.4 / 이전 릴리스
 
 Observed on Windows x64, 2026-11-07 (KST). This release changes only the explorer's folder icon artwork and name mapping. Runtime checks used a separately compiled hidden-start verification binary of the 0.0.4 source (no baked-in update feed); the distributed binaries are normal-start builds. All fixtures and profiles were synthetic and isolated; no real paper or normal account store was used.
 
@@ -22,7 +44,7 @@ The README screenshot was retaken from the same usability run with the new icons
 
 **Not exercised:** forced-colors and 200%-zoom rendering of the new folder icons; the installed 0.0.4 app was not launched; detached-window chat zoom at runtime; live Codex/Claude inference (`smoke:agents` and `smoke:chat` require `--live` and an official login); physical tray Open/double-click/Exit; a visible (non-hidden) startup; memory aggregates; uninstall or fresh-machine WebView2 bootstrap. macOS, signing, cloud accounts and cross-device sync are not supplied. The 0.0.3 limits below otherwise still apply.
 
-## Previous release — TexyPaper 0.0.3 / 이전 릴리스
+## Earlier release — TexyPaper 0.0.3 / 이전 릴리스
 
 Observed on Windows x64, 2026-11-07 (KST). Runtime checks used a separately compiled hidden-start verification binary of the 0.0.3 source (no baked-in update feed); the distributed binaries are normal-start builds. All fixtures and profiles were synthetic and isolated; no real paper or normal account store was used.
 

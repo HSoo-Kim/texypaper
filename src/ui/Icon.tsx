@@ -3,6 +3,7 @@ const paths = {
   home: 'M3 11l9-8 9 8 M5 9v12h14V9 M9 21v-8h6v8',
   files: 'M4 3h10l4 4v14H4z M14 3v5h5 M8 12h6 M8 16h6',
   search: 'M20 20l-5-5 M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0',
+  history: 'M3 11a9 9 0 1 1 2.6 7.4 M3 4v7h7 M12 7v5l3 2',
   comments: 'M4 4h16v12H9l-5 4z M8 8h8 M8 12h5',
   ai: 'M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z',
   settings: 'M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',

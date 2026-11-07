@@ -1,0 +1,17 @@
+.dashboard-sidebar > .dashboard-template { white-space:normal; text-align:left; }
+.dashboard-template svg { flex-shrink:0; }
+.template-choices { min-width:0; margin:0 0 1rem; padding:0; border:0; }
+.template-choices legend { margin-bottom:.5rem; font-weight:600; }
+.template-choice { flex-direction:row; align-items:flex-start; gap:.625rem; margin:0; padding:.625rem .5rem; border-bottom:1px solid var(--border); cursor:pointer; }
+.template-choice > input { flex:none; margin:.25rem 0 0; }
+.template-choice > span { display:flex; flex-direction:column; gap:.125rem; min-width:0; overflow-wrap:anywhere; }
+.template-choice strong { font-weight:600; }
+.template-choice .muted { font-size:.75rem; }
+.template-choice:has(input:checked) { background:var(--selection); }
+.template-choice:has(input:focus-visible) { outline:2px solid var(--action); outline-offset:2px; }
+.template-choices:disabled .template-choice { cursor:default; }
+.template-safety-note { margin-bottom:1rem; font-size:.75rem; }
+@media (forced-colors:active) {
+  .template-choice { border-color:CanvasText; }
+  .template-choice:has(input:checked) { outline:1px solid Highlight; outline-offset:-1px; }
+}
