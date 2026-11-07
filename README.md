@@ -6,6 +6,10 @@
 
 **로컬과 SSH 서버의 논문을 원래 위치에서 편집하는 Windows용 개인 논문 IDE.** TeX 편집기, 호스트 측 LaTeX 빌드, PDF 미리 보기·원문 탐색, 댓글, 승인 기반 Codex/Claude 작업을 제공합니다. AI 대화는 오른쪽 패널이나 분리한 전용 창에서 사용할 수 있습니다.
 
+![TexyPaper 작업 화면(낮 테마): 파일 탐색기, 컴파일된 PDF 미리 보기, AI 패널](docs/screenshots/workspace-light.png)
+
+<sub>낮 테마 작업 화면. 합성 테스트 논문으로 찍은 화면이며, 어두운 테마와 사용자 지정 색상도 지원합니다.</sub>
+
 Tauri 2 + Rust + React 19 + CodeMirror 6 + PDF.js로 구성한 독립 애플리케이션입니다. Orca·OpenPaper·VS Code를 실행하거나 그 확장 호스트에 연결할 필요가 없습니다. 공동 편집 서비스나 임의의 PDF 레이아웃을 TeX로 복원하는 도구는 아닙니다.
 
 **지원 플랫폼: Windows x64.** macOS 데스크톱 앱은 아직 빌드하거나 검증하지 않았습니다. 소스를 Mac으로 넘겨 작업할 수는 있지만 macOS 실행 파일·설치 파일·지원 기능을 제공한다고 주장하지 않습니다. SSH 서버로 사용하는 macOS/POSIX 호스트와 macOS 데스크톱 지원은 별개입니다. 자체 클라우드 로그인·문서 동기화·실시간 공동 편집은 제공하지 않습니다.
