@@ -66,7 +66,8 @@ kbd { border:1px solid var(--border); border-radius:3px; padding:0 .25rem; font-
 .toolbar button,.toolbar summary { color:inherit; background:transparent; border-color:transparent; }
 .toolbar button:hover:not(:disabled),.toolbar summary:hover { background:#ffffff12; }
 .toolbar button:focus-visible,.toolbar summary:focus-visible { outline-color:var(--chrome-text); }
-.toolbar .home-button { display:inline-flex; align-items:center; gap:.375rem; flex-shrink:0; min-height:2rem; padding:.25rem .625rem; background:#ffffff12; border:1px solid var(--chrome-border); font-weight:600; }
+.toolbar .home-button { display:inline-flex; align-items:center; gap:.375rem; flex-shrink:0; min-height:2rem; padding:.25rem .625rem; background:transparent; border:1px solid transparent; font-weight:600; }
+.toolbar .home-button:hover:not(:disabled) { border-color:var(--chrome-border); }
 .toolbar .project-button { max-width:24rem; }
 .project-button { display:flex; align-items:center; gap:.5rem; border:0; background:transparent; text-align:left; min-width:0; }
 .project-button strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; max-width:100%; }

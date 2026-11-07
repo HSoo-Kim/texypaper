@@ -22,6 +22,8 @@ type PageEntry={layer:HTMLElement;viewport:PageViewport;view:number[];userUnit:n
 type PdfMark={threadId:string;page:number;rects:number[][];status:string};
 type SyncTarget={page:number;h:number;v:number;W:number;H:number};
 const zoomLevels=[0.5,0.75,1,1.25,1.5,2,3];
+// The "show in PDF" marker is only a pointer to the spot; it fades out (see pdf.css) and is removed after this long.
+const SYNC_MARKER_MS=3200;
 export function PdfPreview({workspace,manifest,referencePath,visible=true,readingPositions,onReadingPositionChange,buildControls,logs,logsOpen=false,onSelection,onError,onReturnToBuild}:Props){
  const {t}=useI18n();
  const artifactBuildId=referencePath?undefined:manifest?.buildId;
@@ -117,6 +119,8 @@ export function PdfPreview({workspace,manifest,referencePath,visible=true,readin
  function changeZoom(direction:1|-1){const currentScale=liveScale.current;explicitZoom(direction===1?(zoomLevels.find(value=>value>currentScale+0.001)??3):([...zoomLevels].reverse().find(value=>value<currentScale-0.001)??0.5));}
  const selected=()=>{const selection=window.getSelection();if(!selection||!metadata)return;try{const captured=captureSelection(selection,{buildId:metadata.buildId,pdfSha256:metadata.sha256},pages.current);if(captured)onSelection?.(captured);}catch(cause){fail(cause);}};
  const requestInverse=useCallback((page:number,x:number,y:number)=>{if(!metadata||referencePath||!visible||logsOpen)return;window.dispatchEvent(new CustomEvent('texypaper:sync-pdf-requested',{detail:{workspaceId:workspace.id,epoch:workspace.epoch,buildId:metadata.buildId,pdfSha256:metadata.sha256,page,x,y}}));},[metadata,referencePath,visible,logsOpen,workspace.id,workspace.epoch]);
+ const syncTimer=useRef(0);
+ useEffect(()=>()=>window.clearTimeout(syncTimer.current),[]);
  const revealedSyncTarget=useRef<SyncTarget|null>(null);
  const revealSyncTarget=useCallback((target:SyncTarget,marker:HTMLDivElement|null)=>{
   const node=container.current,identity=documentIdentity.current;
@@ -124,7 +128,7 @@ export function PdfPreview({workspace,manifest,referencePath,visible=true,readin
   const bounds=node.getBoundingClientRect(),rect=marker.getBoundingClientRect();
   const top=Math.max(0,Math.min(node.scrollHeight-node.clientHeight,node.scrollTop+rect.top-bounds.top+rect.height/2-node.clientHeight/2));
   const left=Math.max(0,Math.min(node.scrollWidth-node.clientWidth,node.scrollLeft+rect.left-bounds.left+rect.width/2-node.clientWidth/2));
-  revealedSyncTarget.current=target;node.scrollTop=top;node.scrollLeft=left;
+  revealedSyncTarget.current=target;window.clearTimeout(syncTimer.current);syncTimer.current=window.setTimeout(()=>setSyncTarget(value=>value===target?null:value),SYNC_MARKER_MS);node.scrollTop=top;node.scrollLeft=left;
   const page=Math.max(1,Math.min(pdf.numPages,Math.floor(node.scrollTop/(pageHeight+24))+1));
   position.current={page,fraction:Math.max(0,Math.min(1,(node.scrollTop-(page-1)*(pageHeight+24))/pageHeight))};
   reportPosition({identity,...position.current,zoom,fit,rotation});

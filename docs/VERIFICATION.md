@@ -1,8 +1,28 @@
-# Verification — TexyPaper 0.0.5
+# Verification — TexyPaper 0.0.6
 
 Evidence is generated under ignored `artifacts/` directories. The scripts use isolated synthetic papers and app-data; no user paper is a writable fixture. A passing unit suite is not presented as proof of a desktop, SSH, model or installer interaction.
 
-## Current release — TexyPaper 0.0.5 / 현재 릴리스
+## Current release — TexyPaper 0.0.6 / 현재 릴리스
+
+Observed on Windows x64, 2026-11-08 (KST). This release changes the editor number column, the Home button and the "show in PDF" marker, and fixes two editor-state defects found while verifying 0.0.5. No native (Rust) source changed, so the 0.0.5 native results below still apply. Runtime checks used a separately compiled hidden-start verification binary of the 0.0.6 source (no baked-in update feed); the distributed binaries are normal-start builds. All fixtures and profiles were synthetic and isolated; no real paper or normal account store was used.
+
+| Exercise | Observed result | Evidence |
+| --- | --- | --- |
+| Frontend | TypeScript check passed; 448 tests across 34 files passed, including the wrapped line number helpers and a test that starts two opens of one file and finishes them in the wrong order | `pnpm typecheck`, `pnpm test` |
+| Feature suite | All 7 scenarios passed in the real WebView2 app. The new one checks that every source line keeps its own number (`1`…`6`), that only the wrapped line carries `↳` rows and their number follows a narrower window, that the active-line number stays a plain number, that the number column has its own background and a divider, and that the Home button has no border at rest and a border on hover. The other six are the 0.0.5 scenarios | `artifacts/features-006-05/features-results.json`, `wrapped-line-numbers.png`, `home-button-hover.png` |
+| Usability suite | All 14 scenarios passed; the “show in PDF” scenario now also requires the marker to be removed again after it appeared | `artifacts/usability-006-04/usability-results.json` |
+| Existing desktop suite | All 23 scenarios passed in two separate runs | `artifacts/desktop-006-08/`, `artifacts/desktop-006-09/` |
+| SSH suite | 12 consecutive runs of all 13 scenarios passed over native OpenSSH to a loopback host and actual WSL Python/LaTeX | `artifacts/ssh-fin-01/` … `ssh-fin-12/` |
+| Production distribution | Normal visible-start release and NSIS build with the production release feed. Executable and installer report TexyPaper 0.0.6 and are unsigned | `artifacts/texypaper-release-0.0.6/release-manifest.json`, `SHA256SUMS.txt` |
+| Package integrity | 655 files in the portable ZIP; every license/notices file matches source in both distributions and the ZIP executable equals the normal release executable. The executable inside the installer differs from it only in Tauri's three-byte bundle marker (`UNK` → `NSS`), confirmed by replacing the marker | `package-proof.json` |
+
+The two editor-state defects, both in code that shipped in 0.0.5: (1) after a file was reloaded from disk, the editor view could still deliver an update that wrote its old state back into the buffer, leaving old text on screen with the buffer marked clean at the new revision. A failing SSH run showed exactly that after an approved reload, and instrumented runs logged such stale updates in most SSH runs. (2) Two opens of one file could finish out of order, and the older one replaced the record the editor had installed. This one is inferred: the worker log shows two back-to-back reads of the same file after a double-click, and the first fix alone dropped a typed edit in 5 of roughly 37 SSH runs, at a record whose tracked state was empty. Both are fixed; 12 consecutive SSH runs and 2 desktop runs passed afterwards, which supports the second inference but is not a trace of the replacement itself.
+
+Harness mistakes found and fixed, not counted as passes: the SSH conflict step wrote the outside change while a 2-second poll could reload the still-clean buffer in between, which turns a conflict test into a legitimate auto-reload (the step now starts right after a poll). The SSH `openFile` helper now also waits until the editor shows the opened file; my first guess that typing into an unbound editor explained the ProxyJump failures did not match the logs, which point to the record replacement above. A desktop run failed once at “displayed build identity advanced after approved prose edit” and passed in the next 7 runs; its cause was not established.
+
+**Not exercised:** the fade itself was not inspected frame by frame (the suite checks that the marker is gone and the stylesheet defines the fade); the Home hover state was checked by computed style and one render, not on a high-contrast or forced-colors theme; the installed 0.0.6 app is exercised only by being launched on the user's profile; the 0.0.5 limits below (Windows English dictionary branch, real Explorer drag and clipboard paste, Korean template compile, whole-app memory, 100% scale, live provider inference, tray, uninstall) still apply. macOS, signing, cloud accounts and cross-device sync are not supplied.
+
+## Previous release — TexyPaper 0.0.5 / 이전 릴리스
 
 Observed on Windows x64, 2026-11-07 (KST). This release adds English spell check and word count, a bundled English dictionary fallback, project-wide replace, drop/paste figure import, checkpoints, paper templates and “Ask AI about this error”. Runtime checks used a separately compiled hidden-start verification binary of the 0.0.5 source (no baked-in update feed); the distributed binaries are normal-start builds. All fixtures and profiles were synthetic and isolated; no real paper or normal account store was used.
 
@@ -24,7 +44,7 @@ Runtime checks found and fixed these defects in the new work: the Windows spell 
 
 **Not exercised:** the Windows `ISpellChecker` branch with a real English dictionary (this PC has none, so only the bundled engine ran in the app; the Windows branch has no test that could run here because its unit test returns early without an English dictionary); a real Explorer file drag and a real clipboard image paste (both were simulated with `DataTransfer` events carrying a `File` inside the real WebView, with the native drop handler disabled as configured); the Korean template compiled with ko.TeX; memory aggregates of the whole app and a 100%-scale measurement; the installed 0.0.5 app was not launched; live Codex/Claude inference; detached-window chat zoom; physical tray Open/double-click/Exit; a visible (non-hidden) startup; uninstall or fresh-machine WebView2 bootstrap. macOS, signing, cloud accounts and cross-device sync are not supplied. The older limits below otherwise still apply.
 
-## Previous release — TexyPaper 0.0.4 / 이전 릴리스
+## Earlier release — TexyPaper 0.0.4 / 이전 릴리스
 
 Observed on Windows x64, 2026-11-07 (KST). This release changes only the explorer's folder icon artwork and name mapping. Runtime checks used a separately compiled hidden-start verification binary of the 0.0.4 source (no baked-in update feed); the distributed binaries are normal-start builds. All fixtures and profiles were synthetic and isolated; no real paper or normal account store was used.
 

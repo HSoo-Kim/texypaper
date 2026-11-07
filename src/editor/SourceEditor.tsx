@@ -1,7 +1,9 @@
 import { t, useI18n } from '../ui/i18n';
 import { useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { Compartment, EditorState, type Extension } from '@codemirror/state';
-import { EditorView, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection } from '@codemirror/view';
+import { EditorView, highlightActiveLineGutter, highlightSpecialChars, drawSelection } from '@codemirror/view';
+// Source line numbers on the first row of a wrapped line, a muted "↳" on the following rows.
+import { wrappedLineNumbers as lineNumbers } from './wrappedLineNumbers';
 import { history } from '@codemirror/commands';
 import { bracketMatching, indentOnInput, StreamLanguage, syntaxHighlighting } from '@codemirror/language';
 import { classHighlighter } from '@lezer/highlight';
@@ -31,7 +33,9 @@ const koreanPhrases:Record<string,string>={'Find':'찾기','Replace':'바꾸기'
 const editorTheme = EditorView.theme({
   '&':{height:'100%',fontSize:'0.875rem',backgroundColor:'var(--surface)',color:'var(--text)'},
   '.cm-scroller':{fontFamily:'ui-monospace, "Cascadia Code", Consolas, monospace',lineHeight:'1.65'},
-  '.cm-content':{padding:'1rem 0'}, '.cm-gutters':{background:'var(--surface)',color:'var(--secondary)',border:'none'},
+  '.cm-content':{padding:'1rem 0'}, '.cm-gutters':{background:'var(--sidebar)',color:'var(--secondary)',border:'none',borderRight:'1px solid var(--border)'},
+  '.cm-activeLineGutter':{backgroundColor:'var(--selection)',color:'var(--text)'},
+  '.cm-wrapped-number[data-wrap]::after':{content:'attr(data-wrap)',display:'block',whiteSpace:'pre',opacity:'0.5'},
   '.cm-line':{padding:'0 1rem'}, '.cm-cursor':{borderLeftColor:'var(--text)'},
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection':{backgroundColor:'var(--selection)'},
   '.cm-panels':{background:'var(--sidebar)',color:'var(--text)'},
@@ -97,6 +101,8 @@ export function SourceEditor({store,fontSize,onFontSizeChange,onSelection,onRead
     const imagePaste=imagePasteExtension({onImages:files=>images.current?.(files)??Promise.resolve([]),getTexFilePath:()=>store.activePath===pathRef.current?pathRef.current:null,enabled:()=>!!images.current&&/\.(tex|ltx)$/i.test(pathRef.current??'')});
     if(!buffer.state)buffer.state=EditorState.create({doc:buffer.document.text,extensions:[imagePaste,spelling.of([]),phrases.of(EditorState.phrases.of(locale==='ko'?koreanPhrases:{})),...(buffer.document.newline==='crlf'?[EditorState.lineSeparator.of('\r\n')]:[]),...texShortcutExtensions(),lineNumbers(),highlightActiveLineGutter(),highlightSpecialChars(),history(),drawSelection(),bracketMatching(),indentOnInput(),syntaxHighlighting(classHighlighter),highlightSelectionMatches(),autocompletion({override:[complete]}),editorTheme,language.of([]),editable.of([EditorState.readOnly.of(buffer.document.readOnly),EditorView.editable.of(!buffer.document.readOnly)]),EditorView.lineWrapping,EditorView.domEventHandlers({compositionstart:()=>{if(pathRef.current)store.composition(pathRef.current,true);return false;},compositionend:()=>{if(pathRef.current)store.composition(pathRef.current,false);return false;}}),EditorView.updateListener.of(update=>{
       const path=pathRef.current;if(!path)return;const record=store.records.get(path);if(!record)return;
+      // A reload or eviction replaced the tracked state while this view still showed the old document; never write the stale state back.
+      if(record.state!==update.startState)return;
       if(update.docChanged)store.update(path,update.state,update.changes);else record.state=update.state;
       if(update.selectionSet||update.docChanged){const {from,to}=update.state.selection.main;callbacks.current.onSelection?.(from===to?null:selectionAnchor(record,from,to));}
       if(update.selectionSet||update.docChanged){navigation.current++;const {anchor,head}=update.state.selection.main;const previous=store.readingPositions.get(path);store.rememberPosition(path,{top:previous?.top??0,inset:previous?.inset??0,left:previous?.left??0,anchor,head});}

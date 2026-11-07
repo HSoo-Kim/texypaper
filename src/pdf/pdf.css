@@ -48,7 +48,8 @@
 .pdf-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .pdf-preview :focus-visible,.source-edit-review :focus-visible,.pdf-selection-popover :focus-visible{outline:2px solid var(--action,#a72f65);outline-offset:2px}
 .pdf-preview button:disabled,.source-edit-review button:disabled{opacity:.45;cursor:default}
-.pdf-sync-marker{position:absolute;pointer-events:none;z-index:5;outline:2px solid var(--pdf-action,#a72f65);background:var(--pdf-selection,#a72f6533);border-radius:2px}
+.pdf-sync-marker{position:absolute;pointer-events:none;z-index:5;outline:2px solid var(--pdf-action,#a72f65);background:var(--pdf-selection,#a72f6533);border-radius:2px;animation:pdf-sync-fade 3.2s ease-in forwards}
+@keyframes pdf-sync-fade{0%,70%{opacity:1}100%{opacity:0}}
 .pdf-comment-mark{position:absolute;z-index:7;display:flex;align-items:flex-start;justify-content:flex-end;background:#fff1bd88;color:#735600;min-width:12px;min-height:12px;max-height:3rem;border:1px solid #b68b25;border-radius:2px;cursor:pointer;padding:0 2px}
 .pdf-link-action{position:absolute;z-index:6;display:flex;align-items:flex-start;justify-content:flex-end;border:0;background:transparent;color:transparent;cursor:pointer;padding:0;min-width:8px;min-height:8px}
 .pdf-link-action:is(:hover,:focus-visible){color:var(--pdf-action,#a72f65);background:var(--pdf-selection,#a72f6533);outline:1px solid var(--pdf-action,#a72f65)}
@@ -68,4 +69,5 @@
 @media(max-width:480px){.pdf-build-actions{flex-basis:100%;margin-right:0}.pdf-navigation{margin-left:0}.pdf-zoom{margin-left:auto}.pdf-search{flex-basis:100%;margin-left:0}.pdf-search input{max-width:none}}
 @media(max-width:800px){.source-edit-diff{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.pdf-selection-popover button:active{transform:none}}
+@media(prefers-reduced-motion:reduce){.pdf-sync-marker{animation:none}}
 @media(forced-colors:active){.pdf-page-slot,.pdf-preview .pdf-toolbar button,.source-edit-review{border:1px solid CanvasText}.pdf-selection-popover{box-shadow:none}.pdf-comment-mark,.pdf-sync-marker{border:1px solid Highlight}.pdf-page .textLayer ::selection{background:Highlight}.pdf-link-action:is(:hover,:focus-visible){color:LinkText;outline-color:LinkText}}

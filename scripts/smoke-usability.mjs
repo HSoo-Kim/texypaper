@@ -236,6 +236,8 @@ try {
     await waitFor(async () => await sync.getAttribute('data-direction') === 'forward' && await sync.getAttribute('data-sequence') !== before, { label: 'Ctrl+Alt+J source to PDF' });
     await page.locator('.pdf-page-slot[data-page="2"] .pdf-sync-marker').waitFor({ state: 'visible', timeout: 30000 });
     await shot('source-to-pdf-marker');
+    // The marker only points at the spot; it must remove itself shortly afterwards.
+    await page.locator('.pdf-sync-marker').waitFor({ state: 'detached', timeout: 10000 });
     await page.getByRole('button', { name: 'PDF', exact: true }).click();
     await page.locator('.pdf-scroll').evaluate(node => { node.scrollTop = 0; });
     const span = page.locator('.textLayer[data-ready="true"] span').filter({ hasText: 'TexyPaper page 1' }).first();

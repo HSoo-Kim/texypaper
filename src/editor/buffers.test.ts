@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { applyEditorChanges, BufferStore, selectionAnchor, type BufferRecord } from './buffers';
+import { request } from '../api';
+vi.mock('../api', () => ({ request: vi.fn(), normalizeError: (error: unknown) => error }));
 function buffer(text:string,newline:'lf'|'crlf'|'mixed',encoding:'utf8'|'utf8Bom'='utf8'):BufferRecord{
   return {path:'paper.tex',document:{file:{workspaceId:'workspace',path:'paper.tex'},text,revision:{sha256:'base',byteLength:new TextEncoder().encode(text).length+(encoding==='utf8Bom'?3:0),modifiedNs:'0'},newline,encoding,readOnly:false},state:EditorState.create({doc:text,extensions:newline==='crlf'?[EditorState.lineSeparator.of('\r\n')]:[]}),dirty:false,saving:false,composing:false,version:0,lastUsed:0,...(newline==='mixed'?{rawText:text}:{})};
 }
@@ -39,5 +41,19 @@ describe('byte-preserving editor serialization',()=>{
     expect(store.readingPositions.has('paper.tex')).toBe(false);expect(store.readingPositions.get('renamed.tex')?.head).toBe(6);
     store.dispose();store.rememberPosition('late.tex',original);
     expect(store.readingPositions.size).toBe(0);expect(positions).toBe(2);
+  });
+  it('keeps the record the editor already installed when an older open of the same file finishes later',async()=>{
+    const reads:((document:BufferRecord['document'])=>void)[]=[];
+    (request as unknown as Mock).mockImplementation((command:string)=>command==='file_read'?new Promise(resolve=>reads.push(resolve)):Promise.reject(new Error('no recovery record')));
+    const store=new BufferStore({id:'workspace',environmentId:'local',root:'fixture',epoch:1},()=>{},()=>{});
+    const first=store.open('paper.tex'),second=store.open('paper.tex');
+    expect(reads).toHaveLength(2);
+    reads[1](buffer('second read\n','lf').document);const installed=await second;
+    installed.state=EditorState.create({doc:'second read\n'});
+    reads[0](buffer('first read\n','lf').document);
+    expect(await first).toBe(installed);
+    expect(store.records.get('paper.tex')).toBe(installed);
+    expect(installed.state).not.toBeNull();
+    expect(store.records.size).toBe(1);
   });
 });

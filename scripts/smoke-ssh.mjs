@@ -156,6 +156,9 @@ async function openFile(page, relative) {
   // Prefer the exact normalized path, never choose an unrelated basename match.
   await page.locator(`[role="treeitem"][data-path=${JSON.stringify(relative)}]`).dblclick();
   await page.locator('.cm-content[contenteditable="true"]').waitFor({ state: 'visible' });
+  // A fresh workspace first shows an empty placeholder editor; text typed into it before the file is bound is lost.
+  await page.locator(`[data-testid="source-editor"][data-path=${JSON.stringify(relative)}]`).waitFor({ state: 'attached', timeout: 30000 });
+  await waitFor(async () => (await page.locator('.cm-content').innerText()).trim().length > 0, { timeoutMs: 30000, intervalMs: 50, label: `${relative} text shown in the editor` });
 }
 
 async function replaceEditor(page, text) {
@@ -395,6 +398,10 @@ async function main() {
     const conflictBase = await host.read('conflict.tex');
     const external = conflictBase.replace('original', 'external');
     assert(Buffer.byteLength(conflictBase) === Buffer.byteLength(external), 'Conflict fixture must keep byte length exactly equal');
+    // Open clean buffers are re-read by a 2 s poll. Start the outside write right after a poll so the poll cannot reload the
+    // clean buffer between the write and the local edit; otherwise a legitimate auto-reload would turn this into a no-conflict run.
+    const pollsSeen = host.events.filter((event) => event.kind === 'worker-request' && event.op === 'stat_many').length;
+    await waitFor(() => host.events.filter((event) => event.kind === 'worker-request' && event.op === 'stat_many').length > pollsSeen, { timeoutMs: 6000, intervalMs: 20, label: 'a fresh outside-change poll' });
     await host.write('conflict.tex', external);
     await replaceEditor(page, `${conflictBase}% local edit held for conflict\n`);
     await waitFor(async () => /FILE_CONFLICT/.test(await page.locator('body').innerText()), { timeoutMs: 15000, label: 'same-size external remote conflict detected' });

@@ -89,6 +89,40 @@ try {
     return { words, flagged, spellcheck: 'exercised' };
   });
 
+  await scenario('line-numbers-gutter-and-home-button', async () => {
+    await quickOpen(page, 'spell-demo.tex');
+    const rows = () => page.locator('.cm-lineNumbers .cm-gutterElement').evaluateAll(elements => elements
+      .filter(element => getComputedStyle(element).visibility !== 'hidden')
+      .map(element => ({ number: element.querySelector('.cm-wrapped-number')?.firstChild?.textContent ?? null, wrap: element.querySelector('.cm-wrapped-number')?.getAttribute('data-wrap') ?? null }))
+      .filter(row => row.number !== null));
+    const first = await waitFor(async () => { const value = await rows(); return value.length >= 6 ? value : false; }, { timeoutMs: 15000, label: 'line numbers rendered' });
+    assert(first.map(row => row.number).join(',') === '1,2,3,4,5,6', `Every source line keeps its own number: ${JSON.stringify(first)}`);
+    const wrapped = first.filter(row => row.wrap);
+    assert(wrapped.length === 1 && wrapped[0].number === '4' && wrapped[0].wrap.split('\n').every(mark => mark === '↳'), `Only the wrapped line 4 carries continuation marks: ${JSON.stringify(first)}`);
+    const activeNumber = await page.locator('.cm-lineNumbers .cm-activeLineGutter').first().innerText();
+    assert(/^\d+$/.test(activeNumber), `A wrapped marker must not leak into the number text: ${JSON.stringify(activeNumber)}`);
+    await shot('wrapped-line-numbers');
+    // Narrowing the window wraps line 4 into more rows; the marks follow the layout.
+    const before = wrapped[0].wrap.split('\n').length;
+    await page.setViewportSize({ width: 1100, height: 900 });
+    await waitFor(async () => (await rows()).find(row => row.number === '4')?.wrap?.split('\n').length > before, { timeoutMs: 15000, label: 'more continuation marks after narrowing' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const gutter = await page.locator('.cm-gutters').evaluate(element => {
+      const style = getComputedStyle(element), editor = getComputedStyle(element.closest('.cm-editor'));
+      return { gutter: style.backgroundColor, editor: editor.backgroundColor, divider: style.borderRightWidth };
+    });
+    assert(gutter.gutter !== gutter.editor && parseFloat(gutter.divider) > 0, `The number column needs its own background and a divider: ${JSON.stringify(gutter)}`);
+    const home = page.getByTestId('home-button');
+    await page.mouse.move(700, 450);
+    const border = () => home.evaluate(element => getComputedStyle(element).borderTopColor);
+    await waitFor(async () => /rgba\(0, 0, 0, 0\)|transparent/.test(await border()), { timeoutMs: 5000, label: 'Home button has no border at rest' });
+    await home.hover();
+    await waitFor(async () => !/rgba\(0, 0, 0, 0\)|transparent/.test(await border()), { timeoutMs: 5000, label: 'Home button shows its border on hover' });
+    await shot('home-button-hover');
+    await page.mouse.move(700, 450);
+    return { rows: first.length, continuationRows: before, gutter };
+  });
+
   await scenario('ask-ai-about-build-error', async () => {
     await selectMainDocument(page, 'broken.tex');
     const status = page.getByTestId('build-status');

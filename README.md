@@ -200,6 +200,7 @@ The Claude subscription link is meant for personal use. Before distributing to o
 ### Editor and saving
 - **Editing:** TeX syntax highlighting, bracket matching, indentation, line numbers, find/replace, and citation and label completion from the loaded TeX/Bib files. LaTeX commands such as `\section` and `\centering` are always green, whatever the palette. Code files lazy-load their language mode, unknown text opens as plain text, and no language server is started.
 - **Overleaf defaults:** `Ctrl+D` delete line, `Ctrl+/` toggle comment, `Ctrl+B` / `Ctrl+I`, case changes, move and copy lines, folding, `Ctrl+click` for multiple cursors and `Alt`+drag for rectangular selection. `Ctrl+Enter` and `Ctrl+.` compile, `Ctrl+J` toggles the comments panel and `Ctrl+Shift+C` comments on a selection.
+- **Line numbers:** the number column has its own background next to the text. A line that soft-wraps keeps its source line number on the first row and shows a muted `↳` on each further row, so build errors and SyncTeX quote the numbers you see.
 - **Autosave:** 700 ms after you stop typing, deferred during IME composition. `Ctrl+S` saves pending source immediately and compiles; the automatic build after an autosave has its own 800 ms debounce.
 - **Safe writes:** the SHA-256 is compared right before writing, a temp file on the same filesystem is flushed and swapped in, and the UTF-8 BOM and existing line endings are kept. File size or modified time alone never decides a conflict.
 - **Conflicts:** a file changed outside is reloaded if the buffer is clean; with unsaved edits you see `FILE_CONFLICT` and choose **Compare / Reload / Save copy** (reloading discards your changes and asks first). This is optimistic conflict detection; outside editors don't follow TexyPaper's locking.
@@ -217,7 +218,7 @@ The Claude subscription link is meant for personal use. Before distributing to o
 - **Home:** `Ctrl+O` opens it; the open project stays alive underneath.
 - **Panes:** the divider between source and PDF drags with the pointer or moves with the arrow keys (double-click for a 50/50 split), and the middle arrows collapse a side. The same edge arrow then restores the previous ratio. Small windows use one center pane plus overlay side panels.
 - **Zoom:** `Ctrl+wheel` or `Ctrl`+`+`/`-` resizes the source text, the PDF scale or the AI chat text under the pointer or in the selected pane, each saved on its own. App-wide zoom is the UI zoom setting (100–200%); the PDF itself is never edited.
-- **Source ⇄ PDF:** `Ctrl+click` in the PDF opens the matching source line (a PDF older than the source is flagged as approximate); `Ctrl+Alt+J` or the editor toolbar button highlights and scrolls to the PDF spot. Source `Ctrl+click` stays Overleaf's multiple cursors.
+- **Source ⇄ PDF:** `Ctrl+click` in the PDF opens the matching source line (a PDF older than the source is flagged as approximate); `Ctrl+Alt+J` or the editor toolbar button scrolls to the PDF spot and highlights it for about three seconds. Source `Ctrl+click` stays Overleaf's multiple cursors.
 - **Quick open and search:** `Ctrl+P` opens a file by name; start with `>` to search the project text.
 - **Shortcut help:** the **Shortcuts** button at the lower right of the status bar (upper right on Home) and the Help menu list every shortcut by category with search.
 

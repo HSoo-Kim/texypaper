@@ -58,6 +58,10 @@ export class BufferStore {
       if (recovery.baseSha256 !== document.revision.sha256){buffer.external=document;buffer.error={code:'FILE_CONFLICT',message:t('디스크의 파일이 변경되었습니다.'),path,retryable:true};}
     }
     if(this.disposed)throw new Error(t('작업 공간이 닫혔습니다.'));
+    // A double-click or a tab restoration can start two opens of one path. Whichever finishes last must not replace the
+    // record the editor already installed (its state, edits and revision); the extra read is dropped.
+    const raced=this.records.get(path);
+    if(raced&&!raced.evicted){if(generation===this.openGeneration){this.activePath=path;raced.lastUsed=Date.now();this.evict();this.notify();}return raced;}
     this.records.set(path,buffer);if(generation===this.openGeneration){this.activePath=path;this.evict();this.notify();}return buffer;
   }
   update(path:string,state:EditorState,changes?:ChangeSet) {

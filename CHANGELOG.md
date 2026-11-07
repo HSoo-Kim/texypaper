@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.0.6 — 2026-11-08
+
+### Editor and PDF
+
+- The marker that **show in PDF** (`Ctrl+Alt+J` or the editor toolbar button) draws on the PDF spot now fades out and is removed after about three seconds instead of staying on the page until the next build or navigation. With reduced motion it disappears without the fade.
+- Soft-wrapped lines keep their source line number on the first row and show a muted `↳` on every further row, so each visible row of the editor has a mark in the number column while build errors and SyncTeX still quote the same line numbers.
+- The number column has its own background (the sidebar color, so it follows custom palettes) and a thin divider from the text. The current line's number is highlighted with the selection color.
+- The Home button has no border or fill at rest and shows its border on hover, like the other toolbar buttons.
+
+### Fixes
+
+- An editor view could write its stale state back after the file had been reloaded from disk, whether through an approved reload after a conflict or the automatic reload of a clean file that changed outside. The view then kept showing the old text while the buffer was marked clean at the new revision, so a later save could overwrite the outside change without a conflict. The new spell-check results made this reachable in 0.0.5 (in instrumented runs such stale updates arrived in most SSH smoke runs). A view update is now ignored unless it starts from the state the buffer currently tracks.
+- Two opens of the same file at once (a double-click on a tree row, or restoring tabs while you click) could finish out of order, and the older one replaced the record that was already installed in the editor. Edits then went to a record the view did not show. The extra read is now dropped and the installed record is kept; a unit test starts two opens and finishes them in the wrong order.
+- The usability suite asserts that the PDF marker is detached again after it appeared, and the features suite checks the line number marks, the gutter background and the Home button border.
+
 ## 0.0.5 — 2026-11-07
 
 ### Writing
