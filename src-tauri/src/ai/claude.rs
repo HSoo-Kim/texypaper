@@ -222,6 +222,7 @@ pub fn run(run: ProviderRun<'_>, on_session: impl Fn(&str) -> AppResult<()>) -> 
         deadline.min(Instant::now() + Duration::from_secs(45)),
         Some(&cancel),
     )?;
+    events.prompt_sent()?;
     let mut interrupted = None;
     let mut initialized = false;
     let mut session_id = None;

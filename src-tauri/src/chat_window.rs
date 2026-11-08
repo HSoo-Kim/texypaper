@@ -289,7 +289,9 @@ fn valid_action(action: &Value) -> bool {
     };
     match kind {
         "send" | "cancel" | "refresh" | "login" | "open-login" | "save-executable"
-        | "dismiss-error" | "revoke-disclosure" | "detach" | "dock" | "focus" => keys(&["type"]),
+        | "dismiss-error" | "revoke-disclosure" | "clear-history" | "detach" | "dock" | "focus" => {
+            keys(&["type"])
+        }
         "prompt" => keys(&["type", "value"]) && bounded_text(action, "value", 262144),
         "disclosure" | "settings" => keys(&["type", "value"]) && action["value"].is_boolean(),
         "chat-font-size" => {
@@ -391,6 +393,16 @@ pub async fn chat_window_snapshot(
     if serde_json::to_vec(&frame)?.len() > MAX_FRAME_BYTES {
         return Err(denied("Chat snapshot exceeds the 16 MiB relay limit"));
     }
+    let changed = match frame["kind"].as_str() {
+        Some("snapshot") => &frame["snapshot"],
+        Some("patch") => &frame["patch"]["changes"],
+        _ => &Value::Null,
+    };
+    if let Some(rows) = changed.get("transmissions")
+        && !valid_transmissions(rows)
+    {
+        return Err(denied("Invalid transmission metadata"));
+    }
     let id = frame["session"]
         .as_str()
         .ok_or_else(|| denied("Missing chat session"))?;
@@ -424,6 +436,28 @@ pub async fn chat_window_snapshot(
         .map_err(window_error)?;
     Ok(())
 }
+fn valid_transmissions(value: &Value) -> bool {
+    let Ok(rows) =
+        serde_json::from_value::<Vec<crate::ai::transmissions::Transmission>>(value.clone())
+    else {
+        return false;
+    };
+    rows.len() <= crate::ai::transmissions::MAX_ENTRIES
+        && rows.iter().all(|row| {
+            row.id.len() <= 64
+                && row.task_id.len() <= 64
+                && matches!(row.provider.as_str(), "codex" | "claude")
+                && row.timestamp <= 8_640_000_000_000_000
+                && row.tool.len() <= 64
+                && row.paths.len() <= 512
+                && row
+                    .paths
+                    .iter()
+                    .all(|path| path.len() <= 16_384 && !path.contains('\0'))
+                && row.bytes <= MAX_FRAME_BYTES
+                && row.characters.is_none_or(|count| count <= MAX_FRAME_BYTES)
+        })
+}
 
 pub fn main_destroyed(app: &tauri::AppHandle) {
     if let Some(chat) = app.get_webview_window("chat") {
@@ -435,6 +469,25 @@ pub fn main_destroyed(app: &tauri::AppHandle) {
 mod tests {
     use super::*;
 
+    #[test]
+    fn transmission_relay_rejects_contents_and_unbounded_records() {
+        let mut row = crate::ai::transmissions::tool(
+            "read_text",
+            &json!({"path":"paper.tex"}),
+            &json!({"path":"paper.tex","startLine":2,"endLine":3,"text":"private"}),
+        );
+        row.stamp("turn-1", "codex");
+        let valid = serde_json::to_value(&row).unwrap();
+        assert!(valid_transmissions(&json!([valid.clone()])));
+        let mut forged = valid.clone();
+        forged["text"] = json!("private");
+        assert!(!valid_transmissions(&json!([forged])));
+        assert!(!valid_transmissions(&json!(vec![valid; 501])));
+        assert!(valid_action(&json!({"type":"clear-history"})));
+        assert!(!valid_action(
+            &json!({"type":"clear-history","path":"../other"})
+        ));
+    }
     #[test]
     fn relay_accepts_ui_intent_not_command_replacements() {
         assert!(valid_action(&json!({ "type": "send" })));

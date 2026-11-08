@@ -168,20 +168,22 @@ pub fn export_file(state: &AppState, workspace: &Workspace, args: &Value) -> App
         .get("locale")
         .and_then(Value::as_str)
         == Some("en");
-    let destination = rfd::FileDialog::new()
-        .set_title(if english {
-            "Export downloaded copy"
-        } else {
-            "다운로드한 복사본 내보내기"
-        })
-        .set_file_name(
-            std::path::Path::new(path)
-                .file_name()
-                .and_then(|p| p.to_str())
-                .unwrap_or("file"),
-        )
-        .save_file()
-        .ok_or_else(|| AppError::new("CANCELLED", "Export cancelled"))?;
+    let file_name = std::path::Path::new(path)
+        .file_name()
+        .and_then(|p| p.to_str())
+        .unwrap_or("file")
+        .to_owned();
+    let destination = crate::dialogs::run(move || {
+        rfd::FileDialog::new()
+            .set_title(if english {
+                "Export downloaded copy"
+            } else {
+                "다운로드한 복사본 내보내기"
+            })
+            .set_file_name(file_name)
+            .save_file()
+    })?
+    .ok_or_else(|| AppError::new("CANCELLED", "Export cancelled"))?;
     stream_copy(
         workspace,
         path,

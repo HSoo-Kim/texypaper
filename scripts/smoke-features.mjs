@@ -27,6 +27,11 @@ const replaceFiles = {
   'replace-demo/crlf.tex': Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('bom ALPHA_TOKEN\r\nkeep CRLF line\r\n')]),
 };
 for (const [relative, content] of Object.entries(replaceFiles)) await writeFile(path.join(fixture.root, relative), content);
+await writeFile(path.join(fixture.root, 'gutter-demo.tex'), 'first line\nsecond line\nthird line');
+await mkdir(path.join(fixture.root, 'auto-demo'), { recursive: true });
+const autoFiles = { 'auto-demo/one.tex': 'one AUTO_TOKEN\n', 'auto-demo/two.tex': 'two AUTO_TOKEN\n' };
+for (const [relative, content] of Object.entries(autoFiles)) await writeFile(path.join(fixture.root, relative), content);
+await writeFile(path.join(fixture.root, 'auto-demo/untouched.tex'), 'no token here\n');
 
 const results = [];
 let app;
@@ -126,19 +131,49 @@ try {
     return { rows: first.length, line4Rows: Math.round(spans), gutter };
   });
 
+  await scenario('line-number-click-and-drag-select-whole-lines', async () => {
+    await quickOpen(page, 'gutter-demo.tex');
+    const number = value => page.locator('.cm-lineNumbers .cm-gutterElement').filter({ hasText: new RegExp(`^${value}$`) }).first();
+    const text = () => page.locator('.cm-content').evaluate(element => [...element.querySelectorAll('.cm-line')].map(line => line.textContent).join('\n'));
+    await waitFor(async () => (await text()) === 'first line\nsecond line\nthird line', { timeoutMs: 15000, label: 'gutter fixture shown' });
+    const typeAndUndo = async insert => { await page.keyboard.insertText(insert); const after = await text(); await page.keyboard.press('Control+Z'); await waitFor(async () => (await text()) === 'first line\nsecond line\nthird line', { timeoutMs: 10000, label: 'undo restores the fixture' }); return after; };
+    // Click: the whole line 2 including its line break (Overleaf behavior).
+    await number(2).click();
+    const clicked = await typeAndUndo('X');
+    assert(clicked === 'first line\nXthird line', `Clicking number 2 must select the whole line with its line break: ${JSON.stringify(clicked)}`);
+    // Drag upwards from 3 to 1: every line in between, in reverse direction.
+    const from = await number(3).boundingBox(), to = await number(1).boundingBox();
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 6 });
+    await new Promise(resolve => setTimeout(resolve, 150));
+    await page.mouse.up();
+    const dragged = await typeAndUndo('Y');
+    assert(dragged === 'Y', `Dragging from 3 to 1 must select all three lines: ${JSON.stringify(dragged)}`);
+    // The last line has no line break; the selection is clamped to the document end.
+    await number(3).click();
+    const last = await typeAndUndo('Z');
+    assert(last === 'first line\nsecond line\nZ', `Clicking the last number must select only that line: ${JSON.stringify(last)}`);
+    return { clicked, dragged, last };
+  });
+
   await scenario('ask-ai-about-build-error', async () => {
     await selectMainDocument(page, 'broken.tex');
     const status = page.getByTestId('build-status');
     await page.getByRole('button', { name: '빌드', exact: true }).click();
     await waitFor(async () => await status.getAttribute('data-status') === 'failed', { timeoutMs: 120000, label: 'broken document build fails' });
     if (await page.locator('.logs-toggle').getAttribute('aria-pressed') !== 'true') await page.locator('.logs-toggle').click();
+    // One document error; the TeX Live wrapper's "command failed" line is not a second diagnostic.
+    const badge = (await page.locator('.logs-toggle .diagnostic-count').innerText()).trim();
+    assert(badge === '1', `The log badge must count only the document error, got ${badge}`);
     const ask = page.getByTestId('ask-ai-build-error');
     await ask.waitFor({ timeout: 15000 });
     await ask.click();
     const prompt = page.getByTestId('agent-prompt');
     await waitFor(async () => (await prompt.inputValue()).length > 20, { timeoutMs: 15000, label: 'prefilled question' });
     const value = await prompt.inputValue();
-    assert(/broken\.tex/.test(value) && /undefined/i.test(value), `The question should name the file and error: ${value}`);
+    assert(/broken\.tex/.test(value) && /undefined/i.test(value) && /BUILD_FAILED/.test(value), `The question should name the file, the error and the build failure: ${value}`);
+    assert(!/\?:|runscript\.tlu|command failed with exit code/i.test(value), `The question must not carry wrapper noise: ${value}`);
     const chip = page.getByTestId('agent-attachment').first();
     await chip.waitFor({ timeout: 10000 });
     assert((await chip.getAttribute('data-kind')) === 'source' && /broken\.tex/.test(await chip.innerText()), 'The source around the error is attached as a chip.');
@@ -222,13 +257,14 @@ try {
     const original = await read('scratch.tex');
     await page.getByRole('button', { name: '체크포인트', exact: true }).click();
     await page.getByTestId('checkpoint-create').click();
-    await page.getByTestId('checkpoint-row').first().waitFor({ timeout: 60000 });
+    await page.locator('[data-testid="checkpoint-row"][data-checkpoint-kind="manual"]').first().waitFor({ timeout: 60000 });
     await page.locator('.cm-content').click();
     await page.keyboard.press('Control+End');
     await page.keyboard.type('\n%% checkpoint-test change\n');
     await page.keyboard.press('Control+S');
     await waitFor(async () => (await read('scratch.tex')).toString('utf8').includes('checkpoint-test change'), { timeoutMs: 30000, label: 'edit saved to disk' });
-    await page.getByTestId('checkpoint-compare').first().click();
+    // Compare the manual checkpoint created above; automatic ones from earlier replace runs are listed too.
+    await page.locator('[data-testid="checkpoint-row"][data-checkpoint-kind="manual"]').first().getByTestId('checkpoint-compare').click();
     await page.getByTestId('checkpoint-diff').or(page.locator('.checkpoint-files')).first().waitFor({ timeout: 60000 });
     await page.locator('.checkpoint-files').getByText('scratch.tex').first().click();
     await page.getByTestId('checkpoint-diff').waitFor({ timeout: 15000 });
@@ -236,12 +272,70 @@ try {
     page.once('dialog', dialog => void dialog.accept());
     await page.getByTestId('checkpoint-restore').first().click();
     await waitFor(async () => sha(await read('scratch.tex')) === sha(original), { timeoutMs: 60000, label: 'restore writes the checkpoint text byte-for-byte' });
-    assert(await page.getByTestId('checkpoint-row').filter({ hasText: 'Before restore' }).count() >= 1, 'A "Before restore" checkpoint must be created first.');
+    // The file is written before the panel reloads its list, so wait for the backup row rather than counting once.
+    await waitFor(async () => await page.getByTestId('checkpoint-row').filter({ hasText: /Before restore|복원 전/ }).count() >= 1, { timeoutMs: 15000, label: 'a "Before restore" checkpoint listed after restoring' });
     await page.getByTestId('checkpoint-undo').click();
     await waitFor(async () => (await read('scratch.tex')).toString('utf8').includes('checkpoint-test change'), { timeoutMs: 60000, label: 'undo brings the edit back' });
     await shot('checkpoint-undo');
     await showFiles(page);
     return { restored: true };
+  });
+
+  await scenario('automatic-checkpoint-before-replace-restore-undo', async () => {
+    await showSearch(page);
+    const search = page.locator('.project-search-panel input[type="search"]');
+    await search.fill('AUTO_TOKEN');
+    await search.press('Enter');
+    if (!await page.getByTestId('replace-input').isVisible()) await page.getByTestId('replace-toggle').click();
+    await page.getByTestId('replace-input').fill('DONE_TOKEN');
+    await page.getByTestId('replace-match-case').check();
+    await page.getByTestId('replace-preview').click();
+    await waitFor(async () => /2/.test(await page.getByTestId('replace-review').innerText().catch(() => '')), { timeoutMs: 30000, label: '2 matches previewed' });
+    await page.getByTestId('replace-apply').click();
+    await page.getByTestId('replace-undo').waitFor({ timeout: 60000 });
+    for (const relative of Object.keys(autoFiles)) assert((await read(relative)).toString('utf8').includes('DONE_TOKEN'), `${relative} was not replaced`);
+    await page.getByRole('button', { name: '검색 패널 닫기', exact: true }).click();
+    await page.getByRole('button', { name: '체크포인트', exact: true }).click();
+    await page.getByTestId('checkpoint-filter').selectOption('auto');
+    const row = page.locator('[data-testid="checkpoint-row"][data-checkpoint-kind="auto"]').filter({ hasText: /프로젝트 바꾸기 전|before replace/ }).first();
+    await row.waitFor({ timeout: 60000 });
+    await row.getByTestId('checkpoint-compare').click();
+    await page.getByTestId('checkpoint-comparison').waitFor({ timeout: 60000 });
+    const listed = await page.locator('.checkpoint-files li').allInnerTexts();
+    assert(listed.length === 2 && listed.every(item => /auto-demo\/(one|two)\.tex/.test(item)), `Only the two replaced files belong to the automatic checkpoint: ${JSON.stringify(listed)}`);
+    await shot('automatic-checkpoint-compare');
+    page.once('dialog', dialog => void dialog.accept());
+    await page.getByTestId('checkpoint-restore').first().click();
+    await waitFor(async () => { for (const [relative, text] of Object.entries(autoFiles)) if ((await read(relative)).toString('utf8') !== text) return false; return true; }, { timeoutMs: 60000, label: 'restoring the automatic checkpoint brings back the pre-replace text' });
+    assert((await read('auto-demo/untouched.tex')).toString('utf8') === 'no token here\n', 'Files outside the automatic checkpoint must stay unchanged.');
+    assert(await page.locator('[data-testid="checkpoint-row"][data-checkpoint-kind="auto"]').filter({ hasText: /Before restore|복원 전/ }).count() >= 1, 'Restoring must first create an automatic "Before restore" checkpoint.');
+    await page.getByTestId('checkpoint-undo').click();
+    await waitFor(async () => { for (const relative of Object.keys(autoFiles)) if (!(await read(relative)).toString('utf8').includes('DONE_TOKEN')) return false; return true; }, { timeoutMs: 60000, label: 'undo brings the replaced text back' });
+    await page.getByTestId('checkpoint-filter').selectOption('manual');
+    assert(await page.locator('[data-testid="checkpoint-row"][data-checkpoint-kind="manual"]').count() >= 1, 'Automatic checkpoints must not evict the manual one.');
+    await page.getByTestId('checkpoint-filter').selectOption('all');
+    await showFiles(page);
+    return { listed };
+  });
+
+  await scenario('ai-transmission-record-shows-pending-attachment', async () => {
+    await quickOpen(page, 'scratch.tex');
+    await page.locator('.cm-lineNumbers .cm-gutterElement').filter({ hasText: /^3$/ }).first().click();
+    await page.keyboard.press('Control+L');
+    await page.getByTestId('agent-attachment').first().waitFor({ timeout: 15000 });
+    const record = page.getByTestId('agent-transmissions');
+    if (!await record.isVisible()) await page.getByRole('button', { name: 'AI 도우미', exact: true }).click();
+    await record.waitFor({ timeout: 15000 });
+    if (!await record.evaluate(element => element.open)) await record.locator('summary').click();
+    const pending = page.getByTestId('agent-transmission-pending');
+    await waitFor(async () => await pending.count() === 1, { timeoutMs: 10000, label: 'one pending attachment listed' });
+    const pendingText = await pending.first().innerText();
+    assert(/scratch\.tex/.test(pendingText) && /3/.test(pendingText), `The pending row must name the attached file and line: ${pendingText}`);
+    assert(await page.getByTestId('agent-transmission-row').count() === 0, 'Nothing may be listed as sent without a provider handoff.');
+    await shot('ai-transmission-pending');
+    await page.getByTestId('agent-attachment-remove').first().click();
+    await waitFor(async () => await pending.count() === 0, { timeoutMs: 10000, label: 'removed attachment leaves the pending list' });
+    return { pendingText };
   });
 
   await scenario('paper-templates-create-and-compile', async () => {
@@ -260,10 +354,8 @@ try {
       await waitFor(async () => (await readdir(folder).catch(() => [])).includes('main.tex'), { timeoutMs: 60000, label: `${id} template files written` });
       await page.getByTestId('file-tree').waitFor({ timeout: 60000 });
       await waitFor(async () => (await page.getByRole('tab', { name: /main\.tex/ }).count()) > 0, { timeoutMs: 60000, label: `${id} main.tex opened` });
-      if (id !== 'article-ko') {
-        await buildPaper(page, folder);
-        created[id] = { built: true };
-      } else created[id] = { built: 'not-compiled (kotex may be absent)', files: (await readdir(folder)).sort() };
+      await buildPaper(page, folder);
+      created[id] = { built: true };
       await shot(`template-${id}`);
       const project = JSON.parse(await readFile(path.join(folder, '.texypaper', 'project.json'), 'utf8'));
       assert(project.rootTex === 'main.tex' && project.engine === (id === 'article-ko' ? 'xelatex' : 'pdflatex'), `${id} must record its main document and engine: ${JSON.stringify(project)}`);

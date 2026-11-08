@@ -288,19 +288,19 @@ async function remoteFeatures(page, host) {
   await openFile(page, scratch);
   await page.getByRole('button', { name: '체크포인트', exact: true }).click();
   await page.getByTestId('checkpoint-create').click();
-  await page.getByTestId('checkpoint-row').first().waitFor({ timeout: 60000 });
+  await page.locator('[data-testid="checkpoint-row"][data-checkpoint-kind="manual"]').first().waitFor({ timeout: 60000 });
   await page.locator('.cm-content[contenteditable="true"]').click();
   await page.keyboard.press('Control+End');
   await page.keyboard.type('\n%% remote checkpoint change\n');
   await page.keyboard.press('Control+S');
   await waitFor(async () => (await host.read(scratch)).includes('remote checkpoint change'), { timeoutMs: 30000, label: 'remote edit saved' });
-  await page.getByTestId('checkpoint-compare').first().click();
+  await page.locator('[data-testid="checkpoint-row"][data-checkpoint-kind="manual"]').first().getByTestId('checkpoint-compare').click();
   await page.locator('.checkpoint-files').getByText(scratch).first().click();
   await page.getByTestId('checkpoint-diff').waitFor({ timeout: 60000 });
   page.once('dialog', (dialog) => void dialog.accept());
   await page.getByTestId('checkpoint-restore').first().click();
   await waitFor(async () => await host.digest(scratch) === sha(scratchText), { timeoutMs: 60000, label: 'remote restore wrote the checkpoint text exactly' });
-  assert(await page.getByTestId('checkpoint-row').filter({ hasText: 'Before restore' }).count() >= 1, 'A "Before restore" checkpoint must exist after a remote restore');
+  await waitFor(async () => await page.getByTestId('checkpoint-row').filter({ hasText: /Before restore|복원 전/ }).count() >= 1, { timeoutMs: 15000, label: 'a "Before restore" checkpoint listed after a remote restore' });
   await page.getByTestId('checkpoint-undo').click();
   await waitFor(async () => (await host.read(scratch)).includes('remote checkpoint change'), { timeoutMs: 60000, label: 'remote restore undo brings the edit back' });
   evidence.checkpoints = 'created-compared-restored-undone';
@@ -393,6 +393,15 @@ async function main() {
     await waitFor(() => host.events.filter((event) => event.kind === 'worker-reply' && event.op === 'synctex_edit' && event.ok).length > inverseBefore, { timeoutMs: 30000, label: 'real selected PDF prose resolves through remote inverse SyncTeX' });
     report.scenarios.push({ name: 'remote-unicode-forward-and-inverse-synctex', records: host.events.filter((event) => event.kind === 'worker-reply' && ['synctex_view', 'synctex_edit'].includes(event.op)) });
     await page.screenshot({ path: path.join(run.output, 'ssh-compiled.png'), fullPage: true });
+    // Idle polling: after 10 s without activity the client backs off from 2 s to 10 s checks.
+    await page.keyboard.press('Escape');
+    const idleOps = (event) => event.kind === 'worker-request' && ['stat_many', 'list_dir'].includes(event.op);
+    await new Promise((resolve) => setTimeout(resolve, 15000));
+    const idleStart = host.events.filter(idleOps).length;
+    await new Promise((resolve) => setTimeout(resolve, 30000));
+    const idleRequests = host.events.filter(idleOps).length - idleStart;
+    assert(idleRequests <= 10, `Idle polling should back off to about 6 checks per 30 s (2 s polling would send about 30), observed ${idleRequests}`);
+    report.scenarios.push({ name: 'idle-ssh-polling-backs-off', windowSeconds: 30, requests: idleRequests });
     // Same byte length, changed content: metadata alone cannot protect this save.
     await openFile(page, 'conflict.tex');
     const conflictBase = await host.read('conflict.tex');
@@ -401,7 +410,7 @@ async function main() {
     // Open clean buffers are re-read by a 2 s poll. Start the outside write right after a poll so the poll cannot reload the
     // clean buffer between the write and the local edit; otherwise a legitimate auto-reload would turn this into a no-conflict run.
     const pollsSeen = host.events.filter((event) => event.kind === 'worker-request' && event.op === 'stat_many').length;
-    await waitFor(() => host.events.filter((event) => event.kind === 'worker-request' && event.op === 'stat_many').length > pollsSeen, { timeoutMs: 6000, intervalMs: 20, label: 'a fresh outside-change poll' });
+    await waitFor(() => host.events.filter((event) => event.kind === 'worker-request' && event.op === 'stat_many').length > pollsSeen, { timeoutMs: 20000, intervalMs: 20, label: 'a fresh outside-change poll' });
     await host.write('conflict.tex', external);
     await replaceEditor(page, `${conflictBase}% local edit held for conflict\n`);
     await waitFor(async () => /FILE_CONFLICT/.test(await page.locator('body').innerText()), { timeoutMs: 15000, label: 'same-size external remote conflict detected' });

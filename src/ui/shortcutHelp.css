@@ -1,25 +1,3 @@
-.shortcut-help-button,
-.statusbar .shortcut-help-button {
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:.375rem;
-  flex:none;
-  min-height:1.5rem;
-  padding:.125rem .5rem;
-  border:1px solid var(--border);
-  border-radius:999px;
-  background:var(--surface);
-  color:var(--text);
-  font-size:.6875rem;
-  font-weight:600;
-}
-.statusbar>div:has(.shortcut-help-button) { min-width:0; max-width:100%; margin-left:auto; align-items:center; justify-content:flex-end; }
-.statusbar>div:has(.shortcut-help-button)>button { max-width:100%; white-space:normal; overflow-wrap:anywhere; }
-.dashboard-appbar>.button-row:has(.shortcut-help-button) { max-width:100%; margin-left:auto; justify-content:flex-end; }
-.dashboard-appbar>.button-row>.shortcut-help-button { border-radius:999px; }
-.shortcut-help-button svg { flex:none; }
-.shortcut-help-button:hover:not(:disabled) { background:var(--selection); }
 .shortcut-help-scrim { padding:min(1.5rem,4vw); container-type:size; }
 .shortcut-help {
   display:flex;

@@ -219,10 +219,18 @@ try {
     const panel = page.locator('.agent-panel');
     await panel.waitFor({ state: 'visible' });
     const before = await number(panel, 'data-chat-font-size'), rootBefore = await rootFontSize(page);
+    // Keep the size/key/wheel order so a timing failure explains itself.
+    await page.evaluate(() => {
+      const log = window.__chatZoomLog = [], node = document.querySelector('.agent-panel'), now = () => Math.round(performance.now());
+      new MutationObserver(() => log.push(['size', node.getAttribute('data-chat-font-size'), now()])).observe(node, { attributes: true, attributeFilter: ['data-chat-font-size'] });
+      window.addEventListener('wheel', event => log.push(['wheel', Math.round(event.deltaY), event.ctrlKey, now()]), { capture: true });
+      window.addEventListener('keydown', event => log.push(['key', event.key, event.ctrlKey, document.activeElement?.className ?? '', now()]), { capture: true });
+    });
+    const timeline = async () => JSON.stringify(await page.evaluate(() => window.__chatZoomLog));
     await wheelZoom(page, page.locator('.agent-history'), -240);
-    await waitFor(async () => await number(panel, 'data-chat-font-size') > before, { label: 'Ctrl+wheel enlarges the chat text' });
+    await waitFor(async () => await number(panel, 'data-chat-font-size') > before, { label: 'Ctrl+wheel enlarges the chat text' }).catch(async error => { throw new Error(`${error.message} ${await timeline()}`); });
     await page.locator('.agent-history').focus(); await page.keyboard.press('Control+-');
-    await waitFor(async () => await number(panel, 'data-chat-font-size') === before, { label: 'Ctrl+minus shrinks the chat text' });
+    await waitFor(async () => await number(panel, 'data-chat-font-size') === before, { label: 'Ctrl+minus shrinks the chat text' }).catch(async error => { throw new Error(`${error.message} (before ${before}, now ${await panel.getAttribute('data-chat-font-size')}) ${await timeline()}`); });
     assert(await rootFontSize(page) === rootBefore, 'Chat zoom changed the whole UI.');
     return { before };
   });

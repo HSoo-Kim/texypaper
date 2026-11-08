@@ -4,15 +4,17 @@ import { listen } from '@tauri-apps/api/event';
 import type { WorkspaceRef, AppEvent } from '../../contracts';
 import type { AppSettings } from '../../ui/theme';
 import { request, normalizeError } from '../../api';
+import { automaticCheckpointWarning, createAutomaticCheckpoint } from '../history/checkpoints';
 import type { Provider, ProviderStatus, ModelsResponse } from './ProviderSettings';
 import type { Proposal } from './ProposalReview';
-import type { AgentStatus, ChatAction, ChatReadingPosition, ChatSnapshot, ExecutionPermission, ExecutionRequest, HistoryRow } from './chatTypes';
+import type { AgentStatus, ChatAction, ChatReadingPosition, ChatSnapshot, ExecutionPermission, ExecutionRequest, HistoryRow, Transmission } from './chatTypes';
 import { appendHistory, historyEventKey, historyFromEvents } from './chatHistory';
 import { isChatReadingPosition, isHistoryPage } from './chatBridge';
 import { ChatView } from './ChatView';
 import { useChatWindow } from './chatWindow';
 import { clampChatFontSize, hasDisclosureConsent, readChatPreferences, updateDisclosureConsent, type ChatPreferences } from './chatPreferences';
 import { addChatAttachment, clearSentAttachments, parseAttachmentIntent, removeChatAttachment } from './chatAttachments';
+import { appendTransmissions, transmissionEntries } from './Transmissions';
 import './agents.css';
 
 export type AgentPanelProps = { workspace: WorkspaceRef; settings: AppSettings; onChanged?: (paths: string[]) => void; beforeStart?: () => Promise<boolean>; onBusyChange?: (busy: boolean) => void; onDetachedChange?: (detached: boolean) => void; readingPosition?: ChatReadingPosition; onReadingPositionChange?: (position: ChatReadingPosition) => void };
@@ -116,7 +118,7 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
     liveDuringHistory.current = [];
     update({ historyLoading: true });
     try {
-      type HistoryResponse = { events: AppEvent[]; pages: string[]; page?: string };
+      type HistoryResponse = { events: AppEvent[]; pages: string[]; page?: string; transmissions?: Transmission[] };
       // Read the real page list first; a deleted saved page must not strand restoration.
       let response = await request<HistoryResponse>('agent_history', state.current.workspace, { page: 'current.jsonl' });
       if (!current()) return;
@@ -133,6 +135,8 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
       const actualPage = response.page ?? 'current.jsonl';
       const received = new Set(response.events.map(historyEventKey));
       const pending = actualPage === 'current.jsonl' ? (liveDuringHistory.current ?? []).filter(event => !received.has(historyEventKey(event))) : [];
+      const liveTransmissions = (liveDuringHistory.current ?? []).filter(event => event.kind === 'agent/transmission').flatMap(event => transmissionEntries(event.payload));
+      update({ transmissions: appendTransmissions(response.transmissions ?? [], liveTransmissions) });
       flushPending.current?.();
       liveDuringHistory.current = null;
       const saved = state.current.readingPosition;
@@ -147,6 +151,7 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
     listenerReady.current = Promise.withResolvers<void>();
     const ready = listenerReady.current;
     sessions.current = {}; terminalTasks.current.clear(); operation.current = null; starting.current = false; providerBusy.current = false; pendingStart.current = null; executionActions.current.clear(); permissionVersion.current++;
+    update({ transmissions: [] });
     executionVersions.current.clear(); executionRevision.current = 0;
     const provider = restoredPosition?.provider ?? settings.ai?.provider ?? 'codex';
     update(previous => ({ ...previous, workspace, provider, model: modelsByProvider.current[provider] ?? '', account: null, prompt: '', disclosure: false, busy: false, status: 'idle', taskId: '', sessionId: '', loginUrl: '', error: null, history: [], proposals: [], proposalBusy: [], context: {}, contextNotice: undefined, composerFocus: undefined, pages: [], historyPage: restoredPosition?.historyPage ?? 'current.jsonl', historyLoading: true, readingPosition: restoredPosition, executionPermission: 'ask', executions: [] }));
@@ -159,6 +164,10 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
       const payload = event.payload as Record<string, unknown>;
       const provider = String(payload.provider ?? state.current.provider);
       const taskId = String(payload.taskId ?? state.current.taskId);
+      if (event.kind === 'agent/transmission') {
+        update(previous => ({ ...previous, transmissions: appendTransmissions(previous.transmissions ?? [], transmissionEntries(payload)) }));
+        return;
+      }
       if (event.kind.startsWith('agent/') && taskId && terminalTasks.current.has(taskId)) return;
       if (event.kind === 'agent/text') {
         if (pending && (pending.taskId !== taskId || pending.provider !== provider)) flush();
@@ -325,6 +334,13 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
     const key = activeWorkspace.current;
     update(previous => ({ ...previous, proposalBusy: [...previous.proposalBusy, id], proposals: previous.proposals.map(row => row.id === id ? { ...row, error: undefined } : row) }));
     try {
+      if (decision === 'apply') {
+        if (callbacks.current.beforeStart && !await callbacks.current.beforeStart()) return;
+        if (!valid(key)) return;
+        try { await createAutomaticCheckpoint({ workspace: current.workspace, request, paths: proposal.files.filter(file => file.action !== 'create').map(file => file.path), reason: 'ai' }); }
+        catch (cause) { if (valid(key)) update({ error: automaticCheckpointWarning(cause) }); }
+        if (!valid(key)) return;
+      }
       const result = decision === 'undo' ? await request<{ changed?: { path: string }[]; transactionId?: string }>('undo_transaction', current.workspace, { transactionId: proposal.transactionId }) : await request<{ changed?: { path: string }[]; transactionId?: string }>('proposal_decide', current.workspace, { id, decision });
       if (!valid(key)) return;
       update(previous => ({ ...previous, proposals: previous.proposals.map(row => row.id === id ? { ...row, status: decision === 'undo' ? 'undone' : decision === 'apply' ? 'applied' : 'rejected', transactionId: result.transactionId ?? row.transactionId } : row) }));
@@ -410,6 +426,18 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
       case 'open-login': if (current.loginUrl) void invoke('open_external_url', { url: current.loginUrl }).catch(caught => { if (activeWorkspace.current === `${current.workspace.id}:${current.workspace.epoch}`) configError(caught); }); break;
       case 'save-executable': void saveExecutable(); break;
       case 'history': if (!current.busy && (action.page === 'current.jsonl' || current.pages.includes(action.page))) void loadHistory(action.page); break;
+      case 'clear-history':
+        if (!current.busy && !current.historyLoading) {
+          const key = activeWorkspace.current;
+          update({ historyLoading: true });
+          void request('agent_history', current.workspace, { clear: true }).then(() => {
+            if (!valid(key)) return;
+            historyRevision.current++; liveDuringHistory.current = null; flushPending.current?.();
+            sessions.current = {}; terminalTasks.current.clear();
+            update({ history: [], transmissions: [], pages: [], historyPage: 'current.jsonl', historyLoading: false, sessionId: '', taskId: '', status: 'idle', readingPosition: { provider: state.current.provider, historyPage: 'current.jsonl', following: true, scrollTop: 0 } });
+          }).catch(caught => { if (valid(key)) update({ historyLoading: false, error: normalizeError(caught) }); });
+        }
+        break;
       case 'reading-position':
         if (!current.historyLoading && isChatReadingPosition(action.value) && action.value.provider === current.provider && action.value.historyPage === current.historyPage) update({ readingPosition: action.value });
         break;

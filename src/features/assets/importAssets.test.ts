@@ -35,7 +35,8 @@ describe('asset imports', () => {
     expect(fake.calls.filter(call => call.command === 'asset_import_chunk').map(call => call.args.index)).toEqual(fake.chunks.map((_, index) => index));
     const combined = new Uint8Array(length); let offset = 0;
     for (const chunk of fake.chunks) { combined.set(chunk, offset); offset += chunk.length; }
-    expect(combined).toEqual(bytes);
+    // A plain loop instead of a deep equality: matcher diffing of a 3 MiB typed array took ~4 s and timed out under load.
+    expect(combined.length === bytes.length && combined.every((value, index) => value === bytes[index])).toBe(true);
     const expected = [...new Uint8Array(await crypto.subtle.digest('SHA-256', combined))].map(byte => byte.toString(16).padStart(2, '0')).join('');
     expect(fake.calls[0].args.sha256).toBe(expected);
   });

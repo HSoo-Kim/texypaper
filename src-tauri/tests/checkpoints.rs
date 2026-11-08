@@ -194,3 +194,112 @@ fn corrupt_records_are_reported_without_loading_them_as_checkpoints() {
         1
     );
 }
+
+#[test]
+fn legacy_records_default_to_manual_and_full() {
+    let dir = tempfile::tempdir().unwrap();
+    let data = record(&id(1), "2026-11-07T01:00:00.000Z");
+    let folder = dir.path().join("workspaces/workspace-1/checkpoints");
+    fs::create_dir_all(&folder).unwrap();
+    fs::write(folder.join(format!("{}.json", id(1))), data.to_string()).unwrap();
+    let rows = call(&dir, "checkpoint_list", &json!({})).unwrap();
+    assert_eq!(rows[0]["kind"], "manual");
+    assert_eq!(rows[0]["partial"], false);
+    assert_eq!(
+        call(&dir, "checkpoint_get", &json!({"id":id(1)})).unwrap(),
+        data
+    );
+}
+
+#[test]
+fn automatic_and_manual_caps_are_independent_and_auto_never_evicts_manual() {
+    let dir = tempfile::tempdir().unwrap();
+    for index in 1..=50 {
+        call(
+            &dir,
+            "checkpoint_put",
+            &record(&id(index), "2026-11-07T01:00:00.000Z"),
+        )
+        .unwrap();
+    }
+    for index in 101..=121 {
+        let mut data = record(
+            &id(index),
+            &format!("2026-11-07T02:00:{:02}.000Z", index - 100),
+        );
+        data["kind"] = json!("auto");
+        data["reason"] = json!("replace");
+        data["partial"] = json!(true);
+        let result = call(&dir, "checkpoint_put", &data).unwrap();
+        assert_eq!(
+            result["pruned"],
+            if index == 121 {
+                json!([id(101)])
+            } else {
+                json!([])
+            }
+        );
+    }
+    let rows = call(&dir, "checkpoint_list", &json!({})).unwrap();
+    let rows = rows.as_array().unwrap();
+    assert_eq!(rows.len(), 70);
+    assert_eq!(
+        rows.iter().filter(|row| row["kind"] == "manual").count(),
+        50
+    );
+    assert_eq!(rows.iter().filter(|row| row["kind"] == "auto").count(), 20);
+    assert!(call(&dir, "checkpoint_get", &json!({"id":id(1)})).is_ok());
+    let result = call(
+        &dir,
+        "checkpoint_put",
+        &record(&id(51), "2026-11-07T03:00:00.000Z"),
+    )
+    .unwrap();
+    assert_eq!(result["pruned"], json!([id(1)]));
+    assert!(call(&dir, "checkpoint_get", &json!({"id":id(102)})).is_ok());
+    assert_eq!(
+        call(&dir, "checkpoint_list", &json!({}))
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        70
+    );
+}
+
+#[test]
+fn automatic_checkpoints_require_bounded_partial_files_and_a_reason() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut data = record(&id(1), "2026-11-07T01:00:00.000Z");
+    data["kind"] = json!("auto");
+    for (partial, reason) in [
+        (false, json!("replace")),
+        (true, Value::Null),
+        (true, json!("")),
+        (true, json!("x".repeat(121))),
+    ] {
+        data["partial"] = json!(partial);
+        data["reason"] = reason;
+        assert_eq!(
+            call(&dir, "checkpoint_put", &data).unwrap_err().code,
+            "CHECKPOINT_LIMIT"
+        );
+    }
+    data["partial"] = json!(true);
+    data["reason"] = json!("ai");
+    data["files"] = json!(
+        (0..17)
+            .map(|index| json!({"path":format!("{index}.tex"),"text":"","sha256":hash(b"")}))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        call(&dir, "checkpoint_put", &data).unwrap_err().code,
+        "CHECKPOINT_LIMIT"
+    );
+    data["files"].as_array_mut().unwrap().pop();
+    call(&dir, "checkpoint_put", &data).unwrap();
+    assert_eq!(
+        call(&dir, "checkpoint_get", &json!({"id":id(1)})).unwrap(),
+        data
+    );
+}

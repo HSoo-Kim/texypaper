@@ -4,6 +4,7 @@ import type { Proposal } from './ProposalReview';
 
 export type AgentContext = { sources?: { path: string; startLine: number; endLine: number; text: string; truncated?: boolean }[]; pdfs?: { buildId: string; page: number; quote: string; truncated?: boolean }[]; attachments?: string[] };
 export type HistoryRow = { id: string; role: 'user' | 'assistant' | 'tool'; text: string; provider?: string; taskId?: string };
+export type Transmission = { id: string; taskId: string; provider: string; timestamp: number; tool: string; paths: string[]; startLine: number | null; endLine: number | null; page: number | null; bytes: number; characters: number | null; count: number };
 export type AgentStatus = 'idle' | 'running' | 'completed' | 'failed' | 'cancelled' | 'cancelling';
 // View state only: never carries execution permission, disclosure or session credentials.
 export type ChatReadingPosition = { provider: Provider; historyPage: string; following: boolean; scrollTop: number; anchor?: { id: string; inset: number } };
@@ -54,6 +55,7 @@ export type ChatSnapshot = {
   loginUrl: string;
   error: AgentError | null;
   history: HistoryRow[];
+  transmissions?: Transmission[];
   proposals: Proposal[];
   proposalBusy: string[];
   context: AgentContext;
@@ -72,6 +74,7 @@ export type ChatAction =
   | { type: 'prompt'; value: string }
   | { type: 'disclosure'; value: boolean }
   | { type: 'revoke-disclosure' }
+  | { type: 'clear-history' }
   | { type: 'chat-font-size'; value: number }
   | { type: 'context-remove' | 'context-open'; kind: 'source' | 'pdf'; index: number }
   | { type: 'provider'; value: Provider }

@@ -6,7 +6,38 @@ use rmcp::{
     model::*,
     tool, tool_handler, tool_router,
 };
+use serde_json::Value;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
+type PendingCalls = Arc<Mutex<HashMap<String, (String, Value)>>>;
+
+fn output_receipt(
+    line: &[u8],
+    pending: &PendingCalls,
+) -> AppResult<Option<super::transmissions::Transmission>> {
+    let message: Value = serde_json::from_slice(line)?;
+    let Some(id) = message.get("id") else {
+        return Ok(None);
+    };
+    let call = pending
+        .lock()
+        .map_err(|_| AppError::new("STATE_POISONED", "MCP receipt lock failed"))?
+        .remove(&id.to_string());
+    let Some((tool, args)) = call else {
+        return Ok(None);
+    };
+    if tool == "propose_changes" {
+        return Ok(None);
+    }
+    let Some(text) = message["result"]["content"][0]["text"].as_str() else {
+        return Ok(None);
+    };
+    let result: Value = serde_json::from_str(text)?;
+    Ok(Some(super::transmissions::tool(&tool, &args, &result)))
+}
 #[derive(serde::Serialize, serde::Deserialize, rmcp::schemars::JsonSchema)]
 #[schemars(crate = "rmcp::schemars")]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -169,6 +200,8 @@ pub fn main() -> AppResult<()> {
     runtime.block_on(async move {
         // Validate the input size before rmcp's JSON transport can allocate a complete provider-controlled line.
         let (mut producer, consumer) = tokio::io::duplex(64 * 1024);
+        let pending: PendingCalls = Arc::new(Mutex::new(HashMap::new()));
+        let requests = pending.clone();
         let relay = tokio::spawn(async move {
             let mut input = tokio::io::BufReader::new(tokio::io::stdin());
             let mut line = Vec::new();
@@ -198,14 +231,61 @@ pub fn main() -> AppResult<()> {
                 line.extend_from_slice(&available[..count]);
                 input.consume(count);
                 if complete {
+                    let message: Value =
+                        serde_json::from_slice(&line).map_err(std::io::Error::other)?;
+                    if message["method"] == "tools/call"
+                        && let Some(id) = message.get("id")
+                        && let Some(name) = message["params"]["name"].as_str()
+                        && super::tools::TOOL_NAMES.contains(&name)
+                    {
+                        let mut calls = requests
+                            .lock()
+                            .map_err(|_| std::io::Error::other("MCP receipt lock failed"))?;
+                        if calls.len() >= 64 {
+                            return Err(std::io::Error::other("Too many pending MCP calls"));
+                        }
+                        calls.insert(
+                            id.to_string(),
+                            (
+                                name.to_owned(),
+                                serde_json::json!({"path":message["params"]["arguments"]["path"]}),
+                            ),
+                        );
+                    }
                     producer.write_all(&line).await?;
                     line.clear();
                 }
             }
             producer.shutdown().await
         });
+        let (output, receiver) = tokio::io::duplex(64 * 1024);
+        let receipts = client.clone();
+        let sent = tokio::spawn(async move {
+            let mut input = tokio::io::BufReader::new(receiver);
+            let mut stdout = tokio::io::stdout();
+            loop {
+                let mut line = Vec::new();
+                let length = input.read_until(b'\n', &mut line).await?;
+                if length == 0 {
+                    break;
+                }
+                let receipt = output_receipt(&line, &pending)?;
+                stdout.write_all(&line).await?;
+                stdout.flush().await?;
+                // Only the successful provider-facing stdout write can authorize a record.
+                if let Some(receipt) = receipt {
+                    let client = receipts.clone();
+                    tokio::task::spawn_blocking(move || {
+                        client.call("_transmission_sent", serde_json::to_value(receipt)?)
+                    })
+                    .await
+                    .map_err(|e| AppError::new("MCP_TRANSPORT_ERROR", e.to_string()))??;
+                }
+            }
+            Ok::<(), AppError>(())
+        });
         let service = Bridge::new(client)
-            .serve((consumer, tokio::io::stdout()))
+            .serve((consumer, output))
             .await
             .map_err(|e| AppError::new("MCP_START_FAILED", e.to_string()))?;
         let result = service
@@ -213,6 +293,8 @@ pub fn main() -> AppResult<()> {
             .await
             .map_err(|e| AppError::new("MCP_TRANSPORT_ERROR", e.to_string()));
         relay.abort();
+        sent.await
+            .map_err(|e| AppError::new("MCP_TRANSPORT_ERROR", e.to_string()))??;
         result.map(|_| ())
     })
 }
@@ -221,6 +303,37 @@ pub fn main() -> AppResult<()> {
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn receipts_follow_actual_stdout_replies_not_request_order() {
+        let pending: PendingCalls = Arc::new(Mutex::new(HashMap::from([
+            (
+                "1".into(),
+                ("read_text".into(), json!({"path":"first.tex"})),
+            ),
+            (
+                "2".into(),
+                ("read_text".into(), json!({"path":"second.tex"})),
+            ),
+        ])));
+        let reply = json!({"id":2,"result":{"content":[{"type":"text","text":json!({"path":"second.tex","startLine":3,"endLine":4,"text":"private content"}).to_string()}]}});
+        let row = output_receipt(&serde_json::to_vec(&reply).unwrap(), &pending)
+            .unwrap()
+            .unwrap();
+        assert_eq!(row.paths, ["second.tex"]);
+        assert_eq!(row.start_line, Some(3));
+        assert_eq!(row.bytes, 15);
+        assert!(
+            !serde_json::to_string(&row)
+                .unwrap()
+                .contains("private content")
+        );
+        assert!(pending.lock().unwrap().contains_key("1"));
+        assert!(
+            output_receipt(&serde_json::to_vec(&reply).unwrap(), &pending)
+                .unwrap()
+                .is_none()
+        );
+    }
 
     #[test]
     fn command_schemas_cannot_request_authority_or_forge_attribution() {

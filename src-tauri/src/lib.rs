@@ -4,6 +4,7 @@ pub mod chat_window;
 pub mod checkpoints;
 pub mod comments;
 pub mod contracts;
+mod dialogs;
 pub mod execution;
 pub mod latex;
 pub mod media;
@@ -184,17 +185,19 @@ async fn pick_folder(state: State<'_, Arc<AppState>>) -> AppResult<Option<String
         .and_then(Value::as_str)
         == Some("en");
     tauri::async_runtime::spawn_blocking(move || {
-        Ok(rfd::FileDialog::new()
-            .set_title(if english {
-                "Open paper project folder"
-            } else {
-                "논문 프로젝트 폴더 열기"
-            })
-            .pick_folder()
-            .map(|p| p.to_string_lossy().into_owned()))
+        dialogs::run(move || {
+            rfd::FileDialog::new()
+                .set_title(if english {
+                    "Open paper project folder"
+                } else {
+                    "논문 프로젝트 폴더 열기"
+                })
+                .pick_folder()
+                .map(|p| p.to_string_lossy().into_owned())
+        })
     })
     .await
-    .map_err(|e| AppError::new("DIALOG_ERROR", e.to_string()))?
+    .map_err(|e| AppError::new("DIALOG_UNAVAILABLE", e.to_string()))?
 }
 #[tauri::command]
 async fn ssh_prompt_answer(id: String, answer: Option<String>) -> AppResult<()> {
@@ -298,7 +301,8 @@ async fn dispatch(
     if trusted {
      let english=state.settings.lock().map_err(|_|lock_error())?.get("locale").and_then(Value::as_str)==Some("en");
      let message=if english {"Project mode loads latexmk configuration, which can run commands with your account permissions. Trust only a project you have reviewed. Allow this project?"}else{"프로젝트 모드는 계정 권한으로 명령을 실행할 수 있는 latexmk 설정을 불러옵니다. 검토한 프로젝트만 신뢰하세요. 이 프로젝트를 허용할까요?"};
-     let approved=rfd::MessageDialog::new().set_title("TexyPaper").set_description(format!("{message}\n\n{}",workspace.reference.root)).set_level(rfd::MessageLevel::Warning).set_buttons(rfd::MessageButtons::YesNo).show()==rfd::MessageDialogResult::Yes;
+     let description=format!("{message}\n\n{}",workspace.reference.root);
+     let approved=dialogs::run(move||rfd::MessageDialog::new().set_title("TexyPaper").set_description(description).set_level(rfd::MessageLevel::Warning).set_buttons(rfd::MessageButtons::YesNo).show())?==rfd::MessageDialogResult::Yes;
      if !approved {return Err(AppError::new("PROJECT_TRUST_DENIED","Project execution consent declined"));}
     }
     state::set_project_trust(&state.data_dir,&workspace,trusted)?;Ok(json!({"trusted":trusted}))
@@ -311,7 +315,7 @@ async fn dispatch(
    "build_status"|"build_cancel"|"sync_forward"|"sync_inverse"|"sync_validate_fallback"|"pdf_map_selection"|"pdf_apply_edit"=>latex::execute(&workspace,command,args),
    "export_pdf"=>{
     let english=state.settings.lock().map_err(|_|lock_error())?.get("locale").and_then(Value::as_str)==Some("en");
-    let destination=rfd::FileDialog::new().set_title(if english{"Export PDF"}else{"PDF 내보내기"}).add_filter("PDF",&["pdf"]).set_file_name("paper.pdf").save_file().ok_or_else(||AppError::new("CANCELLED","PDF export cancelled"))?;
+    let destination=dialogs::run(move||rfd::FileDialog::new().set_title(if english{"Export PDF"}else{"PDF 내보내기"}).add_filter("PDF",&["pdf"]).set_file_name("paper.pdf").save_file())?.ok_or_else(||AppError::new("CANCELLED","PDF export cancelled"))?;
     let mut export_args=args;export_args["_destination"]=json!(destination);
     latex::execute(&workspace,command,export_args)
    },
@@ -707,12 +711,16 @@ pub fn run() {
                     };
                     let description = format!("{}: {}\n\n{}", error.code, error.message, guidance);
                     eprintln!("{description}");
-                    rfd::MessageDialog::new()
-                        .set_title("TexyPaper")
-                        .set_description(description)
-                        .set_level(if running { rfd::MessageLevel::Info } else { rfd::MessageLevel::Error })
-                        .set_buttons(rfd::MessageButtons::Ok)
-                        .show();
+                    if let Err(dialog_error) = dialogs::run(move || {
+                        rfd::MessageDialog::new()
+                            .set_title("TexyPaper")
+                            .set_description(description)
+                            .set_level(if running { rfd::MessageLevel::Info } else { rfd::MessageLevel::Error })
+                            .set_buttons(rfd::MessageButtons::Ok)
+                            .show()
+                    }) {
+                        eprintln!("{}: {}", dialog_error.code, dialog_error.message);
+                    }
                     std::process::exit(if running { 0 } else { 1 });
                 }
             };

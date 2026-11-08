@@ -49,8 +49,9 @@ Windows의 `activation.rs`는 같은 사용자 SID와 canonical profile 경로�
 | `src-tauri/resources/remote_worker.py` | 서버 파일·빌드·SyncTeX 작업, bounded protocol |
 | `src-tauri/src/latex/` | scheduler, diagnostics, immutable artifacts, mapping proof |
 | `src-tauri/src/comments.rs` | sidecar revision과 anchor 이동/재연결 |
-| `src-tauri/src/spell.rs`, `src/editor/spelling.ts`, `proseRanges.ts` | 영어 맞춤법: Windows `ISpellChecker` 우선, 없으면 내장 SCOWL 사전; 산문 범위만 검사 |
-| `src-tauri/src/checkpoints.rs`, `src/features/history/` | app-data 체크포인트 저장·검증과 비교·복원 UI |
+| `src-tauri/src/spell.rs`, `src/editor/spelling.ts`, `proseRanges.ts` | 영어 맞춤법: Windows `ISpellChecker` 우선(전용 MTA 스레드 하나), 없으면 내장 SCOWL 사전; 산문 범위만 검사 |
+| `src-tauri/src/dialogs.rs` | 파일 열기/저장 대화상자를 호출마다 새 STA 스레드에서 실행 |
+| `src-tauri/src/checkpoints.rs`, `src/features/history/` | app-data 수동·자동 체크포인트 저장·검증과 비교·복원 UI |
 | `src/features/search/`, `assets/`, `templates/` | 프로젝트 바꾸기 계획, 그림 가져오기, 템플릿 생성(모두 기존 transaction/create 경로 재사용) |
 | `src-tauri/src/ai/` | 공식 CLI, broker/MCP, 읽기 정책과 staged proposal |
 | `src-tauri/src/execution.rs` | 사용자 명령 권한, 불변 승인 요청, 호스트 실행·출력·취소 |
@@ -97,7 +98,7 @@ Windows의 `activation.rs`는 같은 사용자 SID와 canonical profile 경로�
 
 직접 증거는 확장자 목록만으로 분류합니다. 폴더 강조를 위해 파일 본문을 열지 않습니다. `direct`는 굵기+황색 label band와 **TeX** 배지, `descendant`는 흐린 **TeX** 배지(디렉터리 목록의 검증된 하위 증거는 폴더를 펼치기 전에도 전파), `unknown`은 미검색 상태입니다. 폴더 이름만으로 논문 폴더를 추측하지 않습니다. 선택 강조는 사용자 accent와 읽기 가능한 텍스트로 표현하고 논문 의미 표식은 유지합니다. Main은 실제 선택된 root TeX에만 붙습니다. 파일·폴더 아이콘(`fileIcons.tsx`)은 확장자·정확한 파일명·폴더 별칭 표로 정하는 순수 함수이며 논문 증거 판정과 독립입니다. 아이콘은 이 프로젝트의 원본 SVG이고 제3자 아이콘 세트를 포함하지 않습니다.
 
-index와 scan frontier는 디스크에 저장하며 한 sweep의 20,000 항목 제한이 깊이 제한으로 바뀌지 않습니다. 256개 단위 결과와 250ms yield를 사용하고 열린/보이는 디렉터리를 우선합니다. excluded 디렉터리를 명시적으로 펼치는 것은 별개입니다. local notify와 active polling은 관련 경로를 무효화하고 모든 서버 파일 내용을 cache하지 않습니다. 열린 파일 검사는 활성 2초/비활성 15초 간격과 focus refresh를 사용합니다.
+index와 scan frontier는 디스크에 저장하며 한 sweep의 20,000 항목 제한이 깊이 제한으로 바뀌지 않습니다. 256개 단위 결과와 250ms yield를 사용하고 열린/보이는 디렉터리를 우선합니다. excluded 디렉터리를 명시적으로 펼치는 것은 별개입니다. local notify와 active polling은 관련 경로를 무효화하고 모든 서버 파일 내용을 cache하지 않습니다. SSH 열린 파일 검사는 창이 보이는 동안 2초 간격이고, 10초 동안 입력이나 바뀐 파일이 없으면 10초, 창이 숨겨지면 15초로 늘어납니다. 각 간격은 앞 검사가 끝난 뒤 시작하므로 느린 SSH에서도 검사가 겹치지 않습니다. 창 focus 때와 SSH 저장 직전에는 바로 검사합니다. 탐색기가 닫혀 있으면 SSH 디렉터리 목록 검사는 건너뜁니다.
 
 `% !TeX root`는 순환 검출·최대 16 hop·root 경계 검사 후 사용합니다. 여러 `\documentclass` 후보 중 알파벳순 첫 파일을 임의 선택하지 않습니다. 프로젝트 검색·quick-open은 제한된 결과와 continuation으로 동작합니다.
 
@@ -255,8 +256,9 @@ MCP 파일 읽기는 private key·`.env*`·credential·`.git` 내부·auth/histo
 | `workspaces/<id>/state.json` | 탭/view/trash, 파일별 커서·스크롤, PDF identity별 읽기 위치, 패널 layout, 대화 읽기 위치 |
 | `workspaces/<id>/recovery/` | 미저장 source와 base hash/불확실한 transaction ID |
 | app-data의 index/frontier/history/proposal/session 파일 | 필요한 부분만 읽는 cache·보이는 대화·승인/재개 기록 |
+| `workspaces/<id>/agent-history/transmissions.json` | 공급자에게 실제로 넘긴 첨부의 메타데이터(시각·공급자·도구·경로·줄/쪽·바이트·글자 수), 최근 500개. 본문은 저장하지 않음 |
 | `providers/codex/` | 공식 CLI 소유 private account/config store; 토큰 직접 처리 금지 |
-| `workspaces/<id>/checkpoints/<uuid>.json` | 이름 붙은 텍스트 스냅샷(최대 50개·400파일·8MiB); 프로젝트에는 쓰지 않음 |
+| `workspaces/<id>/checkpoints/<uuid>.json` | 텍스트 스냅샷(수동 최대 50개, 자동 최대 20개·각 16파일 이하, 400파일·8MiB); 자동 체크포인트는 수동 체크포인트를 밀어내지 않음; 프로젝트에는 쓰지 않음 |
 | `agent-workspaces/<id>/` | CLI control cwd와 앱 생성 MCP config |
 | 프로젝트 `.texypaper/project.json`, `comments.json` | 실제 호스트의 이동 가능한 설정·댓글 |
 | 프로젝트 `.texypaper/transactions/`, `trash/` | 복구/undo 원본, 명시적 삭제의 복원 자료 |
@@ -282,9 +284,9 @@ Windows MSVC/WebView2, 로컬/원격 TeX와 글꼴, POSIX Python, OpenSSH 인증
 
 ## 13. 맞춤법·그림 가져오기·체크포인트·바꾸기
 
-- **맞춤법:** 검사 대상은 `proseRanges.ts`가 TeX 명령·수식·주석·verbatim·키를 건너뛰고 뽑은 UTF-16 구간뿐입니다. `spell_status`는 Windows 팩토리에 en-US/en-GB 검사기가 있는지 보고, 없을 때만 내장 영어 사전(SCOWL en_US, `spellbook` crate)을 첫 검사 때 지연 로드합니다. 상태 조회는 사전을 파싱하지 않습니다. 모든 검사는 Windows 클라이언트에서 실행하므로 SSH 프로젝트의 파일 내용이 서버 밖의 다른 서비스로 나가지 않습니다. 무시 목록은 앱 설정이며 Windows 사용자 사전은 수정하지 않습니다.
+- **맞춤법:** 검사 대상은 `proseRanges.ts`가 TeX 명령·수식·주석·verbatim·키를 건너뛰고 뽑은 UTF-16 구간뿐입니다. `spell_status`는 Windows 팩토리에 en-US/en-GB 검사기가 있는지 보고, 없을 때만 내장 영어 사전(SCOWL en_US, `spellbook` crate)을 첫 검사 때 지연 로드합니다. 상태 조회는 사전을 파싱하지 않습니다. Windows COM 검사기는 전용 MTA 스레드 하나에서만 호출합니다(대기 8건, 15초 제한). 공용 blocking 스레드에서 COM을 MTA로 초기화하면 같은 스레드에서 나중에 여는 파일 대화상자가 `RPC_E_CHANGED_MODE`로 실패했기 때문입니다. 대화상자는 `dialogs.rs`가 호출마다 새 STA 스레드에서 열고, 실패하면 `DIALOG_UNAVAILABLE`을 돌려줍니다. 모든 검사는 Windows 클라이언트에서 실행하므로 SSH 프로젝트의 파일 내용이 서버 밖의 다른 서비스로 나가지 않습니다. 무시 목록은 앱 설정이며 Windows 사용자 사전은 수정하지 않습니다.
 - **프로젝트 바꾸기:** 미리 보기는 읽기 전용이며 적용은 기존 `apply_proposal` 트랜잭션에 사용자 편집(`action:edit`)을 최대 16파일 보냅니다. 모든 base SHA-256이 쓰기 전에 다시 검사되고, AI 경로의 TeX/Bib/style 제한은 그대로입니다.
 - **그림 가져오기:** 텍스트 전용 `create`를 쓰지 않고 `asset_import_begin/chunk/commit/abort`로 청크 업로드합니다(20MiB, 확장자 허용 목록, 덮어쓰기 금지, 해시 검증, 하드 링크 후 unlink로 원자적 공개). SSH는 base64 청크를 worker가 원본 바이트로 다시 씁니다.
-- **체크포인트:** 저장은 `checkpoint_put/list/get/delete`가 app-data에서 검증합니다. 복원은 먼저 현재 상태를 "Before restore"로 저장한 뒤 `apply_proposal`로 한 트랜잭션(최대 16파일)을 쓰며 추가된 파일은 지우지 않습니다.
+- **체크포인트:** 저장은 `checkpoint_put/list/get/delete`가 app-data에서 검증합니다. 사용자가 만든 수동 체크포인트와 별도로, AI 제안 적용·프로젝트 바꾸기·PDF 원문 수정·복원 직전에 바뀔 파일만 담은 자동 체크포인트(`kind:auto`, `partial`, `reason`)를 만듭니다. PDF 원문 수정은 자동 체크포인트를 만들지 못하면 적용하지 않습니다. 복원은 먼저 바뀔 파일을 "복원 전" 자동 체크포인트로 저장한 뒤 `apply_proposal`로 한 트랜잭션(최대 16파일)을 쓰며 추가된 파일은 지우지 않습니다.
 - **템플릿:** 존재하는 폴더에서 충돌을 먼저 확인하고 `file_create`/디렉터리 생성만 사용합니다. 덮어쓰기 경로가 없습니다.
 

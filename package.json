@@ -1,6 +1,6 @@
 {
   "name": "texypaper",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -16,6 +16,7 @@
     "test": "vitest run --dir src",
     "build": "tsc --noEmit && vite build",
     "tauri": "tauri",
+    "package:release": "node scripts/package-release.mjs",
     "smoke:desktop": "node scripts/smoke-desktop.mjs",
     "smoke:preferences": "node scripts/smoke-preferences.mjs",
     "smoke:usability": "node scripts/smoke-usability.mjs",

@@ -1,14 +1,14 @@
 import { t, useI18n } from '../ui/i18n';
 import { useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { Compartment, EditorState, type Extension } from '@codemirror/state';
-import { EditorView, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection } from '@codemirror/view';
+import { EditorView, highlightActiveLineGutter, highlightSpecialChars, drawSelection } from '@codemirror/view';
 import { history } from '@codemirror/commands';
 import { bracketMatching, indentOnInput, StreamLanguage, syntaxHighlighting } from '@codemirror/language';
 import { classHighlighter } from '@lezer/highlight';
 import { highlightSelectionMatches } from '@codemirror/search';
 import { autocompletion, type CompletionContext } from '@codemirror/autocomplete';
 import { stex } from '@codemirror/legacy-modes/mode/stex';
-import { BufferStore, byteToUtf16, selectionAnchor, type SourceSelection } from './buffers';
+import { BufferStore, byteToUtf16, selectionAnchor, type BufferRecord, type SourceSelection } from './buffers';
 import { clampEditorPosition } from '../state/readingPosition';
 import { Icon } from '../ui/Icon';
 import { runEditorCommand, type EditorCommand } from './editorCommands';
@@ -20,6 +20,7 @@ import { imagePasteExtension, type ImagePasteOptions } from './imagePaste';
 import type { WorkspaceRef } from '../contracts';
 import { SpellEngine, spellingExtension } from './spelling';
 import { countWords, countSelection } from './wordCount';
+import { selectableLineNumbers } from './lineNumbers';
 const emptyIgnoredWords:string[]=[];
 
 export type SourceEditorHandle = { captureReadingPosition:()=>void;focus:()=>void; position:()=>{line1:number;column1:number}; selectBytes:(start:number,end:number)=>void; selection:()=>SourceSelection|null; navigate:(line:number,column?:number)=>void; command:(name:EditorCommand)=>void; wordCounts:()=>{words:number;characters:number;selectionWords:number}; };
@@ -50,6 +51,7 @@ export async function languageFor(path:string):Promise<Extension> {
 export function SourceEditor({store,fontSize,onFontSizeChange,onSelection,onReady,onImages,spellCheck=false,spellIgnore=emptyIgnoredWords,onSpellIgnore,spellWorkspace,loading=false,visible=true}:Props) {
   const {locale}=useI18n();
   const host=useRef<HTMLDivElement>(null),view=useRef<EditorView|null>(null),pathRef=useRef<string|null>(null);
+  const ownership=useRef<{buffer:BufferRecord;generation:number}|null>(null);
   const frame=useRef<HTMLDivElement>(null),fontSizeRef=useRef(clampEditorFontSize(fontSize));
   const logicalFontSize=clampEditorFontSize(fontSize);
   usePaneZoom({root:frame,wheelRoot:host,enabled:visible&&!loading,onZoom:direction=>{const next=clampEditorFontSize(fontSizeRef.current+direction);if(next!==fontSizeRef.current){fontSizeRef.current=next;onFontSizeChange(next);}},wheelTarget:target=>!!target.closest('.cm-scroller')});
@@ -72,7 +74,7 @@ export function SourceEditor({store,fontSize,onFontSizeChange,onSelection,onRead
     const wordCounts=()=>{if(!pathRef.current)return {words:0,characters:0,selectionWords:0};if(countedDoc!==editor.state.doc){countedDoc=editor.state.doc;countedText=countedDoc.toString();counts=countWords(countedText);}const {from,to}=editor.state.selection.main;return {...counts,selectionWords:from===to?0:countSelection(countedText,from,to).words};};
     const handle:SourceEditorHandle={wordCounts,captureReadingPosition:remember,command:name=>{if(pathRef.current)runEditorCommand(editor,name);},focus:()=>editor.focus(),position:()=>{const head=editor.state.selection.main.head,line=editor.state.doc.lineAt(head);return {line1:line.number,column1:head-line.from+1};},selectBytes:(start,end)=>{navigation.current++;const path=pathRef.current,record=path?store.records.get(path):undefined;if(!record)return;const raw=store.text(record),bom=record.document.encoding==='utf8Bom'?3:0;const toEditor=(byte:number)=>raw.slice(0,byteToUtf16(raw,Math.max(0,byte-bom))).replaceAll('\r\n','\n').replaceAll('\r','\n').length;const anchor=toEditor(start),head=toEditor(end);editor.dispatch({selection:{anchor,head},effects:EditorView.scrollIntoView(anchor,{y:'center'})});editor.focus();},selection:()=>{const path=pathRef.current,buffer=path?store.records.get(path):undefined;if(!buffer)return null;const {from,to}=editor.state.selection.main;return from===to?null:selectionAnchor(buffer,from,to);},navigate:(line,column=1)=>{navigation.current++;const target=editor.state.doc.line(Math.max(1,Math.min(line,editor.state.doc.lines)));const position=Math.min(target.to,target.from+Math.max(0,column-1));editor.dispatch({selection:{anchor:position},effects:EditorView.scrollIntoView(position,{y:'center'})});editor.focus();}};
     callbacks.current.onReady?.(handle);
-    return()=>{remember();editor.scrollDOM.removeEventListener('scroll',remember);capture.current=()=>{};callbacks.current.onReady?.(null);pathRef.current=null;editor.destroy();view.current=null;};
+    return()=>{remember();editor.scrollDOM.removeEventListener('scroll',remember);capture.current=()=>{};callbacks.current.onReady?.(null);pathRef.current=null;ownership.current=null;editor.destroy();view.current=null;};
   },[store]);
   useLayoutEffect(()=>{
     fontSizeRef.current=logicalFontSize;
@@ -87,30 +89,29 @@ export function SourceEditor({store,fontSize,onFontSizeChange,onSelection,onRead
   useLayoutEffect(()=>{
     // Workspace restoration may activate several cached buffers; only install the final visible document.
     const editor=view.current;if(!editor||!buffer||loading||!visible){shown.current=false;return;}
-    if(shown.current&&pathRef.current===buffer.path&&buffer.state===editor.state)return;shown.current=true;
-    const previous=pathRef.current?store.records.get(pathRef.current):undefined;if(previous&&!previous.evicted&&pathRef.current!==buffer.path){capture.current();previous.state=editor.state;}
-    pathRef.current=buffer.path;
+    if(shown.current&&pathRef.current===buffer.path&&ownership.current?.buffer===buffer&&store.owns(buffer,ownership.current.generation))return;shown.current=true;
+    const previous=ownership.current;if(previous&&pathRef.current!==buffer.path&&store.owns(previous.buffer,previous.generation)){capture.current();store.trackState(previous.buffer,previous.generation,editor.state);}
+    pathRef.current=buffer.path;ownership.current={buffer,generation:buffer.generation};
     const complete=(context:CompletionContext)=>{
       const token=context.matchBefore(/[\w:.-]*/);if(!token||(!context.explicit&&token.from===token.to))return null;
       const keys=new Set<string>();for(const record of store.records.values()){const text=store.text(record);for(const match of text.matchAll(/(?:\\label\{([^}]+)\}|@[\w]+\s*\{\s*([^,\s]+))/g))keys.add(match[1]??match[2]);}
       return {from:token.from,options:[...keys].slice(0,2000).map(label=>({label,type:'constant'}))};
     };
     const imagePaste=imagePasteExtension({onImages:files=>images.current?.(files)??Promise.resolve([]),getTexFilePath:()=>store.activePath===pathRef.current?pathRef.current:null,enabled:()=>!!images.current&&/\.(tex|ltx)$/i.test(pathRef.current??'')});
-    if(!buffer.state)buffer.state=EditorState.create({doc:buffer.document.text,extensions:[imagePaste,spelling.of([]),phrases.of(EditorState.phrases.of(locale==='ko'?koreanPhrases:{})),...(buffer.document.newline==='crlf'?[EditorState.lineSeparator.of('\r\n')]:[]),...texShortcutExtensions(),lineNumbers(),highlightActiveLineGutter(),highlightSpecialChars(),history(),drawSelection(),bracketMatching(),indentOnInput(),syntaxHighlighting(classHighlighter),highlightSelectionMatches(),autocompletion({override:[complete]}),editorTheme,language.of([]),editable.of([EditorState.readOnly.of(buffer.document.readOnly),EditorView.editable.of(!buffer.document.readOnly)]),EditorView.lineWrapping,EditorView.domEventHandlers({compositionstart:()=>{if(pathRef.current)store.composition(pathRef.current,true);return false;},compositionend:()=>{if(pathRef.current)store.composition(pathRef.current,false);return false;}}),EditorView.updateListener.of(update=>{
-      const path=pathRef.current;if(!path)return;const record=store.records.get(path);if(!record)return;
-      // A reload or eviction replaced the tracked state while this view still showed the old document; never write the stale state back.
-      if(record.state!==update.startState)return;
-      if(update.docChanged)store.update(path,update.state,update.changes);else record.state=update.state;
+    if(!buffer.state)buffer.state=EditorState.create({doc:buffer.document.text,extensions:[imagePaste,spelling.of([]),phrases.of(EditorState.phrases.of(locale==='ko'?koreanPhrases:{})),...(buffer.document.newline==='crlf'?[EditorState.lineSeparator.of('\r\n')]:[]),...texShortcutExtensions(),selectableLineNumbers(),highlightActiveLineGutter(),highlightSpecialChars(),history(),drawSelection(),bracketMatching(),indentOnInput(),syntaxHighlighting(classHighlighter),highlightSelectionMatches(),autocompletion({override:[complete]}),editorTheme,language.of([]),editable.of([EditorState.readOnly.of(buffer.document.readOnly),EditorView.editable.of(!buffer.document.readOnly)]),EditorView.lineWrapping,EditorView.domEventHandlers({compositionstart:()=>{const owner=ownership.current;if(owner)store.composition(owner.buffer.path,true,owner.generation);return false;},compositionend:()=>{const owner=ownership.current;if(owner)store.composition(owner.buffer.path,false,owner.generation);return false;}}),EditorView.updateListener.of(update=>{
+      const owner=ownership.current;if(!owner||!store.owns(owner.buffer,owner.generation))return;
+      const record=owner.buffer,path=record.path;
+      if(update.docChanged)store.update(path,update.state,update.changes,owner.generation);else store.trackState(record,owner.generation,update.state);
       if(update.selectionSet||update.docChanged){const {from,to}=update.state.selection.main;callbacks.current.onSelection?.(from===to?null:selectionAnchor(record,from,to));}
       if(update.selectionSet||update.docChanged){navigation.current++;const {anchor,head}=update.state.selection.main;const previous=store.readingPositions.get(path);store.rememberPosition(path,{top:previous?.top??0,inset:previous?.inset??0,left:previous?.left??0,anchor,head});}
     })]});
     const restored=store.readingPositions.get(buffer.path),position=restored?clampEditorPosition(restored,buffer.state.doc.length):undefined;
     if(position)buffer.state=buffer.state.update({selection:{anchor:position.anchor,head:position.head}}).state;
-    buffer.document.text='';editor.setState(buffer.state);editor.dispatch({effects:phrases.reconfigure(EditorState.phrases.of(locale==='ko'?koreanPhrases:{}))});const active=buffer.path,sequence=++navigation.current;
+    store.trackState(buffer,buffer.generation,buffer.state);editor.setState(buffer.state);editor.dispatch({effects:phrases.reconfigure(EditorState.phrases.of(locale==='ko'?koreanPhrases:{}))});const active=buffer.path,installedGeneration=buffer.generation,sequence=++navigation.current;
     configureSpelling(editor);
     if(position)editor.requestMeasure({read:()=>view.current===editor&&pathRef.current===active&&navigation.current===sequence?editor.lineBlockAt(position.top).top:0,write:top=>{if(view.current!==editor||pathRef.current!==active||navigation.current!==sequence)return;editor.scrollDOM.scrollTop=Math.max(0,top+position.inset);editor.scrollDOM.scrollLeft=position.left;}});
-    void languageFor(active).then(extension=>{if(view.current===editor&&pathRef.current===active){editor.dispatch({effects:language.reconfigure(extension)});}});
-  },[buffer,buffer?.document,buffer?.state,store,loading,visible]);
+    void languageFor(active).then(extension=>{if(view.current===editor&&pathRef.current===active&&store.owns(buffer,installedGeneration)){editor.dispatch({effects:language.reconfigure(extension)});}});
+  },[buffer,buffer?.document,buffer?.generation,store,loading,visible]);
   useEffect(()=>{view.current?.dispatch({effects:phrases.reconfigure(EditorState.phrases.of(locale==='ko'?koreanPhrases:{}))});},[locale]);
   useEffect(()=>{const editor=view.current;if(editor&&buffer&&pathRef.current===buffer.path)configureSpelling(editor);},[spellCheck,spellIgnore,spellEngine,buffer?.path,loading,visible]);
   const command=(name:EditorCommand)=>{const editor=view.current;if(!editor||!buffer||loading)return;runEditorCommand(editor,name);};

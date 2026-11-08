@@ -174,16 +174,23 @@ async function keyboardTree(page) {
 }
 async function expectFileAbsent(target) { try { await access(target); return false; } catch (error) { if (error.code === 'ENOENT') return true; throw error; } }
 
-async function desktopScenarios(session, fixture, output) {
+async function desktopScenarios(session, fixture, output, { nativeDialogs = false } = {}) {
   const { page } = session, results = [];
+  // The Windows save dialog is a real top-level window even for the hidden test app; run it only when explicitly allowed.
+  let nativeDialog = { status: 'not-exercised', reason: 'The native PDF save dialog appears on the user\'s screen; pass --native-dialogs to run it.' };
   let manifest;
   const scenario = async (name, run) => {
     const startedAt = new Date().toISOString();
     try { const evidence = await run(); results.push({ name, status: 'passed', startedAt, finishedAt: new Date().toISOString(), evidence }); }
     catch (error) {
-      results.push({ name, status: 'failed', startedAt, error: error.stack ?? String(error) }); await screenshot(page, output, `failure-${name}`).catch(() => {});
-      // Close only transient UI left by this failed scenario so later independent checks observe their own state.
-      for (let attempt = 0; attempt < 3 && await page.locator('[role="dialog"]:visible, [role="alertdialog"]:visible').count(); attempt++) await page.keyboard.press('Escape');
+      const failure = { name, status: 'failed', startedAt, finishedAt: new Date().toISOString(), error: error.stack ?? String(error) };
+      results.push(failure); await screenshot(page, output, `failure-${name}`).catch(() => {});
+      await writeJson(path.join(output, 'desktop-results.json'), { version: 1, complete: false, scenarios: results });
+      if (page.isClosed() || !session.browser.isConnected()) throw error;
+      // Cleanup is secondary evidence, never a replacement for the scenario's original failure.
+      try {
+        for (let attempt = 0; attempt < 3 && await page.locator('[role="dialog"]:visible, [role="alertdialog"]:visible').count(); attempt++) await page.keyboard.press('Escape');
+      } catch (cleanupError) { failure.cleanupError = cleanupError.stack ?? String(cleanupError); }
     }
     await writeJson(path.join(output, 'desktop-results.json'), { version: 1, complete: false, scenarios: results });
   };
@@ -262,7 +269,7 @@ async function desktopScenarios(session, fixture, output) {
     manifest = await buildPaper(page, fixture.root);
     return { engines };
   });
-  await scenario('native-dialog-pdf-export', async () => {
+  if (nativeDialogs) await scenario('native-dialog-pdf-export', async () => {
     await showPdf(page);
     const destination = path.join(output, 'exported-real-paper.pdf');
     await page.getByRole('button', { name: 'PDF 내보내기', exact: true }).click();
@@ -271,6 +278,7 @@ async function desktopScenarios(session, fixture, output) {
     assert(digest(bytes) === manifest.pdfSha256, 'Exported PDF does not match the displayed build.');
     return { destination, bytes: bytes.length, sha256: digest(bytes), dialog };
   });
+  if (nativeDialogs) nativeDialog = { status: 'exercised' };
   await scenario('pdf-navigation-search-rotation-and-reference', async () => {
     await showPdf(page);
     const input = page.getByRole('spinbutton', { name: 'PDF 페이지', exact: true });
@@ -390,8 +398,20 @@ async function desktopScenarios(session, fixture, output) {
     assert((await readFile(target, 'utf8')) === original, 'PDF edit review changed source before Apply.');
     await page.getByRole('button', { name: '변경 적용', exact: true }).click();
     await waitFor(async () => (await readFile(target, 'utf8')).includes('verified evidence supports reproducible scientific writing.'), { label: 'proof-bound source transaction' });
-    const next = await waitFor(async () => { const value = await latestManifest(fixture.root); return value?.buildId !== manifest.buildId && value; }, { timeoutMs: 150000, label: 'new PDF publication after approved prose edit' });
-    await waitFor(async () => await page.getByTestId('build-status').getAttribute('data-status') === 'published' && await page.getByTestId('build-status').getAttribute('data-build-id') === next.buildId, { timeoutMs: 150000, label: 'displayed build identity advanced after approved prose edit' });
+    const sourceSha256 = digest(await readFile(target)), transitions = [];
+    let next;
+    try {
+      // Autosave and the explicit prose-edit rebuild may publish successive generations.
+      // Re-read both identities together rather than pinning an intermediate manifest forever.
+      next = await waitFor(async () => {
+        const value = await latestManifest(fixture.root);
+        const status = await page.getByTestId('build-status').getAttribute('data-status');
+        const displayedId = await page.getByTestId('build-status').getAttribute('data-build-id');
+        const state = { status, displayedId, latestId: value?.buildId ?? null };
+        if (JSON.stringify(transitions.at(-1)?.state) !== JSON.stringify(state)) transitions.push({ at: new Date().toISOString(), state });
+        return value?.buildId !== manifest.buildId && value?.sources.some(source => source.path === fixture.files.prose && source.sha256 === sourceSha256) && status === 'published' && displayedId === value.buildId && value;
+      }, { timeoutMs: 150000, label: 'current displayed publication includes the approved prose source hash' });
+    } finally { await writeJson(path.join(output, 'approved-prose-build-transitions.json'), transitions); }
     await showPdf(page); await page.getByRole('spinbutton', { name: 'PDF 페이지', exact: true }).fill('1');
     await page.locator('.textLayer').filter({ hasText: 'verified evidence' }).first().waitFor({ timeout: 30000 });
     manifest = next; return { newBuildId: next.buildId, newSourceSha256: digest(await readFile(target)) };
@@ -544,7 +564,7 @@ async function desktopScenarios(session, fixture, output) {
     await page.getByText('Synthetic persisted source comment.', { exact: true }).waitFor();
     return { changedRoot: fixture.secondRoot, originalCommentReloaded: true };
   });
-  const report = { version: 1, completedAt: new Date().toISOString(), realReleaseSurface: true, fixture, passed: results.every(result => result.status === 'passed'), scenarios: results };
+  const report = { version: 1, completedAt: new Date().toISOString(), realReleaseSurface: true, fixture, passed: results.every(result => result.status === 'passed'), nativeDialog, scenarios: results };
   await writeJson(path.join(output, 'desktop-results.json'), report); return report;
 }
 
@@ -602,7 +622,7 @@ async function memoryWorkload(session, fixture, output, args) {
   await waitFor(async () => { try { await access(path.join(output, 'memory-cycles.start')); return true; } catch { return false; } }, { timeoutMs: 120000, label: 'memory sampler warmup handshake' });
   for (let cycle = 0; cycle < 20; cycle++) {
     await openWorkspace(page, fixture.secondRoot); await quickOpen(page, 'main.tex');
-    await openWorkspace(page, fixture.root); await root.selectOption('main.tex'); await buildPaper(page, fixture.root);
+    await openWorkspace(page, fixture.root); await selectMainDocument(page, 'main.tex'); await buildPaper(page, fixture.root);
     await showPdf(page);
     await page.getByRole('spinbutton', { name: 'PDF 페이지', exact: true }).fill(String(cycle % 30 + 1));
     await page.mouse.move(1000, 600); await page.mouse.wheel(0, 700); await page.mouse.wheel(0, -700);
@@ -741,7 +761,7 @@ export async function main(argv = process.argv.slice(2)) {
     session = await launchDesktop({ binary, ...run, project: fixture.root });
     if (args.mode === 'memory') await memoryWorkload(session, fixture, run.output, args);
     else {
-      const report = await desktopScenarios(session, fixture, run.output);
+      const report = await desktopScenarios(session, fixture, run.output, { nativeDialogs: args.nativeDialogs === true });
       try {
         await session.page.getByRole('button', { name: '소스', exact: true }).click(); await quickOpen(session.page, fixture.files.unicode);
         const original = await readFile(path.join(fixture.root, fixture.files.unicode));

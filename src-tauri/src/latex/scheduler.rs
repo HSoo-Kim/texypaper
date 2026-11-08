@@ -518,20 +518,16 @@ fn build(root: &Path, args: &Value, cancel: &AtomicBool) -> AppResult<Value> {
 /// TeX logs name files relative to the build directory (`./main.tex`), but the UI opens files by
 /// project-relative path. Keep only the locations that resolve to a file inside the project.
 fn project_diagnostics(
-    mut list: Vec<diagnostics::Diagnostic>,
+    list: Vec<diagnostics::Diagnostic>,
     cwd: &Path,
     root: &Path,
 ) -> Vec<diagnostics::Diagnostic> {
-    for d in &mut list {
-        if let Some(path) = &d.path {
-            d.path = cwd
-                .join(path)
-                .canonicalize()
-                .ok()
-                .and_then(|p| relative(root, &p).ok());
-        }
-    }
-    list
+    diagnostics::filter_driver_noise(list, |path| {
+        cwd.join(path)
+            .canonicalize()
+            .ok()
+            .and_then(|p| relative(root, &p).ok())
+    })
 }
 
 #[cfg(test)]
@@ -544,11 +540,30 @@ mod tests {
         let root = dir.path().canonicalize().unwrap();
         fs::create_dir(root.join("sections")).unwrap();
         fs::write(root.join("sections/a.tex"), "x").unwrap();
-        let parsed = diagnostics::parse(
-            "./sections/a.tex:3: Undefined control sequence.\n/nowhere/else.tex:1: Missing $ inserted.\n",
-        );
+        let external = tempfile::tempdir().unwrap();
+        let external_input = external.path().join("included.tex");
+        fs::write(&external_input, "x").unwrap();
+        let parsed = diagnostics::parse(&format!(
+            "./sections/a.tex:3: Undefined control sequence.\n{}:1: Missing $ inserted.\n",
+            external_input.display(),
+        ));
         let list = project_diagnostics(parsed, &root, &root);
         assert_eq!(list[0].path.as_deref(), Some("sections/a.tex"));
         assert_eq!(list[1].path, None);
+        assert!(list[1].inferred);
+    }
+
+    #[test]
+    fn failed_windows_build_has_one_document_error_not_a_wrapper_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        fs::write(root.join("broken.tex"), "\\undefined").unwrap();
+        let parsed = diagnostics::parse(
+            "./broken.tex:3: Undefined control sequence.\nLatexmk: Errors, so I did not complete making targets\nCollected error summary (may duplicate other messages):\n  pdflatex: Command for 'pdflatex' gave return code 1\nC:\\texlive\\2026\\bin\\windows\\runscript.tlu:933: command failed with exit code 12:\n",
+        );
+        let list = project_diagnostics(parsed, &root, &root);
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].path.as_deref(), Some("broken.tex"));
+        assert_eq!(list[0].line, Some(3));
     }
 }

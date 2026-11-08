@@ -1,6 +1,6 @@
-//! Read-only English checking on dispatch's blocking pool. Prefer Windows checkers;
-//! lazily parse the bundled SCOWL dictionary only when no English checker exists.
-//! COM interfaces stay in their creating thread/apartment; no dictionary writes.
+//! Read-only English checking. Windows COM objects live exclusively on one lazy,
+//! process-lifetime MTA worker, never on shared blocking-pool/calling threads.
+//! The SCOWL fallback remains lazy; no engine writes to user dictionaries.
 use crate::contracts::{AppError, AppResult};
 use serde_json::{Value, json};
 
@@ -24,12 +24,11 @@ fn input<'a>(args: &'a Value, key: &str, limit: usize, bytes: bool) -> AppResult
     }
     Ok(value)
 }
-fn language(args: &Value) -> AppResult<Option<&str>> {
+fn language(args: &Value) -> AppResult<Option<&'static str>> {
     match args.get("language") {
         None | Some(Value::Null) => Ok(None),
-        Some(Value::String(value)) if matches!(value.as_str(), "en-US" | "en-GB") => {
-            Ok(Some(value))
-        }
+        Some(Value::String(value)) if value == "en-US" => Ok(Some("en-US")),
+        Some(Value::String(value)) if value == "en-GB" => Ok(Some("en-GB")),
         _ => Err(AppError::new(
             "INVALID_SPELL_INPUT",
             "Only en-US and en-GB are supported",
@@ -87,15 +86,25 @@ fn execute_using(command: &str, args: &Value, bundled_only: bool) -> AppResult<V
         "spell_suggest" => input(args, "word", MAX_WORD_CHARS, false)?,
         _ => return Err(AppError::new("UNKNOWN_COMMAND", "Unknown spell command")),
     };
-    let windows = !bundled_only && platform::available()?;
+    if bundled_only {
+        return execute_bundled(command, text);
+    }
+    #[cfg(windows)]
+    {
+        platform::execute(command, text, requested)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = requested;
+        execute_bundled(command, text)
+    }
+}
+fn execute_bundled(command: &str, text: &str) -> AppResult<Value> {
     match command {
-        "spell_status" if windows => platform::status(),
         "spell_status" => Ok(bundled::status()),
-        "spell_check" if windows => platform::check(text, requested),
         "spell_check" => bundled::check(text),
-        "spell_suggest" if windows => platform::suggest(text, requested),
         "spell_suggest" => bundled::suggest(text),
-        _ => unreachable!("command validated above"),
+        _ => unreachable!("command validated before engine dispatch"),
     }
 }
 
@@ -160,26 +169,18 @@ mod bundled {
     }
 }
 
-#[cfg(not(windows))]
-mod platform {
-    use super::*;
-    pub fn available() -> AppResult<bool> {
-        Ok(false)
-    }
-    pub fn status() -> AppResult<Value> {
-        Ok(json!({"available":false,"languages":[]}))
-    }
-    pub fn check(_: &str, _: Option<&str>) -> AppResult<Value> {
-        Ok(json!({"available":false,"errors":[]}))
-    }
-    pub fn suggest(_: &str, _: Option<&str>) -> AppResult<Value> {
-        Ok(json!({"available":false,"suggestions":[]}))
-    }
-}
 #[cfg(windows)]
 mod platform {
     use super::*;
-    use std::{cell::RefCell, collections::BTreeMap};
+    use std::{
+        collections::BTreeMap,
+        sync::{
+            LazyLock,
+            mpsc::{self, SyncSender},
+        },
+        thread::JoinHandle,
+        time::Duration,
+    };
     use windows::{
         Win32::{
             Globalization::{ISpellChecker, ISpellCheckerFactory, SpellCheckerFactory},
@@ -190,6 +191,83 @@ mod platform {
         },
         core::{HSTRING, PCWSTR, PWSTR},
     };
+
+    const QUEUE_CAPACITY: usize = 8;
+    const REPLY_TIMEOUT: Duration = Duration::from_secs(15);
+    enum Operation {
+        Status,
+        Check(String, Option<&'static str>),
+        Suggest(String, Option<&'static str>),
+    }
+    struct Job {
+        operation: Operation,
+        reply: SyncSender<AppResult<Value>>,
+    }
+    struct Worker {
+        sender: SyncSender<Job>,
+        // The module owns exactly one worker for the process lifetime. If its
+        // sender is dropped, recv ends and Session releases COM on that thread.
+        _thread: JoinHandle<()>,
+    }
+    impl Worker {
+        fn start() -> Result<Self, String> {
+            let (sender, receiver) = mpsc::sync_channel::<Job>(QUEUE_CAPACITY);
+            let thread = std::thread::Builder::new()
+                .name("texypaper-spell".into())
+                .spawn(move || {
+                    let session = Session::new();
+                    while let Ok(job) = receiver.recv() {
+                        // A single reply fits even if the caller has not started
+                        // waiting; a timed-out/dropped caller cannot block this worker.
+                        let _ = job.reply.send(session.execute(job.operation));
+                    }
+                })
+                .map_err(|error| error.to_string())?;
+            Ok(Self {
+                sender,
+                _thread: thread,
+            })
+        }
+        fn request(&self, operation: Operation) -> AppResult<Value> {
+            let (reply, receive) = mpsc::sync_channel(1);
+            self.sender
+                .try_send(Job { operation, reply })
+                .map_err(|error| match error {
+                    mpsc::TrySendError::Full(_) => {
+                        AppError::new("SPELL_WORKER_BUSY", "Spell checker queue is full")
+                    }
+                    mpsc::TrySendError::Disconnected(_) => {
+                        AppError::new("SPELL_WORKER_UNAVAILABLE", "Spell checker worker stopped")
+                    }
+                })?;
+            receive
+                .recv_timeout(REPLY_TIMEOUT)
+                .map_err(|error| match error {
+                    mpsc::RecvTimeoutError::Timeout => AppError::new(
+                        "SPELL_WORKER_TIMEOUT",
+                        "Spell checker did not reply within 15 seconds",
+                    ),
+                    mpsc::RecvTimeoutError::Disconnected => AppError::new(
+                        "SPELL_WORKER_UNAVAILABLE",
+                        "Spell checker worker stopped before replying",
+                    ),
+                })?
+        }
+    }
+    static WORKER: LazyLock<Result<Worker, String>> = LazyLock::new(Worker::start);
+    pub fn execute(command: &str, text: &str, language: Option<&'static str>) -> AppResult<Value> {
+        // Validation in execute_using precedes worker startup and bounded text ownership.
+        let operation = match command {
+            "spell_status" => Operation::Status,
+            "spell_check" => Operation::Check(text.to_owned(), language),
+            "spell_suggest" => Operation::Suggest(text.to_owned(), language),
+            _ => unreachable!("validated spell operation"),
+        };
+        WORKER
+            .as_ref()
+            .map_err(|error| AppError::new("SPELL_WORKER_UNAVAILABLE", error))?
+            .request(operation)
+    }
     struct Apartment(bool);
     impl Drop for Apartment {
         fn drop(&mut self) {
@@ -199,7 +277,7 @@ mod platform {
         }
     }
     struct Session {
-        // Declaration order ensures all interfaces release before CoUninitialize.
+        // Drop order releases interfaces before balancing CoInitializeEx.
         checkers: BTreeMap<&'static str, ISpellChecker>,
         _factory: Option<ISpellCheckerFactory>,
         _apartment: Apartment,
@@ -208,8 +286,7 @@ mod platform {
         fn new() -> Self {
             let initialized = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
             let apartment = Apartment(initialized.is_ok());
-            // RPC_E_CHANGED_MODE: use the thread's existing apartment, without uninitializing it.
-            if initialized.is_err() && initialized.0 != 0x80010106_u32 as i32 {
+            if initialized.is_err() {
                 return Self {
                     checkers: BTreeMap::new(),
                     _factory: None,
@@ -242,31 +319,20 @@ mod platform {
                 .or_else(|| self.checkers.get("en-US"))
                 .or_else(|| self.checkers.get("en-GB"))
         }
-    }
-    thread_local! { static SESSION: RefCell<Option<Session>> = const { RefCell::new(None) }; }
-    fn with_session<T>(action: impl FnOnce(&Session) -> AppResult<T>) -> AppResult<T> {
-        SESSION.with(|cache| {
-            let mut cache = cache.borrow_mut();
-            let session = cache.get_or_insert_with(Session::new);
-            action(session)
-        })
-    }
-    fn com_error(error: windows::core::Error) -> AppError {
-        AppError::new("SPELL_CHECK_FAILED", error.to_string())
-    }
-    pub fn available() -> AppResult<bool> {
-        with_session(|session| Ok(!session.checkers.is_empty()))
-    }
-    pub fn status() -> AppResult<Value> {
-        with_session(|session| {
-            Ok(
-                json!({"available":!session.checkers.is_empty(),"languages":session.checkers.keys().collect::<Vec<_>>(),"engine":"windows"}),
-            )
-        })
-    }
-    pub fn check(text: &str, language: Option<&str>) -> AppResult<Value> {
-        with_session(|session| {
-            let Some(checker) = session.checker(language) else {
+        fn execute(&self, operation: Operation) -> AppResult<Value> {
+            match operation {
+                Operation::Status if self.checkers.is_empty() => Ok(bundled::status()),
+                Operation::Status => Ok(
+                    json!({"available":true,"languages":self.checkers.keys().collect::<Vec<_>>(),"engine":"windows"}),
+                ),
+                Operation::Check(text, _) if self.checkers.is_empty() => bundled::check(&text),
+                Operation::Check(text, language) => self.check(&text, language),
+                Operation::Suggest(word, _) if self.checkers.is_empty() => bundled::suggest(&word),
+                Operation::Suggest(word, language) => self.suggest(&word, language),
+            }
+        }
+        fn check(&self, text: &str, language: Option<&str>) -> AppResult<Value> {
+            let Some(checker) = self.checker(language) else {
                 return Ok(json!({"available":false,"errors":[]}));
             };
             let wide: Vec<u16> = text.encode_utf16().chain(Some(0)).collect();
@@ -289,11 +355,9 @@ mod platform {
                 }
             }
             Ok(json!({"available":true,"errors":spans}))
-        })
-    }
-    pub fn suggest(word: &str, language: Option<&str>) -> AppResult<Value> {
-        with_session(|session| {
-            let Some(checker) = session.checker(language) else {
+        }
+        fn suggest(&self, word: &str, language: Option<&str>) -> AppResult<Value> {
+            let Some(checker) = self.checker(language) else {
                 return Ok(json!({"available":false,"suggestions":[]}));
             };
             let word = HSTRING::from(word);
@@ -323,7 +387,43 @@ mod platform {
                 }
             }
             Ok(json!({"available":true,"suggestions":suggestions}))
-        })
+        }
+    }
+    fn com_error(error: windows::core::Error) -> AppError {
+        AppError::new("SPELL_CHECK_FAILED", error.to_string())
+    }
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        #[test]
+        fn queue_saturation_and_disconnection_return_explicit_errors() {
+            let (sender, receive) = mpsc::sync_channel(QUEUE_CAPACITY);
+            let worker = Worker {
+                sender,
+                _thread: std::thread::spawn(|| {}),
+            };
+            for _ in 0..QUEUE_CAPACITY {
+                let (reply, _) = mpsc::sync_channel(1);
+                assert!(
+                    worker
+                        .sender
+                        .try_send(Job {
+                            operation: Operation::Status,
+                            reply
+                        })
+                        .is_ok()
+                );
+            }
+            assert_eq!(
+                worker.request(Operation::Status).unwrap_err().code,
+                "SPELL_WORKER_BUSY"
+            );
+            drop(receive);
+            assert_eq!(
+                worker.request(Operation::Status).unwrap_err().code,
+                "SPELL_WORKER_UNAVAILABLE"
+            );
+        }
     }
 }
 #[cfg(test)]
@@ -455,6 +555,36 @@ mod tests {
                 "INVALID_SPELL_INPUT"
             );
         }
+    }
+    #[cfg(windows)]
+    #[test]
+    fn public_spell_ops_leave_calling_threads_free_for_sta_dialogs() {
+        use windows::Win32::System::Com::{
+            COINIT_APARTMENTTHREADED, CoInitializeEx, CoUninitialize,
+        };
+        let results: Vec<_> = [
+            ("spell_status", json!({})),
+            ("spell_check", json!({"text":"A correct sentence."})),
+            ("spell_suggest", json!({"word":"sentense"})),
+        ]
+        .into_iter()
+        .map(|(command, args)| {
+            std::thread::spawn(move || {
+                execute(command, &args).unwrap();
+                let sta = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
+                if sta.is_ok() {
+                    unsafe { CoUninitialize() };
+                }
+                (command, sta)
+            })
+            .join()
+            .unwrap()
+        })
+        .collect();
+        assert!(
+            results.iter().all(|(_, sta)| sta.is_ok()),
+            "Spell entry points changed their callers' COM apartment: {results:?}"
+        );
     }
     #[test]
     fn selected_engine_returns_utf16_spans() {

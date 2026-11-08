@@ -4,6 +4,9 @@
 .checkpoint-create { margin-top:.625rem; }
 .checkpoint-create label { margin-bottom:.375rem; }
 .checkpoint-create input,.checkpoint-create button { width:100%; }
+.checkpoint-filter { display:flex; flex-direction:column; gap:.375rem; margin:.625rem 0; }
+.checkpoint-filter select { width:100%; }
+.checkpoint-list>li.checkpoint-auto { padding-inline:.5rem; background:var(--surface); }
 .checkpoint-hint,.checkpoint-notice,.checkpoint-empty { margin:.625rem 0; overflow-wrap:anywhere; }
 .checkpoint-hint,.checkpoint-list time,.checkpoint-list li>span { color:var(--secondary); font-size:.6875rem; }
 .checkpoint-list,.checkpoint-files { list-style:none; padding:0; margin:.75rem 0; }

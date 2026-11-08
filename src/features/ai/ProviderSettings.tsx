@@ -8,6 +8,8 @@ export type Model = { id: string; label: string; reasoningEfforts: { value: stri
 export type ModelsResponse = { models: Model[]; allowCustom: boolean; catalog?: ModelListResponse };
 export function localizedAgentError(code: string | undefined, t: (ko: string, en?: string) => string): string {
   const errors: Record<string, [string, string]> = {
+    CHECKPOINT_WARNING: ['변경 전 자동 체크포인트를 만들지 못했습니다. 요청한 변경은 계속 진행합니다. 오류 세부 내용을 확인하세요.', 'The automatic checkpoint could not be created. The requested change will continue. See error details.'],
+    TRANSMISSION_HISTORY_FAILED: ['공급자 CLI에 데이터가 전달되었지만 전송 내역을 저장하지 못했습니다. 현재 표시된 내역은 앱을 종료하면 사라질 수 있습니다.', 'Data reached the provider CLI, but saving its transmission record failed. The visible record may not survive restarting the app.'],
     AUTH_REQUIRED: ['공식 구독 계정으로 로그인한 뒤 연결 상태를 새로 고치세요.', 'Sign in with the official subscription account, then refresh status.'],
     SUBSCRIPTION_REQUIRED: ['구독 계정이 아닙니다. API/Console/타사 결제로 전환하지 않습니다.', 'A subscription account is required. API, Console, and third-party billing fallback is disabled.'],
     PROVIDER_UNAVAILABLE: ['공식 CLI를 설치한 뒤 새로 고치세요.', 'Install the official CLI, then refresh.'],

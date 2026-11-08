@@ -4,6 +4,7 @@ import {normalizeError, request} from '../../api';
 import {errorText} from '../../ui/errors';
 import {t} from '../../ui/i18n';
 import {createReplacePlan, isPrivateReplacePath, REPLACE_BYTE_LIMIT, REPLACE_FILE_LIMIT, REPLACE_MATCH_LIMIT, type ReplacePlan, type ReplaceSkip} from './replacePlan';
+import {automaticCheckpointWarning, createAutomaticCheckpoint} from '../history/checkpoints';
 import './replace.css';
 
 type SearchPage = {matches: {path: string}[]; nextCursor?: string | null; truncated?: boolean; incomplete?: boolean};
@@ -111,13 +112,16 @@ export function ProjectReplace({workspace, query, matchCase, onMatchCaseChange, 
         if (document.revision.sha256 !== file.baseSha256 || documentSkip(document)) throw {code: 'FILE_CONFLICT', message: t('미리 보기 이후 파일이 변경되었습니다. 다시 미리 보세요.', 'Files changed after the preview. Preview again.'), path: file.path, retryable: true};
         if (currentKey.current !== previewKey) return;
       }
+      try { await createAutomaticCheckpoint({workspace, request, paths: snapshot.files.map(file => file.path), reason: 'replace'}); }
+      catch (cause) { setNotice(automaticCheckpointWarning(cause).message); }
+      if (currentKey.current !== previewKey) return;
       const transactionId = crypto.randomUUID();
       const result = await request<{status: string; warnings?: {path: string; error: AppError}[]}>('apply_proposal', workspace, {files: snapshot.files.map(({path, baseSha256, content}) => ({path, baseSha256, content, action: 'edit'})), transactionId, summary: 'project replace'});
       if (result.status !== 'committed') throw {code: 'TRANSACTION_INCOMPLETE', message: t('적용이 확정되지 않았습니다. 트랜잭션 상태를 확인하세요.', 'The transaction did not confirm completion. Check its status.'), retryable: false};
       const paths = snapshot.files.map(file => file.path);
       setApplied({transactionId, paths, count: snapshot.files.reduce((count, file) => count + file.count, 0)});
       onApplied?.(paths);
-      if (result.warnings?.length) setNotice(result.warnings.map(warning => `${warning.path}: ${warning.error.code}: ${errorText(warning.error)}`).join('\n'));
+      if (result.warnings?.length) setNotice(previous => [previous, result.warnings!.map(warning => `${warning.path}: ${warning.error.code}: ${errorText(warning.error)}`).join('\n')].filter(Boolean).join('\n'));
     } catch (cause) { report(cause); }
     finally { finish(); }
   }
@@ -145,7 +149,7 @@ export function ProjectReplace({workspace, query, matchCase, onMatchCaseChange, 
     <p className="replace-note">{t('UTF-8 텍스트 파일만 검색합니다. 4 MiB 초과 파일, 바이너리 및 비공개 메타데이터는 검색 대상에서 제외됩니다. 최대 16개 파일, 2,000곳을 바꿀 수 있습니다.', 'Search covers UTF-8 text only; files over 4 MiB, binary files and private metadata are excluded. Replace up to 16 files and 2,000 matches.')}</p>
     {!flush && <p className="replace-note">{t('열린 파일 저장 기능이 연결되지 않아 변경을 적용할 수 없습니다.', 'Applying is unavailable until open-buffer saving is connected.')}</p>}
     {error && <p className="replace-error" role="alert"><strong>{error.code}</strong>: {errorText(error)}{error.path && <> · {error.path}</>} {t('다시 미리 본 뒤 적용하세요.', 'Preview again before applying.')}</p>}
-    {notice && <p className="replace-note" role="status">{notice}</p>}
+    {notice && <p className="replace-note" role="status" data-testid="replace-notice">{notice}</p>}
     {applied && <div className="replace-success" role="status">{applied.undone ? t('바꾸기를 실행 취소했습니다.', 'Replacement undone.') : t(`${applied.paths.length}개 파일의 ${applied.count}곳을 바꿨습니다.`, `Replaced ${applied.count} matches in ${applied.paths.length} files`)}{!applied.undone && <button data-testid="replace-undo" disabled={busy || !flush} onClick={() => void undo()}>{t('실행 취소', 'Undo')}</button>}</div>}
     {plan && <div className="replace-review" data-testid="replace-review">
       <p role="status">{plan.status === 'limit' ? t('한도를 초과했습니다. 16개 파일 또는 2,000곳 이하로 검색 범위를 줄이세요. 파일은 변경되지 않았습니다.', 'Limit exceeded. Narrow the search to at most 16 files and 2,000 matches. No files were changed.') : plan.files.length ? t(`검색된 항목 ${plan.totalMatches}개 · 변경할 파일 ${plan.files.length}개`, `${plan.totalMatches} matches found · ${plan.files.length} files to change`) : t(`검색된 항목 ${plan.totalMatches}개 · 변경할 내용이 없습니다.`, `${plan.totalMatches} matches found · No changes needed.`)}</p>

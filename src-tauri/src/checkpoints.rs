@@ -16,6 +16,9 @@ pub const MAX_FILES: usize = 400;
 pub const MAX_TEXT: usize = 8 * 1024 * 1024;
 pub const MAX_FILE: usize = 1024 * 1024;
 const MAX_JSON: u64 = 52 * 1024 * 1024;
+pub const MAX_AUTO_FILES: usize = 16;
+const MAX_MANUAL_CHECKPOINTS: usize = 50;
+const MAX_AUTO_CHECKPOINTS: usize = 20;
 static LOCK: Mutex<()> = Mutex::new(());
 
 #[derive(Serialize, Deserialize)]
@@ -27,6 +30,18 @@ pub struct CheckpointFile {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encoding: Option<String>,
 }
+#[derive(Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CheckpointKind {
+    #[default]
+    Manual,
+    Auto,
+}
+impl CheckpointKind {
+    fn is_manual(&self) -> bool {
+        *self == Self::Manual
+    }
+}
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Checkpoint {
@@ -34,6 +49,12 @@ pub struct Checkpoint {
     pub name: String,
     pub created_at: String,
     pub files: Vec<CheckpointFile>,
+    #[serde(default, skip_serializing_if = "CheckpointKind::is_manual")]
+    pub kind: CheckpointKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub partial: bool,
 }
 fn limit(message: &str) -> AppError {
     AppError::new("CHECKPOINT_LIMIT", message)
@@ -60,6 +81,20 @@ fn validate(record: &Checkpoint) -> AppResult<usize> {
     valid_id(&record.id)?;
     if record.name.trim().is_empty() || record.name.chars().count() > 120 {
         return Err(limit("Checkpoint name must contain 1–120 characters"));
+    }
+    if record
+        .reason
+        .as_ref()
+        .is_some_and(|reason| reason.trim().is_empty() || reason.chars().count() > 120)
+    {
+        return Err(limit("Checkpoint reason must contain 1–120 characters"));
+    }
+    if record.kind == CheckpointKind::Auto
+        && (!record.partial || record.reason.is_none() || record.files.len() > MAX_AUTO_FILES)
+    {
+        return Err(limit(
+            "Automatic checkpoints must be partial, have a reason, and contain at most 16 files",
+        ));
     }
     let stamp = record.created_at.as_bytes();
     if stamp.len() != 24
@@ -173,7 +208,7 @@ fn summaries(dir: &Path) -> AppResult<Vec<Value>> {
             continue;
         }
         rows.push(match read_record(&path) {
-            Ok(record) => json!({"id":record.id,"name":record.name,"createdAt":record.created_at,"fileCount":record.files.len(),"byteLength":record.files.iter().map(|f|f.text.len()).sum::<usize>()}),
+            Ok(record) => json!({"id":record.id,"name":record.name,"createdAt":record.created_at,"kind":record.kind,"reason":record.reason,"partial":record.partial,"fileCount":record.files.len(),"byteLength":record.files.iter().map(|f|f.text.len()).sum::<usize>()}),
             Err(_) => json!({"id":id,"name":"","createdAt":"","fileCount":0,"byteLength":0,"corrupt":true}),
         });
     }
@@ -254,16 +289,29 @@ pub fn execute(data_dir: &Path, workspace_id: &str, op: &str, args: &Value) -> A
             result?;
             let rows = summaries(&dir)?;
             let mut pruned = Vec::new();
-            // Retain the newly created checkpoint even when its supplied timestamp is older.
-            for row in rows
-                .iter()
-                .filter(|row| row["id"].as_str() != Some(id))
-                .rev()
-                .take(rows.len().saturating_sub(50))
-            {
-                let old = row["id"].as_str().unwrap();
-                fs::remove_file(dir.join(format!("{old}.json")))?;
-                pruned.push(old.to_owned());
+            // Automatic retention is independent: it must never evict a manual checkpoint.
+            // Prune automatic records first, and always retain the newly created record.
+            for (kind, cap) in [
+                ("auto", MAX_AUTO_CHECKPOINTS),
+                ("manual", MAX_MANUAL_CHECKPOINTS),
+            ] {
+                let matching: Vec<_> = rows
+                    .iter()
+                    .filter(|row| row["kind"].as_str() == Some(kind))
+                    .collect();
+                if record.kind == CheckpointKind::Auto && kind == "manual" {
+                    continue;
+                }
+                for row in matching
+                    .iter()
+                    .filter(|row| row["id"].as_str() != Some(id))
+                    .rev()
+                    .take(matching.len().saturating_sub(cap))
+                {
+                    let old = row["id"].as_str().unwrap();
+                    fs::remove_file(dir.join(format!("{old}.json")))?;
+                    pruned.push(old.to_owned());
+                }
             }
             Ok(json!({"saved":true,"id":id,"pruned":pruned}))
         }

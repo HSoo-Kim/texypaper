@@ -6,6 +6,7 @@ import { excludedDirectories, PaperIndex } from './paperIndex';
 import { Icon } from '../../ui/Icon';
 import { FileTypeIcon } from './fileIcons';
 import { ASSET_SIZE_LIMIT, importAssets, type AssetImportResult } from '../assets/importAssets';
+import { startWorkspacePolling } from '../../editor/polling';
 export type FileMutation={kind:'rename'|'trash'|'restore'|'create';path:string;newPath?:string;transactionId?:string};
 export type FileTreeProps={workspace:WorkspaceRef;mainPath:string|null;selectedPath?:string|null;showHidden:boolean;refreshKey:number;onOpen:(path:string)=>void;onMain:(path:string)=>void;onEntries?:(entries:Entry[])=>void;onError:(error:AppError)=>void;beforeMutation?:()=>Promise<boolean>;onMutation?:(change:FileMutation)=>void;
   /** OS image/PDF drops are enabled by default; internal non-file drags remain untouched. */
@@ -18,6 +19,7 @@ export function FileTree({workspace,mainPath,selectedPath,showHidden,refreshKey,
   const index=useMemo(()=>new PaperIndex(),[workspace.id,workspace.epoch]);
   const [expanded,setExpanded]=useState(new Set([''])),[version,setVersion]=useState(0),[active,setActive]=useState(''),[scroll,setScroll]=useState(0),[height,setHeight]=useState(500),[scanning,setScanning]=useState(false),[complete,setComplete]=useState(false),[scanCount,setScanCount]=useState(0),[menu,setMenu]=useState<Entry|null>(null);
   const scanActive=useRef(false),container=useRef<HTMLDivElement>(null),mounted=useRef(true),inFlight=useRef(new Map<string,Promise<void>>()),queue=useRef(Promise.resolve());
+  const listingVersion=useRef(0);
   const [assetStatus,setAssetStatus]=useState<string[]>([]);
   const importing=useRef(false);
   const assetWorkspace=useRef(workspace);assetWorkspace.current=workspace;
@@ -28,15 +30,15 @@ export function FileTree({workspace,mainPath,selectedPath,showHidden,refreshKey,
     const operation=queue.current.then(async()=>{if(!mounted.current)return;try{
       let cursor:string|undefined;const entries:Entry[]=[];
       do{const page=await request<{entries:Entry[];nextCursor?:string}>('directory_list',workspace,{path,cursor,showHidden});if(!mounted.current)return;entries.push(...page.entries);cursor=page.nextCursor;}while(cursor&&mounted.current);
-      if(mounted.current&&index.update(path,entries)){onEntries?.(entries);setVersion(value=>value+1);}
+      if(mounted.current&&index.update(path,entries)){listingVersion.current++;onEntries?.(entries);setVersion(value=>value+1);}
     }catch(error){if(mounted.current)onError(normalizeError(error));}finally{inFlight.current.delete(path);}});queue.current=operation.catch(()=>{});inFlight.current.set(path,operation);return operation;
   },[workspace,index,showHidden,onEntries,onError]);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;index.clear();inFlight.current.clear();queue.current=Promise.resolve();};},[index]);
-  useEffect(()=>{for(const path of expanded)void load(path);},[refreshKey,showHidden,load,expanded]);
+  useEffect(()=>{if(workspace.environmentId!=='local'&&!container.current?.getClientRects().length)return;for(const path of expanded)void load(path);},[refreshKey,showHidden,load,expanded,workspace.environmentId]);
   useEffect(()=>{
     const observer=new ResizeObserver(entries=>setHeight(entries[0]?.contentRect.height??500));if(container.current)observer.observe(container.current);return()=>observer.disconnect();
   },[]);
-  useEffect(()=>{let active=true,timer:number|undefined;const tick=async()=>{for(const path of expanded){if(!active)break;await load(path);}if(active)timer=window.setTimeout(()=>void tick(),document.hidden?15000:2000);};timer=window.setTimeout(()=>void tick(),2000);return()=>{active=false;clearTimeout(timer);};},[expanded,load,workspace.environmentId]);
+  useEffect(()=>startWorkspacePolling({remote:workspace.environmentId!=='local',visible:()=>workspace.environmentId==='local'||!!container.current?.getClientRects().length,poll:async()=>{const before=listingVersion.current;for(const path of expanded){if(!mounted.current)break;await load(path);}return listingVersion.current!==before;}}),[expanded,load,workspace.environmentId]);
   const rows=useMemo(()=>{
     const result:Row[]=[];const visit=(path:string,depth:number)=>{for(const entry of index.listings.get(path)??[]){if(!showHidden&&entry.name.startsWith('.'))continue;result.push({entry,depth,parent:path});if(entry.kind==='directory'&&expanded.has(entry.path))visit(entry.path,depth+1);}};visit('',0);return result;
   },[index,version,expanded,showHidden]);

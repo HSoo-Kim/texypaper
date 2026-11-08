@@ -12,6 +12,24 @@ use std::{
     thread,
 };
 
+pub fn clear_history(data: &Path, workspace: &str) -> AppResult<()> {
+    let directory = data.join("workspaces").join(workspace);
+    let history = directory.join("agent-history");
+    if history.exists() {
+        fs::remove_dir_all(history)?;
+    }
+    for name in [
+        "codex-session.json",
+        "claude-session.json",
+        "last-agent-outcome.json",
+    ] {
+        let path = directory.join(name);
+        if path.exists() {
+            fs::remove_file(path)?;
+        }
+    }
+    Ok(())
+}
 pub const MAX_FRAME: usize = 1024 * 1024;
 pub type Emit = Arc<dyn Fn(AppEvent) + Send + Sync>;
 #[derive(Clone)]
@@ -23,6 +41,7 @@ pub struct Events {
     lock: Arc<Mutex<()>>,
     task_id: Option<String>,
     provider: Option<String>,
+    pending_transmissions: Arc<Mutex<Vec<super::transmissions::Transmission>>>,
 }
 impl Events {
     pub fn new(workspace: WorkspaceRef, emit: Emit, data: &Path) -> Self {
@@ -37,12 +56,55 @@ impl Events {
             lock: Arc::new(Mutex::new(())),
             task_id: None,
             provider: None,
+            pending_transmissions: Arc::new(Mutex::new(Vec::new())),
         }
     }
     pub fn with_task(mut self, id: &str, provider: &str) -> Self {
         self.task_id = Some(id.into());
         self.provider = Some(provider.into());
         self
+    }
+    pub fn prepare_transmissions(
+        &self,
+        rows: Vec<super::transmissions::Transmission>,
+    ) -> AppResult<()> {
+        *self
+            .pending_transmissions
+            .lock()
+            .map_err(|_| AppError::new("STATE_POISONED", "Transmission metadata lock failed"))? =
+            rows;
+        Ok(())
+    }
+    pub fn prompt_sent(&self) -> AppResult<()> {
+        let rows =
+            std::mem::take(&mut *self.pending_transmissions.lock().map_err(|_| {
+                AppError::new("STATE_POISONED", "Transmission metadata lock failed")
+            })?);
+        self.transmitted(rows)
+    }
+    pub fn transmitted(&self, mut rows: Vec<super::transmissions::Transmission>) -> AppResult<()> {
+        if rows.is_empty() {
+            return Ok(());
+        }
+        for row in &mut rows {
+            row.stamp(
+                self.task_id.as_deref().unwrap_or(""),
+                self.provider.as_deref().unwrap_or(""),
+            );
+        }
+        // Emit even if persistence fails: data has already crossed the CLI boundary.
+        self.send("agent/transmission", json!({"entries":rows}));
+        super::transmissions::append(&self.history, &rows).map_err(|error| {
+            let error = AppError::new(
+                "TRANSMISSION_HISTORY_FAILED",
+                format!(
+                    "Data was handed to the provider CLI, but saving its metadata failed: {}",
+                    error.message
+                ),
+            );
+            self.error(&error);
+            error
+        })
     }
     pub fn send(&self, kind: &str, mut payload: Value) {
         if let Some(object) = payload.as_object_mut() {
@@ -69,6 +131,7 @@ impl Events {
                 | "proposal/created"
                 | "command/updated"
                 | "command/permission"
+                | "agent/transmission"
         ) && let Ok(_lock) = self.lock.lock()
             && fs::create_dir_all(&self.history).is_ok()
         {
@@ -178,7 +241,7 @@ pub fn history(data: &Path, workspace: &str, args: &Value) -> AppResult<Value> {
         .join(workspace)
         .join("agent-history");
     if !dir.exists() {
-        return Ok(json!({"events":[],"pages":[]}));
+        return Ok(json!({"events":[],"pages":[],"transmissions":[]}));
     }
     let mut pages = fs::read_dir(&dir)?
         .filter_map(Result::ok)
@@ -207,7 +270,7 @@ pub fn history(data: &Path, workspace: &str, args: &Value) -> AppResult<Value> {
         }
     }
     Ok(
-        json!({"events":events.into_iter().map(|(v,_)|v).collect::<Vec<_>>(),"pages":pages,"page":page}),
+        json!({"events":events.into_iter().map(|(v,_)|v).collect::<Vec<_>>(),"pages":pages,"page":page,"transmissions":super::transmissions::load(&dir)?}),
     )
 }
 type WriteRequest = (Vec<u8>, std::sync::mpsc::SyncSender<AppResult<()>>);
@@ -299,6 +362,53 @@ fn check_write_deadline(
 mod tests {
     use super::*;
 
+    #[test]
+    fn preparation_is_not_a_transmission_and_handoff_is_persisted_once() {
+        let directory = tempfile::tempdir().unwrap();
+        let workspace = serde_json::from_value(
+            json!({"id":"handoff", "epoch":1, "environmentId":"local", "root":"/fixture"}),
+        )
+        .unwrap();
+        let delivered = Arc::new(Mutex::new(Vec::new()));
+        let received = delivered.clone();
+        let events = Events::new(
+            workspace,
+            Arc::new(move |event| received.lock().unwrap().push(event)),
+            directory.path(),
+        )
+        .with_task("turn-1", "codex");
+        let rows = super::super::transmissions::prompt(
+            &json!({"sources":[{"path":"paper.tex","startLine":2,"endLine":3,"text":"confidential selection"}]}),
+            &Value::Null,
+            &Value::Null,
+            "prompt with confidential selection",
+            "/fixture",
+        );
+        events.prepare_transmissions(rows).unwrap();
+        assert!(delivered.lock().unwrap().is_empty());
+        let journal = directory.path().join("workspaces/handoff/agent-history");
+        assert!(
+            super::super::transmissions::load(&journal)
+                .unwrap()
+                .is_empty()
+        );
+        events.prompt_sent().unwrap();
+        let first = super::super::transmissions::load(&journal).unwrap();
+        let selection = first.iter().find(|row| row.tool == "source").unwrap();
+        assert_eq!(selection.task_id, "turn-1");
+        assert_eq!(selection.paths, ["paper.tex"]);
+        assert_eq!(selection.start_line, Some(2));
+        assert!(
+            !fs::read_to_string(journal.join("transmissions.json"))
+                .unwrap()
+                .contains("confidential")
+        );
+        events.prompt_sent().unwrap();
+        assert_eq!(
+            super::super::transmissions::load(&journal).unwrap().len(),
+            first.len()
+        );
+    }
     #[test]
     fn command_snapshots_emit_without_creating_persistent_history() {
         let directory = tempfile::tempdir().unwrap();

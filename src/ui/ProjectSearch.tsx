@@ -1,9 +1,12 @@
-import {useEffect, useId, useRef, useState} from 'react';
+import {lazy, Suspense, useEffect, useId, useRef, useState} from 'react';
 import type {WorkspaceRef} from '../contracts';
 import {request} from '../api';
 import {t} from './i18n';
 import {Icon} from './Icon';
-import {ProjectReplace} from '../features/search/ProjectReplace';
+// The Replace toggle and its container are always rendered; their rules must not wait for the lazy form.
+import '../features/search/replace.css';
+// Replacement planning is only needed after the user expands Replace.
+const ProjectReplace = lazy(() => import('../features/search/ProjectReplace').then(module => ({default: module.ProjectReplace})));
 
 type Match = {path: string; line: number; text: string};
 export type ProjectSearchProps = {
@@ -18,6 +21,7 @@ export function ProjectSearch({workspace, onOpen, onError, onClose, flush, onApp
   const [query, setQuery] = useState(''), [matches, setMatches] = useState<Match[]>([]);
   const [cursor, setCursor] = useState<string>(), [busy, setBusy] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false), [replaceBusy, setReplaceBusy] = useState(false);
+  const [replaceVisited, setReplaceVisited] = useState(false);
   const [matchCase, setMatchCase] = useState(false), [searchVersion, setSearchVersion] = useState(0);
   const sequence = useRef(0), replaceId = useId();
   const errorRef = useRef(onError); errorRef.current = onError;
@@ -48,8 +52,8 @@ export function ProjectSearch({workspace, onOpen, onError, onClose, flush, onApp
   return <section className="project-search-panel" aria-label={t('프로젝트 검색', 'Project search')}>
     <div className="pane-heading"><strong>{t('프로젝트 검색', 'Project search')}</strong><button className="icon-button" disabled={replaceBusy} aria-label={t('검색 패널 닫기', 'Close search panel')} onClick={onClose}><Icon name="close"/></button></div>
     <label className="project-search-field"><span className="sr-only">{t('프로젝트 본문 검색', 'Search project text')}</span><input autoFocus type="search" value={query} disabled={replaceBusy} onChange={event => setQuery(event.target.value)} onKeyDown={event => {if (event.key === 'Enter') {event.preventDefault(); setSearchVersion(value => value + 1);}}} placeholder={t('프로젝트에서 찾기', 'Find in project')}/></label>
-    <button data-testid="replace-toggle" className="replace-toggle" aria-expanded={replaceOpen} aria-controls={replaceId} disabled={replaceBusy} onClick={() => setReplaceOpen(value => !value)}><Icon name="chevronDown" size={14}/>{t('바꾸기', 'Replace')}</button>
-    <div id={replaceId} hidden={!replaceOpen} className="replace-container"><ProjectReplace key={`${workspace.id}:${workspace.epoch}`} workspace={workspace} query={query} matchCase={matchCase} onMatchCaseChange={setMatchCase} flush={flush} onApplied={paths => {setSearchVersion(value => value + 1); onApplied?.(paths);}} onError={onError} onBusyChange={setReplaceBusy}/></div>
+    <button data-testid="replace-toggle" className="replace-toggle" aria-expanded={replaceOpen} aria-controls={replaceId} disabled={replaceBusy} onClick={() => {setReplaceVisited(true); setReplaceOpen(value => !value);}}><Icon name="chevronDown" size={14}/>{t('바꾸기', 'Replace')}</button>
+    <div id={replaceId} hidden={!replaceOpen} className="replace-container">{replaceVisited && <Suspense fallback={null}><ProjectReplace key={`${workspace.id}:${workspace.epoch}`} workspace={workspace} query={query} matchCase={matchCase} onMatchCaseChange={setMatchCase} flush={flush} onApplied={paths => {setSearchVersion(value => value + 1); onApplied?.(paths);}} onError={onError} onBusyChange={setReplaceBusy}/></Suspense>}</div>
     <p className="search-summary" role="status">{busy ? t('검색 중…', 'Searching…') : query ? `${matches.length} ${t('개 결과', 'results')}` : t('프로젝트 파일의 텍스트를 검색합니다.', 'Search text across project files.')}</p>
     <div className="project-search-results">{matches.map((match, index) => <button key={`${match.path}:${match.line}:${index}`} onClick={() => onOpen(match.path, match.line)}><strong>{match.path}:{match.line}</strong><span>{match.text}</span></button>)}</div>
     {cursor && <button disabled={busy} onClick={() => void next()}>{t('다음 검색 결과', 'Next results')}</button>}

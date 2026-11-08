@@ -3,7 +3,23 @@ import { cp, mkdir, readFile } from 'node:fs/promises';
 export default defineConfig({
   clearScreen: false,
   server: { host: '127.0.0.1', port: 1420, strictPort: true },
-  build: { target: 'es2022' },
+  build: {
+    target: 'es2022',
+    rollupOptions: {
+      output: {
+        // Keep stable runtimes cacheable without pulling demand-loaded languages into startup.
+        onlyExplicitManualChunks: true,
+        manualChunks(id) {
+          if (!id.includes('/node_modules/')) return;
+          if (/\/(?:react|react-dom|scheduler)\//.test(id)) return 'react';
+          if (/\/pdfjs-dist\//.test(id)) return 'pdfjs';
+          if (/\/@codemirror\/(?:state|view|commands|language|search|autocomplete|legacy-modes)\//.test(id)
+            || /\/@lezer\/(?:common|highlight|lr)\//.test(id)
+            || /\/(?:style-mod|w3c-keyname|crelt)\//.test(id)) return 'codemirror';
+        },
+      },
+    },
+  },
   worker: { format: 'es' },
   plugins: [{
     name: 'paperdock-local-pdf-assets',

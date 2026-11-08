@@ -76,9 +76,6 @@ export function filterShortcutHelpCategories(categories:readonly ShortcutHelpCat
   });
 }
 
-export function ShortcutHelpButton({onClick}:{onClick:()=>void}) {
-  return <button type="button" className="shortcut-help-button" data-testid="shortcut-help-button" aria-haspopup="dialog" title={t('클릭하여 키보드 단축키 도움말 열기','Click to open keyboard shortcut help')} onClick={onClick}><Icon name="keyboard" size={16}/><span>{t('단축키','Shortcuts')}</span></button>;
-}
 
 function ShortcutKeycaps({keys}:{keys:readonly string[]}) {
   const keyLabels:Record<string,string>={click:t('클릭','Click'),drag:t('드래그','Drag'),Wheel:t('휠','Wheel'),'Right-click':t('우클릭','Right-click')};

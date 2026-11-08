@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Entry, TextDocument, WorkspaceRef } from '../../contracts';
-import { buildRestorePlan, collectSnapshot, compareWithCurrent, createCheckpoint, discoverEntries, restoreFiles, snapshotEntry, type Checkpoint, type CheckpointRequest, type Snapshot } from './checkpoints';
+import { automaticCheckpointWarning, buildRestorePlan, checkpointLabel, collectSnapshot, collectTargetSnapshot, compareWithCurrent, createAutomaticCheckpoint, createCheckpoint, discoverEntries, restoreFiles, snapshotEntry, type Checkpoint, type CheckpointRequest, type Snapshot } from './checkpoints';
 const workspace:WorkspaceRef={id:'test',environmentId:'local',root:'fixture',epoch:1};
 const entry=(path:string,kind:Entry['kind']='file'):Entry=>({path,name:path.split('/').at(-1)!,kind,paper:'none',main:false});
 const file=(path:string,text:string)=>({path,text,sha256:'stored'});
@@ -49,7 +49,7 @@ describe('checkpoint comparison and restore',()=>{
  it('enforces the 16-file transaction cap before writes',async()=>{const request=vi.fn() as CheckpointRequest;await expect(restoreFiles({workspace,request,entries:[],checkpoint,paths:Array.from({length:17},(_,i)=>`${i}.tex`)})).rejects.toMatchObject({code:'CHECKPOINT_LIMIT'});expect(request).not.toHaveBeenCalled();});
  it('creates an automatic checkpoint before applying a hash-checked transaction',async()=>{
   const calls:{command:string;args:unknown}[]=[];const request=vi.fn(async(command:string,_workspace:WorkspaceRef,args:unknown)=>{calls.push({command,args});if(command==='directory_list')return {entries:[entry('main.tex'),entry('added.tex')]};if(command==='file_read')return document('current');if(command==='checkpoint_put')return {saved:true,id:'backup',pruned:['old']};if(command==='apply_proposal')return {status:'committed',transactionId:'applied'};throw new Error(command);}) as CheckpointRequest;
-  const result=await restoreFiles({workspace,request,entries:[],checkpoint,paths:['main.tex','removed.tex']});expect(result.transactionId).toBe('applied');expect(calls.map(call=>call.command)).toEqual(['directory_list','file_read','file_read','checkpoint_put','apply_proposal']);expect((calls.at(-1)!.args as {files:unknown[]}).files).toEqual([{action:'edit',path:'main.tex',baseSha256:'raw-hash',content:'original\r\ntext'},{action:'create',path:'removed.tex',baseSha256:null,content:'removed'}]);
+  const result=await restoreFiles({workspace,request,entries:[],checkpoint,paths:['main.tex','removed.tex']});expect(result.transactionId).toBe('applied');expect(calls.map(call=>call.command)).toEqual(['directory_list','file_read','checkpoint_put','apply_proposal']);expect((calls.find(call=>call.command==='checkpoint_put')!.args as Checkpoint)).toMatchObject({kind:'auto',reason:'restore',partial:true,files:[expect.objectContaining({path:'main.tex'})]});expect((calls.at(-1)!.args as {files:unknown[]}).files).toEqual([{action:'edit',path:'main.tex',baseSha256:'raw-hash',content:'original\r\ntext'},{action:'create',path:'removed.tex',baseSha256:null,content:'removed'}]);
  });
  it('recreates missing ancestor directories only after recording the automatic checkpoint',async()=>{
   const commands:string[]=[];const request=vi.fn(async(command:string)=>{commands.push(command);if(command==='directory_list')return {entries:[]};if(command==='checkpoint_put')return {saved:true,id:'backup',pruned:[]};if(command==='file_create')return {created:true};if(command==='apply_proposal')return {status:'committed'};throw new Error(command);}) as CheckpointRequest;
@@ -60,4 +60,64 @@ describe('checkpoint comparison and restore',()=>{
   await expect(restoreFiles({workspace,request,entries:[],checkpoint,paths:['removed.tex']})).rejects.toMatchObject({code:'TRANSACTION_PARTIAL'});
  });
  it('does not apply if the automatic checkpoint fails',async()=>{const commands:string[]=[];const request=vi.fn(async(command:string)=>{commands.push(command);if(command==='directory_list')return {entries:[]};throw {code:'IO_ERROR',message:'Disk full'};}) as CheckpointRequest;await expect(restoreFiles({workspace,request,entries:[],checkpoint,paths:['removed.tex']})).rejects.toMatchObject({code:'IO_ERROR'});expect(commands).not.toContain('apply_proposal');});
+});
+describe('automatic partial checkpoints',()=>{
+ it('reads only unique operation targets, without listing directories, and records kind and reason',async()=>{
+  const calls:{command:string;args:unknown}[]=[];
+  const request=vi.fn(async(command:string,_workspace:WorkspaceRef,args:unknown)=>{calls.push({command,args});if(command==='file_read')return document('before');if(command==='checkpoint_put')return {saved:true,id:'saved',pruned:[]};throw new Error(command);}) as CheckpointRequest;
+  const result=await createAutomaticCheckpoint({workspace,request,paths:['main.tex','second.tex','main.tex'],reason:'replace'});
+  expect(calls.map(call=>call.command)).toEqual(['file_read','file_read','checkpoint_put']);
+  expect(result.checkpoint).toMatchObject({kind:'auto',reason:'replace',partial:true});
+  expect(result.checkpoint.files.map(file=>file.path)).toEqual(['main.tex','second.tex']);
+  expect(checkpointLabel(result.checkpoint)).toMatch(/자동|Automatic/);
+  expect(checkpointLabel(checkpoint)).toBe('Saved');
+ });
+ it('rejects more than 16 targets before reads, private paths, unreadable and oversized text',async()=>{
+  const request=vi.fn(async()=>document('before')) as CheckpointRequest;
+  await expect(createAutomaticCheckpoint({workspace,request,paths:Array.from({length:17},(_,i)=>`${i}.tex`),reason:'ai'})).rejects.toMatchObject({code:'CHECKPOINT_LIMIT'});
+  expect(request).not.toHaveBeenCalled();
+  await expect(createAutomaticCheckpoint({workspace,request,paths:['.git/config'],reason:'ai'})).rejects.toMatchObject({code:'CHECKPOINT_PATH'});
+  const unreadable=vi.fn(async()=>document('before',{readOnly:true})) as CheckpointRequest;
+  await expect(createAutomaticCheckpoint({workspace,request:unreadable,paths:['main.tex'],reason:'ai'})).rejects.toMatchObject({code:'CHECKPOINT_UNREADABLE'});
+  expect(unreadable).toHaveBeenCalledTimes(1);
+  const large=vi.fn(async()=>document('x'.repeat(1024*1024+1))) as CheckpointRequest;
+  await expect(createAutomaticCheckpoint({workspace,request:large,paths:['main.tex'],reason:'ai'})).rejects.toMatchObject({code:'CHECKPOINT_UNREADABLE'});
+ });
+ it.each(['FILE_NOT_FOUND','NOT_FOUND'])('preserves missing versus unreadable targets for %s without scanning unrelated files',async(code)=>{
+  const request=vi.fn(async(_command:string,_workspace:WorkspaceRef,args:unknown)=>{if(args&&typeof args==='object'&&'path' in args&&args.path==='missing.tex')throw {code,message:'Missing'};throw {code:'IO_ERROR',message:'Permission denied'};}) as CheckpointRequest;
+  const current=await collectTargetSnapshot({workspace,request,paths:['missing.tex','unreadable.tex']});
+  expect(current.present).toEqual(['unreadable.tex']);
+  expect(current.skipped).toEqual([{path:'unreadable.tex',reason:'Permission denied'}]);
+  const saved={...checkpoint,partial:true,files:[file('missing.tex','old'),file('unreadable.tex','old')]};
+  expect(compareWithCurrent(saved,current).removed).toEqual([{path:'missing.tex',text:'old'}]);
+ });
+ it('never reports unrelated project files as additions for a partial checkpoint',()=>{
+  const partial={...checkpoint,partial:true,kind:'auto' as const,reason:'replace'};
+  expect(compareWithCurrent(partial,snapshot([file('main.tex','current'),file('unrelated.tex','keep')]))).toEqual({changed:[{path:'main.tex',before:'original\r\ntext',after:'current'}],added:[],removed:[{path:'removed.tex',text:'removed'}],same:0});
+  expect(()=>buildRestorePlan(partial,snapshot(),['unrelated.tex'])).toThrow();
+ });
+ it('restores only partial files and writes a partial Before restore backup before the transaction',async()=>{
+  const calls:{command:string;args:unknown}[]=[];
+  const request=vi.fn(async(command:string,_workspace:WorkspaceRef,args:unknown)=>{calls.push({command,args});if(command==='directory_list')return {entries:[entry('main.tex'),entry('unrelated.tex')]};if(command==='file_read')return document('new');if(command==='checkpoint_put')return {saved:true,id:'backup',pruned:[]};if(command==='apply_proposal')return {status:'committed'};throw new Error(command);}) as CheckpointRequest;
+  await restoreFiles({workspace,request,entries:[],checkpoint:{...checkpoint,partial:true,files:[file('main.tex','old')]},paths:['main.tex']});
+  expect(calls.map(call=>call.command)).toEqual(['file_read','checkpoint_put','apply_proposal']);
+  expect(calls[1].args).toMatchObject({kind:'auto',reason:'restore',partial:true,files:[expect.objectContaining({path:'main.tex',text:'new'})]});
+  expect(calls[2].args).toMatchObject({files:[{path:'main.tex',action:'edit',baseSha256:'raw-hash',content:'old'}]});
+ });
+ it('exposes an explicit non-blocking warning instead of silently skipping failed protection',()=>{
+  expect(automaticCheckpointWarning({code:'IO_ERROR',message:'Disk full'})).toMatchObject({code:'CHECKPOINT_WARNING',retryable:false});
+  expect(automaticCheckpointWarning({code:'IO_ERROR',message:'Disk full'}).message).toContain('Disk full');
+ });
+ it.each(['FILE_NOT_FOUND','NOT_FOUND'])('recreates only missing partial ancestors after the backup for %s',async(code)=>{
+  const calls:{command:string;args:unknown}[]=[];
+  const request=vi.fn(async(command:string,_workspace:WorkspaceRef,args:unknown)=>{calls.push({command,args});if(command==='file_read'||command==='directory_list')throw {code,message:'Missing'};if(command==='checkpoint_put')return {saved:true,pruned:[]};if(command==='file_create')return {created:true};if(command==='apply_proposal')return {status:'committed'};throw new Error(command);}) as CheckpointRequest;
+  await restoreFiles({workspace,request,entries:[],checkpoint:{...checkpoint,partial:true,files:[file('chapters/part/main.tex','old')]},paths:['chapters/part/main.tex']});
+  expect(calls.map(call=>call.command)).toEqual(['file_read','checkpoint_put','directory_list','file_create','directory_list','file_create','apply_proposal']);
+  expect(calls.filter(call=>call.command==='directory_list').map(call=>call.args)).toEqual([{path:'chapters',showHidden:false},{path:'chapters/part',showHidden:false}]);
+ });
+ it('never reads unrelated paths requested for a partial restore',async()=>{
+  const request=vi.fn() as CheckpointRequest;
+  await expect(restoreFiles({workspace,request,entries:[],checkpoint:{...checkpoint,partial:true},paths:['unrelated.tex']})).rejects.toMatchObject({code:'CHECKPOINT_PATH'});
+  expect(request).not.toHaveBeenCalled();
+ });
 });

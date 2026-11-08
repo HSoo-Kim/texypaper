@@ -265,6 +265,11 @@ impl Session {
         let id = self.next_id;
         self.next_id += 1;
         self.send(json!({"id":id,"method":method,"params":params}))?;
+        if method == "turn/start"
+            && let Some(events) = events
+        {
+            events.prompt_sent()?;
+        }
         let deadline = Instant::now() + Duration::from_secs(45);
         loop {
             let value = self.next(deadline)?;

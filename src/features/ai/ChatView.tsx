@@ -8,6 +8,7 @@ import type { ChatReadingPosition, ChatSnapshot, ChatViewProps, HistoryRow } fro
 import { readingScrollTop } from './chatHistory';
 import { usePaneZoom, usePreventBrowserZoom, zoomKeyDirection } from '../../ui/paneZoom';
 import { clampChatFontSize, DEFAULT_CHAT_FONT_SIZE } from './chatPreferences';
+import { Transmissions } from './Transmissions';
 import './agents.css';
 
 // Keep family + version intact; the adjacent provider label already identifies Claude/Codex.
@@ -229,12 +230,14 @@ export function ChatView({ snapshot, onAction, detached = false, fontSize = DEFA
     {snapshot.settingsOpen ? <div className="agent-settings-content">
       <ProviderSettings key={`${workspace.id}:${workspace.epoch}`} snapshot={snapshot} onAction={onAction} />
       <section className="agent-conversation-settings"><h3>{t('대화와 기록', 'Conversation and history')}</h3><code data-testid="agent-session" data-session-id={snapshot.sessionId}>{snapshot.sessionId || t('아직 대화 없음', 'No conversation yet')}</code><p className="agent-note">{t('유휴 공급자 프로세스는 종료하며 세션 ID로 다시 연결합니다. 숨겨진 추론은 저장하지 않습니다.', 'Idle provider processes terminate and reconnect using the session ID. Hidden reasoning is not stored.')}</p>{snapshot.pages.length > 0 && <label className="agent-setting-row">{t('기록 페이지', 'History page')}<select value={snapshot.historyPage} disabled={busy} onChange={event => onAction({ type: 'history', page: event.target.value })}>{snapshot.pages.map(page => <option key={page} value={page}>{page}</option>)}</select></label>}</section>
+      <details className="agent-conversation-settings"><summary>{t('대화 기록 삭제', 'Clear conversation history')}</summary><p className="agent-note">{t('두 공급자의 이 프로젝트 대화·세션 연결·전송 내역을 모두 삭제합니다. 공급자의 클라우드 기록은 삭제하지 않습니다.', 'Delete this project’s local conversation history, session links and transmission records for both providers. This does not delete cloud history at the provider.')}</p><button type="button" data-testid="agent-history-clear" disabled={busy || snapshot.historyLoading} onClick={() => onAction({ type: 'clear-history' })}>{t('로컬 대화와 전송 내역 삭제', 'Delete local chats and transmission records')}</button></details>
     </div> : <>
       {!ready && !busy && <div className="agent-connect-prompt"><span>{snapshot.configuration.loading ? t('연결 확인 중…', 'Checking connection…') : t('구독 계정과 모델을 연결하세요.', 'Connect a subscription account and model.')}</span><button type="button" onClick={() => onAction({ type: 'settings', value: true })}>{t('설정', 'Settings')}</button></div>}
       {snapshot.historyPage !== 'current.jsonl' && <div className="agent-connect-prompt"><span>{snapshot.historyPage}</span><button type="button" onClick={() => onAction({ type: 'history', page: 'current.jsonl' })}>{t('현재 대화', 'Current chat')}</button></div>}
       {snapshot.executionPermission === 'session' && <div className="agent-connect-prompt agent-session-permission"><span>{t('이 세션에서 명령 자동 실행 허용됨', 'Automatic command execution allowed for this session')}</span><button type="button" onClick={() => onAction({ type: 'execution-permission', value: 'ask' })}>{t('명령마다 승인으로 전환', 'Require approval')}</button></div>}
       <Transcript snapshot={snapshot} onAction={onAction} fontSize={size} />
       <form className="agent-composer" onSubmit={event => { event.preventDefault(); onAction({ type: 'send' }); }}>
+        <Transmissions entries={snapshot.transmissions ?? []} context={context} provider={provider} />
         {((context.sources?.length ?? 0) > 0 || (context.pdfs?.length ?? 0) > 0) && <div className="agent-attachments" data-testid="agent-attachments" aria-label={t('이번 요청의 첨부', 'Attachments for this request')}>
           {context.sources?.map((source, index) => <AttachmentChip key={`source:${index}`} kind="source" index={index} label={`${source.path.split(/[\\/]/).at(-1)}:${source.startLine}${source.endLine !== source.startLine ? `–${source.endLine}` : ''}`} location={source.path} description={source.text} truncated={source.truncated} onAction={onAction} />)}
           {context.pdfs?.map((pdf, index) => <AttachmentChip key={`pdf:${index}`} kind="pdf" index={index} label={`PDF ${pdf.page}${t('쪽', '')}`} description={pdf.quote} truncated={pdf.truncated} onAction={onAction} />)}

@@ -121,3 +121,11 @@
 @container (min-width:700px) { .agent-message { padding-inline:1.5rem; } .agent-composer { padding-inline:1rem; } .agent-model-control { flex-grow:1; } }
 @media (max-height:560px) { .agent-composer { gap:.375rem; padding:.5rem .625rem; } .agent-panel .agent-composer textarea { min-height:3.5rem; max-height:7rem; } .agent-empty { padding:1rem; } }
 @media (forced-colors:active) { .agent-panel button.primary { border:1px solid ButtonText; } .agent-error,.agent-permission-warning,.agent-connection { color:CanvasText!important; } }
+.agent-transmissions { min-width:0; color:var(--secondary); font-size:calc(var(--chat-font-size,.8125rem) * .923077); }
+.agent-transmissions summary { cursor:pointer; width:fit-content; max-width:100%; }
+.agent-transmission-list { max-height:min(35vh,18rem); overflow:auto; overscroll-behavior:contain; padding:.5rem 0; }
+.agent-transmission-list section+section { margin-top:.75rem; }
+.agent-transmission-list ul { list-style:none; margin:.375rem 0 0; padding:0; }
+.agent-transmission-list li { display:flex; flex-direction:column; gap:.1875rem; padding:.375rem 0; border-top:1px solid var(--border); overflow-wrap:anywhere; }
+.agent-transmission-list li>span:first-child { color:var(--text); }
+.agent-transmission-list time { font-variant-numeric:tabular-nums; }

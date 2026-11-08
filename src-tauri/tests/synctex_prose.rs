@@ -466,6 +466,76 @@ fn diagnostics_preserve_drive_paths_and_deduplicate_passes() {
     assert!(diagnostics.iter().any(|d| d.message.contains("Citation")));
 }
 
+#[test]
+fn diagnostics_filter_windows_and_linux_driver_summaries() {
+    let text = concat!(
+        "./broken.tex:3: Undefined control sequence.\n",
+        "Latexmk: Errors, so I did not complete making targets\n",
+        "Collected error summary (may duplicate other messages):\n",
+        "  pdflatex: Command for 'pdflatex' gave return code 1\n",
+        "C:\\texlive\\2026\\bin\\windows\\runscript.tlu:933: command failed with exit code 12:\n",
+        "/usr/share/texlive/texmf-dist/scripts/latexmk/latexmk.pl:123: command failed with exit code 12\n",
+    );
+    let list = diagnostics::filter_driver_noise(diagnostics::parse(text), |path| {
+        (path == "./broken.tex").then(|| "broken.tex".into())
+    });
+    assert_eq!(list.len(), 1);
+    assert_eq!(list[0].path.as_deref(), Some("broken.tex"));
+    assert_eq!(list[0].line, Some(3));
+    assert_eq!(list[0].severity, "error");
+}
+
+#[test]
+fn diagnostics_wrapper_only_failure_keeps_one_clear_error_even_with_warnings() {
+    for text in [
+        "C:\\texlive\\2026\\bin\\windows\\runscript.tlu:933: command failed with exit code 12:\n",
+        "Latexmk: Errors, so I did not complete making targets\nCollected error summary (may duplicate other messages):\n  bibtex main: Bibtex errors: See file 'main.blg'\n",
+        "LaTeX Warning: Citation `missing' undefined\n\n  biber main: Biber errors: See file 'main.blg'\n",
+    ] {
+        let list = diagnostics::filter_driver_noise(diagnostics::parse(text), |_| None);
+        let errors: Vec<_> = list.iter().filter(|d| d.severity == "error").collect();
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].path.is_none() && errors[0].line.is_none());
+        assert!(errors[0].inferred);
+        assert!(errors[0].message.starts_with("LaTeX build failed: "));
+    }
+}
+
+#[test]
+fn diagnostics_keep_bibliography_warnings_and_external_input_errors() {
+    let text = concat!(
+        "Warning--I didn't find a database entry for \"missing\"\n",
+        "[42] Biber.pm:130> WARN - I didn't find a database entry for 'other'\n",
+        "LaTeX Warning: Citation `missing' on page 1 undefined on input line 8.\n\n",
+        "/outside/included.tex:7: Undefined control sequence.\n",
+        "/usr/share/texlive/texmf-dist/tex/luatex/package/input.lua:9: invalid input\n",
+        "/usr/share/texlive/texmf-dist/scripts/driver/driver.lua:9: driver failed\n",
+        "  biber main: Biber errors: See file 'main.blg'\n",
+    );
+    let list = diagnostics::filter_driver_noise(diagnostics::parse(text), |_| None);
+    assert_eq!(list.len(), 5);
+    assert_eq!(list.iter().filter(|d| d.severity == "warning").count(), 3);
+    for line in [7, 9] {
+        assert!(list.iter().any(|d| d.line == Some(line)
+            && d.path.is_none()
+            && d.inferred
+            && d.severity == "error"));
+    }
+    assert!(!list.iter().any(|d| d.message.contains("driver failed")));
+}
+
+#[test]
+fn diagnostics_keep_project_scripts_and_real_biber_errors() {
+    let text = "./scripts/check.lua:4: command failed with exit code 1\n[10] Biber.pm:130> ERROR - Cannot find 'main.bcf'!\n/outside/input.tex:12: command failed with exit code 1\n/opt/tools/driver.lua:15: command failed with exit code 1\n  biber main: Biber errors: See file 'main.blg'\n";
+    let list = diagnostics::filter_driver_noise(diagnostics::parse(text), |path| {
+        (path == "./scripts/check.lua").then(|| "scripts/check.lua".into())
+    });
+    assert_eq!(list.len(), 3);
+    assert_eq!(list[0].path.as_deref(), Some("scripts/check.lua"));
+    assert!(list[1].message.contains("Cannot find 'main.bcf'"));
+    assert!(list[2].path.is_none() && list[2].inferred && list[2].line == Some(12));
+}
+
 #[cfg(windows)]
 #[test]
 fn tex_tool_paths_remove_only_win32_namespaces_preserving_identity_text() {

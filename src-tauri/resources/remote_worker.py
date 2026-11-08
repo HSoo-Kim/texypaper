@@ -1820,37 +1820,88 @@ class Worker:
 
 
     def diagnostics(self, text, cwd, root_tex):
-        results = []
-        seen = set()
-        previous = None
+        # Match native parsing: only project locations are clickable; external TeX/package
+        # inputs remain inferred errors, not guesses at a line in the root document.
+        def driver_summary(message):
+            message = message.strip()
+            return (message.startswith('Latexmk: Errors, so I did not complete making targets')
+                    or message.startswith('Collected error summary')
+                    or 'command failed with exit code' in message
+                    or ": Command for '" in message and 'gave return code' in message
+                    or message.startswith(('bibtex ', 'biber '))
+                    and (': Bibtex errors:' in message or ': Biber errors:' in message))
+
+        def driver_path(path, message):
+            path = path.replace('\\', '/').lower()
+            name = path.rsplit('/', 1)[-1]
+            # External texmf-dist/tex/.../*.lua files can be genuine package inputs.
+            return (name in ('runscript.tlu', 'latexmk', 'latexmk.pl')
+                    or name.endswith(('.tlu', '.lua', '.pl'))
+                    and ('command failed with exit code' in message
+                         or ('/texlive/' in path or '/texmf-dist/' in path)
+                         and ('/bin/' in path or '/scripts/' in path)))
+
+        results, seen = [], set()
+        previous = warning = fallback = None
+
+        def append(diagnostic, raw_path=None):
+            nonlocal fallback
+            noise = (driver_summary(diagnostic['message']) if raw_path is None
+                     else driver_path(raw_path, diagnostic['message']))
+            if diagnostic['path'] is None and noise:
+                if fallback is None and diagnostic['severity'] == 'error':
+                    fallback = diagnostic
+                return
+            diagnostic['message'] = diagnostic['message'][:1500]
+            key = compact(diagnostic)
+            if key not in seen:
+                seen.add(key)
+                results.append(diagnostic)
+
+        def inferred(message, severity, number=None):
+            return dict(path=None, line=number, message=message, severity=severity, inferred=True)
+
         for line in text.splitlines():
             match = re.match(r'^(.*):([0-9]+):\s?(.*)$', line)
-            diagnostic = None
+            location = re.search(r'l\.([0-9]+)\s?(.*)', line)
             if match:
                 raw_path, number, message = match.groups()
-                inferred = False
                 try:
                     path = pathlib.Path(raw_path)
                     if not path.is_absolute():
                         path = cwd / path
                     relative = self.relative(path)
                 except (OSError, Failure):
-                    relative = root_tex
-                    inferred = True
-                diagnostic = dict(path=relative, line=int(number), line1=int(number), message=message, severity='error' if ('Error' in message or message.startswith('!')) else 'warning', inferred=inferred)
-            elif line.startswith('!'):
-                previous = line[1:].strip()
-            elif previous and re.match(r'^l\.\d+', line):
-                diagnostic = dict(path=root_tex, line=int(re.match(r'^l\.(\d+)', line).group(1)), message=previous, severity='error', inferred=True)
-                previous = None
-            elif any(word in line for word in ('Warning:', 'Overfull \\', 'Underfull \\', 'undefined references', 'undefined citations')):
-                diagnostic = dict(path=root_tex, message=line, severity='warning', inferred=True)
-            if diagnostic:
-                diagnostic['message'] = diagnostic['message'][:1500]
-                key = compact(diagnostic)
-                if key not in seen and len(results) < 64:
-                    seen.add(key)
-                    results.append(diagnostic)
+                    relative = None
+                append(dict(path=relative, line=int(number), line1=int(number), message=message,
+                            severity='warning' if 'Warning' in message else 'error',
+                            inferred=relative is None), raw_path)
+            elif location:
+                if previous is not None:
+                    append(inferred(previous + ' ' + location.group(2), 'error', int(location.group(1))))
+                    previous = None
+            elif (driver_summary(line) or 'ERROR -' in line
+                    or line.startswith(("I couldn't open database file ", "I couldn't open style file ", 'I found no '))):
+                append(inferred(line.strip(), 'error'))
+            elif line.startswith('! '):
+                previous = line[2:]
+            elif ('Warning:' in line or line.startswith(('Warning--', 'Overfull ', 'Underfull ')) or 'WARN -' in line):
+                if warning is not None:
+                    append(inferred(warning, 'warning'))
+                warning = line
+            elif warning is not None:
+                if line.startswith(('(', ' ')):
+                    if len(warning) + len(line) < 8192:
+                        warning += ' ' + line.strip()
+                else:
+                    append(inferred(warning, 'warning'))
+                    warning = None
+        if previous is not None:
+            append(inferred(previous, 'error'))
+        if warning is not None:
+            append(inferred(warning, 'warning'))
+        if fallback is not None and not any(row['severity'] == 'error' for row in results):
+            results.append(inferred('LaTeX build failed: ' + fallback['message'].strip(), 'error'))
         return results
 
     def select_artifacts(self, work, cwd, root_tex):

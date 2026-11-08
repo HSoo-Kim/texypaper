@@ -32,8 +32,8 @@ try {
     if (-not (Test-Path -LiteralPath $app -PathType Leaf)) { throw "Build did not produce $app" }
     if ($OutputDirectory) { $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory) }
     if ($RunSmoke) {
-        $installers = @(Get-ChildItem -LiteralPath (Join-Path $repository 'src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis') -Filter 'TexyPaper_0.0.7_x64-setup.exe' -File)
-        if ($installers.Count -ne 1) { throw 'Expected exactly one TexyPaper_0.0.7_x64-setup.exe NSIS installer; never select a stale or differently branded bundle.' }
+        $installers = @(Get-ChildItem -LiteralPath (Join-Path $repository 'src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis') -Filter 'TexyPaper_0.0.8_x64-setup.exe' -File)
+        if ($installers.Count -ne 1) { throw 'Expected exactly one TexyPaper_0.0.8_x64-setup.exe NSIS installer; never select a stale or differently branded bundle.' }
         Invoke-Checked $pnpm @('smoke:desktop', '--binary', $app, '--installer', $installers[0].FullName, '--output', (Join-Path $OutputDirectory 'desktop'))
         Invoke-Checked $pnpm @('smoke:usability', '--binary', $app, '--output', (Join-Path $OutputDirectory 'usability'))
         Invoke-Checked $pnpm @('smoke:features', '--binary', $app, '--output', (Join-Path $OutputDirectory 'features'))

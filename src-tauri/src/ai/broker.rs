@@ -152,8 +152,8 @@ fn handle_client(
         &json!({"ok":true,"workspaceId":tools.workspace.reference.id,"epoch":tools.workspace.reference.epoch}),
     )?;
     let mut sequence = 1u64;
-    while active.load(Ordering::Acquire) {
-        // Poll only socket readiness so expiry releases idle bridge connections without consuming partial frames.
+    loop {
+        // Drain already-written transmission receipts during expiry; never run a new tool.
         let mut ready = [0u8; 1];
         match socket.peek(&mut ready) {
             Ok(0) => break,
@@ -164,6 +164,9 @@ fn handle_client(
                     std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
                 ) =>
             {
+                if !active.load(Ordering::Acquire) {
+                    break;
+                }
                 continue;
             }
             Err(e) => return Err(e.into()),
@@ -176,12 +179,27 @@ fn handle_client(
             ));
         }
         sequence += 1;
-        if !active.load(Ordering::Acquire) {
+        let tool = request["tool"].as_str().unwrap_or("");
+        let args = request.get("args").cloned().unwrap_or(json!({}));
+        let receipt = tool == "_transmission_sent";
+        if !active.load(Ordering::Acquire) && !receipt {
             break;
         }
-        let tool = request["tool"].as_str().unwrap_or("");
-        let result = tools.call(tool, request.get("args").cloned().unwrap_or(json!({})));
-        if !active.load(Ordering::Acquire) {
+        let result = if receipt {
+            let row: super::transmissions::Transmission = serde_json::from_value(args)?;
+            if !super::tools::TOOL_NAMES.contains(&row.tool.as_str())
+                || row.tool == "propose_changes"
+            {
+                return Err(AppError::new(
+                    "BROKER_UNAUTHORIZED",
+                    "Invalid transmission receipt",
+                ));
+            }
+            tools.events.transmitted(vec![row]).map(|()| json!({}))
+        } else {
+            tools.call(tool, args)
+        };
+        if !active.load(Ordering::Acquire) && !receipt {
             return Err(AppError::new(
                 "BROKER_EXPIRED",
                 "Task capability expired during request",

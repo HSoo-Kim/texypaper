@@ -81,7 +81,7 @@ export function sameChatScope(scope: ChatScope, snapshot: ChatSnapshot): boolean
   return scope.workspaceId === snapshot.workspace.id && scope.epoch === snapshot.workspace.epoch;
 }
 
-const simpleActions: Record<string, true> = { send: true, cancel: true, refresh: true, login: true, 'open-login': true, 'save-executable': true, 'dismiss-error': true, 'revoke-disclosure': true, detach: true, dock: true, focus: true };
+const simpleActions: Record<string, true> = { send: true, cancel: true, refresh: true, login: true, 'open-login': true, 'save-executable': true, 'dismiss-error': true, 'revoke-disclosure': true, 'clear-history': true, detach: true, dock: true, focus: true };
 function boundedString(value: unknown, maximum: number): value is string {
   return typeof value === 'string' && value.length <= maximum;
 }

@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.0.8 — 2026-11-08
+
+### Editor
+
+- Clicking a line number selects that whole source line including its line break, and dragging over the numbers extends the selection by whole lines in either direction, as in Overleaf.
+- Editor buffer state now has one ownership rule: every record carries a generation that changes on reload, eviction, rename and discard, and every write-back (view updates, saves finishing, poll reloads, recovery callbacks, composition) checks it. This replaces the two point guards from 0.0.6; new interleaving tests fail on the 0.0.7 code (8 of them) and pass now.
+- SSH projects poll for outside changes every 2 seconds only while you are active and back off to every 10 seconds when idle; focusing the window or saving checks immediately, and the file tree is not re-listed while the explorer is hidden. Local projects keep their file events.
+
+### Build
+
+- One document error now produces one diagnostic. The TeX Live wrapper line (`runscript.tlu: command failed with exit code …`) and latexmk/engine summary lines are dropped when a real error exists; a failure that has only wrapper lines keeps one clear "LaTeX build failed" entry. The same rule runs in the SSH worker, which now also classifies file-line errors such as "Undefined control sequence" as errors. **Ask AI about this error** lists only diagnostics inside the project plus the build failure code.
+
+### History
+
+- Automatic checkpoints are taken right before applying AI changes, before **Replace all** and before a PDF text edit. They store only the files the operation changes (at most 16), are labeled with their reason, and have their own limit of 20, so they never push out manual checkpoints (still 50). A history filter shows all, manual or automatic records. If the automatic checkpoint cannot be saved, AI apply and Replace all continue with a visible warning (both stay undoable); the PDF text edit stops instead, because it has no undo there.
+- Comparing or restoring a partial (automatic) checkpoint only looks at its own files.
+
+### AI
+
+- The chat shows **Sent to OpenAI/Anthropic**: what left the PC in this workspace's conversations — attachments, prompt sizes and every file read, search, build status and command result the AI received through the tools — with path, line range, size and time. It is recorded when the data is handed to the provider CLI (not when it is prepared), stores no contents, keeps the newest 500 entries, and is cleared together with the conversation history. Attachments not yet sent are listed as "Not sent yet".
+
+### Fixes
+
+- The PDF save dialog, the folder picker and other native dialogs could fail silently and report "PDF export cancelled" after spell checking had run: the Windows spell checker initialized COM as multithreaded on shared worker threads, and the dialogs need a single-threaded apartment on the same threads. Spell checking now runs on its own dedicated thread and every dialog runs on a fresh thread; a dialog that cannot start reports `DIALOG_UNAVAILABLE` instead of "cancelled". A regression test reproduces the old apartment error.
+- Automatic builds no longer start while you are switching projects. An autosave that finished while the switch dialogs were open could start one, and the switch then failed with "Stop the current operation first".
+
+### Performance
+
+- Startup JavaScript is about 35% smaller (963 kB instead of 1,475 kB; 313 kB instead of 468 kB gzipped). The PDF viewer, settings, shortcut help, checkpoints, replace, template form, source-edit review and asset preview load on first use, and React and CodeMirror are split into their own cacheable chunks. Four parts of the main window were moved out of `AppShell.tsx` into readable components.
+
+### Packaging and verification
+
+- GitHub Actions CI runs the type check, frontend tests, Rust fmt/clippy/tests on Windows and the SSH worker tests on Linux for every push and pull request.
+- `pnpm package:release` packages a release (installer copy, deterministic portable ZIP, installer payload proof, manifests and checksums), replacing the hand-run steps used so far.
+- Optional code signing: `scripts/sign-windows.ps1` and the `src-tauri/tauri.signing.conf.json` overlay sign the app, the installer and the embedded app with a timestamp when signing credentials are supplied; default builds stay unsigned. Releases are still unsigned because no trusted certificate is available yet; see the code signing section of the development guide.
+- The Korean template is now compiled in the feature suite. The desktop suite's native save-dialog step runs only with `--native-dialogs`, because the dialog appears on the user's screen even for the hidden test app.
+
 ## 0.0.7 — 2026-11-08
 
 ### Editor
