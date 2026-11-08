@@ -289,11 +289,9 @@ fn valid_action(action: &Value) -> bool {
     };
     match kind {
         "send" | "cancel" | "refresh" | "login" | "open-login" | "save-executable"
-        | "dismiss-error" | "revoke-disclosure" | "clear-history" | "detach" | "dock" | "focus" => {
-            keys(&["type"])
-        }
+        | "dismiss-error" | "clear-history" | "detach" | "dock" | "focus" => keys(&["type"]),
         "prompt" => keys(&["type", "value"]) && bounded_text(action, "value", 262144),
-        "disclosure" | "settings" => keys(&["type", "value"]) && action["value"].is_boolean(),
+        "settings" => keys(&["type", "value"]) && action["value"].is_boolean(),
         "chat-font-size" => {
             keys(&["type", "value"])
                 && action["value"]
@@ -516,12 +514,10 @@ mod tests {
     }
 
     #[test]
-    fn chat_preferences_require_bounded_size_or_explicit_consent_intent() {
+    fn chat_preferences_and_chip_intents_require_exact_bounded_fields() {
         assert!(valid_action(
             &json!({"type": "chat-font-size", "value": 13})
         ));
-        assert!(valid_action(&json!({"type": "revoke-disclosure"})));
-        assert!(valid_action(&json!({"type": "disclosure", "value": true})));
         assert!(valid_action(
             &json!({"type": "context-remove", "kind": "source", "index": 0})
         ));
@@ -531,13 +527,12 @@ mod tests {
         for action in [
             json!({"type": "chat-font-size", "value": 25}),
             json!({"type": "chat-font-size", "value": 13.5}),
-            json!({"type": "chat-font-size", "value": 14, "disclosure": true}),
-            json!({"type": "provider", "value": "claude", "aiDisclosureAccepted": {"claude": true}}),
-            json!({"type": "model", "value": "model", "disclosure": true}),
-            json!({"type": "revoke-disclosure", "value": true}),
+            json!({"type": "chat-font-size", "value": 14, "extra": true}),
+            json!({"type": "provider", "value": "claude", "extra": true}),
+            json!({"type": "model", "value": "model", "extra": true}),
             json!({"type": "context-remove", "kind": "source", "index": 8}),
             json!({"type": "context-open", "kind": "pdf", "index": -1}),
-            json!({"type": "context-remove", "kind": "source", "index": 0, "disclosure": true}),
+            json!({"type": "context-remove", "kind": "source", "index": 0, "extra": true}),
         ] {
             assert!(!valid_action(&action));
         }
@@ -568,12 +563,9 @@ mod tests {
         action["value"]["scrollTop"] = json!(-1);
         assert!(!valid_action(&action));
         action["value"]["scrollTop"] = json!(320);
-        action["value"]["disclosure"] = json!(true);
+        action["value"]["extra"] = json!(true);
         assert!(!valid_action(&action));
-        action["value"]
-            .as_object_mut()
-            .unwrap()
-            .remove("disclosure");
+        action["value"].as_object_mut().unwrap().remove("extra");
         action["acknowledged"] = json!(true);
         assert!(!valid_action(&action));
     }

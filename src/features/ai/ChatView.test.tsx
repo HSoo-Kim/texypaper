@@ -10,7 +10,7 @@ function snapshot(): ChatSnapshot {
     workspace: { id: 'workspace', epoch: 3, environmentId: 'private-host', root: '/private/project' },
     provider: 'codex', model: 'model', reasoningEffort: '', account: { provider: 'codex', available: true, loggedIn: true, subscription: true },
     configuration: { models: [{ id: 'model', label: 'Model', reasoningEfforts: [] }], allowCustom: false, loading: false, instructions: false, executable: '', error: null },
-    prompt: 'Explain this', disclosure: false, busy: false, status: 'idle', taskId: '', sessionId: '', loginUrl: '', error: null,
+    prompt: 'Explain this', busy: false, status: 'idle', taskId: '', sessionId: '', loginUrl: '', error: null,
     history: [], proposals: [], proposalBusy: [], context: {}, pages: [], historyPage: 'current.jsonl', settingsOpen: false,
     executionPermission: 'ask', executions: [],
   };
@@ -20,24 +20,18 @@ function markup(change: Partial<ChatSnapshot> = {}, detached = false, fontSize =
 }
 
 describe('compact explicit chat composer', () => {
-  it('renders first-use consent, no attachment disclosure panel, and no project environment/path', () => {
+  it('sends a ready request without a consent step and shows no project environment/path', () => {
     const html = markup();
-    expect(html).toContain('class="agent-disclosure"');
-    expect(html).not.toContain('agent-disclosure-notice');
+    expect(html).not.toContain('type="checkbox"');
     expect(html).not.toContain('class="agent-context"');
     expect(html).not.toContain('private-host');
     expect(html).not.toContain('/private/project');
     expect(html).not.toContain('data-testid="agent-attachments"');
-    expect(html).toMatch(/data-testid="agent-send" disabled=""/);
-  });
-  it('shows compact provider-specific remembered consent and a revoke action without blocking send', () => {
-    const html = markup({ disclosureRemembered: true, provider: 'claude', account: { provider: 'claude', available: true, loggedIn: true, subscription: true } });
-    expect(html).toContain('data-testid="agent-disclosure-notice"');
-    expect(html).toContain('Anthropic');
-    expect(html).toContain('data-testid="agent-disclosure-revoke"');
-    expect(html).not.toContain('class="agent-disclosure"');
     expect(html).not.toMatch(/data-testid="agent-send" disabled=""/);
-    expect(html).toContain('Inspected paths appear in tool progress and responses.');
+  });
+  it('keeps send disabled without a prompt or a ready account', () => {
+    expect(markup({ prompt: '  ' })).toMatch(/data-testid="agent-send" disabled=""/);
+    expect(markup({ account: { provider: 'codex', available: true, loggedIn: true, subscription: false } })).toMatch(/data-testid="agent-send" disabled=""/);
   });
   it('renders source and PDF chips with quote descriptions, removal, and the same text size in either window', () => {
     const context = { sources: [{ path: 'sections/main.tex', startLine: 42, endLine: 45, text: 'Exact selected source', truncated: true }], pdfs: [{ buildId: 'build', page: 3, quote: 'Exact PDF quote' }] };

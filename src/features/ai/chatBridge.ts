@@ -81,7 +81,7 @@ export function sameChatScope(scope: ChatScope, snapshot: ChatSnapshot): boolean
   return scope.workspaceId === snapshot.workspace.id && scope.epoch === snapshot.workspace.epoch;
 }
 
-const simpleActions: Record<string, true> = { send: true, cancel: true, refresh: true, login: true, 'open-login': true, 'save-executable': true, 'dismiss-error': true, 'revoke-disclosure': true, 'clear-history': true, detach: true, dock: true, focus: true };
+const simpleActions: Record<string, true> = { send: true, cancel: true, refresh: true, login: true, 'open-login': true, 'save-executable': true, 'dismiss-error': true, 'clear-history': true, detach: true, dock: true, focus: true };
 function boundedString(value: unknown, maximum: number): value is string {
   return typeof value === 'string' && value.length <= maximum;
 }
@@ -112,7 +112,6 @@ export function isChatAction(value: unknown): value is ChatAction {
   if (Object.hasOwn(simpleActions, action.type)) return keys === 'type';
   switch (action.type) {
     case 'prompt': return keys === 'type,value' && boundedString(action.value, 65536);
-    case 'disclosure':
     case 'settings': return keys === 'type,value' && typeof action.value === 'boolean';
     case 'chat-font-size': return keys === 'type,value' && typeof action.value === 'number' && Number.isInteger(action.value) && action.value >= 11 && action.value <= 24;
     case 'context-remove':

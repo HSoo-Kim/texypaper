@@ -12,7 +12,7 @@ import { appendHistory, historyEventKey, historyFromEvents } from './chatHistory
 import { isChatReadingPosition, isHistoryPage } from './chatBridge';
 import { ChatView } from './ChatView';
 import { useChatWindow } from './chatWindow';
-import { clampChatFontSize, hasDisclosureConsent, readChatPreferences, updateDisclosureConsent, type ChatPreferences } from './chatPreferences';
+import { clampChatFontSize, readChatPreferences, type ChatPreferences } from './chatPreferences';
 import { addChatAttachment, clearSentAttachments, parseAttachmentIntent, removeChatAttachment } from './chatAttachments';
 import { appendTransmissions, transmissionEntries } from './Transmissions';
 import './agents.css';
@@ -23,7 +23,7 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
   const initialProvider = restoredPosition?.provider ?? settings.ai?.provider ?? 'codex';
   const [preferences, setPreferences] = useState(() => readChatPreferences(settings));
   const preferencesRef = useRef(preferences);
-  const [snapshot, setSnapshot] = useState<ChatSnapshot>(() => ({ workspace, provider: initialProvider, model: settings.ai?.models?.[initialProvider] ?? '', reasoningEffort: '', account: null, configuration: { models: [], allowCustom: false, loading: true, instructions: false, executable: settings.providerExecutables?.[initialProvider] ?? '', error: null }, prompt: '', disclosure: false, disclosureRemembered: preferences.aiDisclosureAccepted[initialProvider] === true, busy: false, status: 'idle', taskId: '', sessionId: '', loginUrl: '', error: null, history: [], proposals: [], proposalBusy: [], context: {}, pages: [], historyPage: restoredPosition?.historyPage ?? 'current.jsonl', historyLoading: true, readingPosition: restoredPosition, settingsOpen: false, executionPermission: 'ask', executions: [] }));
+  const [snapshot, setSnapshot] = useState<ChatSnapshot>(() => ({ workspace, provider: initialProvider, model: settings.ai?.models?.[initialProvider] ?? '', reasoningEffort: '', account: null, configuration: { models: [], allowCustom: false, loading: true, instructions: false, executable: settings.providerExecutables?.[initialProvider] ?? '', error: null }, prompt: '', busy: false, status: 'idle', taskId: '', sessionId: '', loginUrl: '', error: null, history: [], proposals: [], proposalBusy: [], context: {}, pages: [], historyPage: restoredPosition?.historyPage ?? 'current.jsonl', historyLoading: true, readingPosition: restoredPosition, settingsOpen: false, executionPermission: 'ask', executions: [] }));
   const state = useRef(snapshot);
   const workspaceKey = `${workspace.id}:${workspace.epoch}`;
   const activeWorkspace = useRef(workspaceKey); activeWorkspace.current = workspaceKey;
@@ -58,8 +58,7 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
     const candidate = typeof change === 'function' ? change(previous) : { ...previous, ...change };
     if (typeof change !== 'function' && change.busy !== undefined) providerBusy.current = change.busy;
     const busy = providerBusy.current || candidate.executions.some(row => row.status === 'running');
-    const disclosureRemembered = preferencesRef.current.aiDisclosureAccepted[candidate.provider] === true;
-    const next = { ...candidate, busy, disclosureRemembered };
+    const next = { ...candidate, busy };
     state.current = next; setSnapshot(next);
     if (next.busy !== previous.busy) callbacks.current.onBusyChange?.(next.busy);
     if (next.readingPosition && next.readingPosition !== previous.readingPosition) callbacks.current.onReadingPositionChange?.(next.readingPosition);
@@ -78,7 +77,6 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
   function persistChatPreferences(patch: Partial<ChatPreferences>) {
     const next = { ...preferencesRef.current, ...patch };
     preferencesRef.current = next; setPreferences(next);
-    update({ disclosureRemembered: next.aiDisclosureAccepted[state.current.provider] === true });
     persistence.current = persistence.current.catch(() => {}).then(async () => {
       await invoke('app_settings', { settings: patch });
       if (mounted.current) window.dispatchEvent(new CustomEvent('texypaper:ai-settings', { detail: { ...preferencesRef.current } }));
@@ -154,7 +152,7 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
     update({ transmissions: [] });
     executionVersions.current.clear(); executionRevision.current = 0;
     const provider = restoredPosition?.provider ?? settings.ai?.provider ?? 'codex';
-    update(previous => ({ ...previous, workspace, provider, model: modelsByProvider.current[provider] ?? '', account: null, prompt: '', disclosure: false, busy: false, status: 'idle', taskId: '', sessionId: '', loginUrl: '', error: null, history: [], proposals: [], proposalBusy: [], context: {}, contextNotice: undefined, composerFocus: undefined, pages: [], historyPage: restoredPosition?.historyPage ?? 'current.jsonl', historyLoading: true, readingPosition: restoredPosition, executionPermission: 'ask', executions: [] }));
+    update(previous => ({ ...previous, workspace, provider, model: modelsByProvider.current[provider] ?? '', account: null, prompt: '', busy: false, status: 'idle', taskId: '', sessionId: '', loginUrl: '', error: null, history: [], proposals: [], proposalBusy: [], context: {}, contextNotice: undefined, composerFocus: undefined, pages: [], historyPage: restoredPosition?.historyPage ?? 'current.jsonl', historyLoading: true, readingPosition: restoredPosition, executionPermission: 'ask', executions: [] }));
     const append = (row: HistoryRow) => update(previous => previous.historyPage === 'current.jsonl' ? { ...previous, history: appendHistory(previous.history, row) } : previous);
     const flush = () => { window.clearTimeout(flushTimer); flushTimer = undefined; if (pending) { append(pending); pending = null; } };
     flushPending.current = flush;
@@ -240,12 +238,11 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
   useEffect(() => {
     const next = readChatPreferences(settings);
     preferencesRef.current = next; setPreferences(next);
-    update({ disclosureRemembered: next.aiDisclosureAccepted[state.current.provider] === true });
-  }, [storedChatSettings.chatFontSize, storedChatSettings.aiDisclosureAccepted, update]);
+  }, [storedChatSettings.chatFontSize]);
 
   async function send() {
     const initial = state.current;
-    if (initial.busy || !initial.prompt.trim() || !hasDisclosureConsent(preferencesRef.current.aiDisclosureAccepted, initial.provider, initial.disclosure) || !initial.account?.subscription || initial.account.provider !== initial.provider || !initial.model || initial.configuration.loading) return;
+    if (initial.busy || !initial.prompt.trim() || !initial.account?.subscription || initial.account.provider !== initial.provider || !initial.model || initial.configuration.loading) return;
     if (!initial.configuration.allowCustom && !initial.configuration.models.some(row => row.id === initial.model)) return;
     if (initial.reasoningEffort && !initial.configuration.models.find(row => row.id === initial.model)?.reasoningEfforts.some(row => row.value === initial.reasoningEffort)) return;
     const key = activeWorkspace.current; const terminalVersion = taskTerminalVersion.current;
@@ -260,12 +257,10 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
       if (!valid(key)) return;
       if (state.current.status === 'cancelling') { operation.current = null; update({ status: 'cancelled', busy: false }); return; }
       starting.current = false;
-      const start = request<{ taskId: string; status: AgentStatus }>('agent_start', initial.workspace, { provider: initial.provider, model: initial.model, ...(initial.reasoningEffort ? { reasoningEffort: initial.reasoningEffort } : {}), prompt: initial.prompt, context: initial.context, disclosureAccepted: hasDisclosureConsent(preferencesRef.current.aiDisclosureAccepted, initial.provider, initial.disclosure) });
+      const start = request<{ taskId: string; status: AgentStatus }>('agent_start', initial.workspace, { provider: initial.provider, model: initial.model, ...(initial.reasoningEffort ? { reasoningEffort: initial.reasoningEffort } : {}), prompt: initial.prompt, context: initial.context });
       pendingStart.current = start;
       const result = await start;
       if (!valid(key)) return;
-      const accepted = updateDisclosureConsent(preferencesRef.current.aiDisclosureAccepted, initial.provider, 'sent', initial.disclosure);
-      if (accepted !== preferencesRef.current.aiDisclosureAccepted) persistChatPreferences({ aiDisclosureAccepted: accepted });
       const terminal = terminalTasks.current.has(result.taskId) || taskTerminalVersion.current !== terminalVersion;
       update(previous => ({ ...previous, taskId: result.taskId, prompt: previous.prompt === initial.prompt ? '' : previous.prompt, context: clearSentAttachments(previous.context, initial.context), contextNotice: undefined, ...(terminal ? {} : { status: previous.status === 'cancelling' ? previous.status : result.status }) }));
     } catch (caught) { if (valid(key)) { operation.current = null; update({ error: normalizeError(caught), status: 'failed', busy: false }); } }
@@ -384,10 +379,6 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
     if (`${current.workspace.id}:${current.workspace.epoch}` !== activeWorkspace.current) return;
     switch (action.type) {
       case 'prompt': update({ prompt: action.value }); break;
-      case 'disclosure': if (!current.busy) update({ disclosure: action.value }); break;
-      case 'revoke-disclosure':
-        if (!current.busy) { update({ disclosure: false }); persistChatPreferences({ aiDisclosureAccepted: updateDisclosureConsent(preferencesRef.current.aiDisclosureAccepted, current.provider, 'revoke') }); }
-        break;
       case 'chat-font-size':
         persistChatPreferences({ chatFontSize: clampChatFontSize(action.value) });
         break;
@@ -404,7 +395,7 @@ export function AgentPanel({ workspace, settings, onChanged, beforeStart, onBusy
       case 'provider':
         if (current.busy || current.configuration.loading || action.value === current.provider) break;
         refreshRevision.current++; modelsByProvider.current[current.provider] = current.model;
-        update({ provider: action.value, model: modelsByProvider.current[action.value] ?? '', reasoningEffort: '', disclosure: false, account: null, sessionId: sessions.current[action.value] ?? '', loginUrl: '', error: null, readingPosition: { ...(current.readingPosition ?? { historyPage: current.historyPage, following: current.historyPage === 'current.jsonl', scrollTop: 0 }), provider: action.value }, configuration: { models: [], allowCustom: false, loading: true, instructions: false, executable: executables.current[action.value] ?? '', error: null } }); persistSelection(); break;
+        update({ provider: action.value, model: modelsByProvider.current[action.value] ?? '', reasoningEffort: '', account: null, sessionId: sessions.current[action.value] ?? '', loginUrl: '', error: null, readingPosition: { ...(current.readingPosition ?? { historyPage: current.historyPage, following: current.historyPage === 'current.jsonl', scrollTop: 0 }), provider: action.value }, configuration: { models: [], allowCustom: false, loading: true, instructions: false, executable: executables.current[action.value] ?? '', error: null } }); persistSelection(); break;
       case 'model':
         if (!current.busy && !current.configuration.loading && (current.configuration.allowCustom || current.configuration.models.some(row => row.id === action.value))) {
           const reasoningEffort = current.configuration.models.find(row => row.id === action.value)?.reasoningEfforts.some(row => row.value === current.reasoningEffort) ? current.reasoningEffort : '';

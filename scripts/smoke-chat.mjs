@@ -102,10 +102,6 @@ async function configureClaude(page) {
   const efforts = await page.getByTestId('reasoning-effort').locator('option').evaluateAll(options => options.filter(option => option.value).map(option => ({ value: option.value, label: option.textContent })));
   assert(efforts.some(option => option.value === 'low') && efforts.some(option => option.value === 'high'), 'Actual Claude model metadata must advertise selectable low/high effort');
   await page.getByTestId('reasoning-effort').selectOption('low');
-  const consent = page.locator('.agent-composer > .agent-disclosure input[type="checkbox"]');
-  const remembered = page.getByTestId('agent-disclosure-notice');
-  await waitFor(async () => await consent.count() + await remembered.count() === 1, { label: 'Claude AI disclosure state' });
-  if (await consent.count()) await consent.check();
   return { models, efforts, selectedEffort: 'low' };
 }
 async function propose(page, argv, cwd, summary, moveWhileRunning) {

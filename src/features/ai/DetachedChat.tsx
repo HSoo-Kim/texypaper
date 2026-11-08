@@ -20,7 +20,6 @@ export default function DetachedChat() {
   const [state, setState] = useState<ChildState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingPrompt, setPendingPrompt] = useState<PendingValue<string> | null>(null);
-  const [pendingDisclosure, setPendingDisclosure] = useState<PendingValue<boolean> | null>(null);
   const [pendingFontSize, setPendingFontSize] = useState<PendingValue<number> | null>(null);
   const stateRef = useRef<ChildState | null>(null);
   const session = useRef<string | null>(null);
@@ -36,7 +35,6 @@ export default function DetachedChat() {
     if (!current || !id || !isChatAction(action)) return;
     const next = ++sequence.current;
     if (action.type === 'prompt') setPendingPrompt({ sequence: next, value: action.value });
-    if (action.type === 'disclosure') setPendingDisclosure({ sequence: next, value: action.value });
     if (action.type === 'chat-font-size') setPendingFontSize({ sequence: next, value: action.value });
     const frame: ChatActionFrame = { session: id, sequence: next, workspaceId: current.snapshot.workspace.id, epoch: current.snapshot.workspace.epoch, action };
     // In particular, prompt-before-send and prompt-before-dock preserve ordering.
@@ -48,7 +46,6 @@ export default function DetachedChat() {
       if (mounted.current && stateRef.current && sameChatScope(frame, stateRef.current.snapshot)) {
         setError(normalizeError(problem).message);
         setPendingPrompt(null);
-        setPendingDisclosure(null);
         setPendingFontSize(null);
       }
     });
@@ -82,11 +79,9 @@ export default function DetachedChat() {
         const changedWorkspace = previous && !sameChatScope({ workspaceId: previous.snapshot.workspace.id, epoch: previous.snapshot.workspace.epoch }, snapshot);
         if (changedWorkspace) {
           setPendingPrompt(null);
-          setPendingDisclosure(null);
           setPendingFontSize(null);
         } else {
           setPendingPrompt(pending => pending && pending.sequence > frame.acknowledged ? pending : null);
-          setPendingDisclosure(pending => pending && pending.sequence > frame.acknowledged ? pending : null);
           setPendingFontSize(pending => pending && pending.sequence > frame.acknowledged ? pending : null);
         }
         const next = { snapshot, settings, revision: frame.revision, acknowledged: frame.acknowledged };
@@ -131,7 +126,6 @@ export default function DetachedChat() {
   const snapshot = state && {
     ...state.snapshot,
     prompt: pendingPrompt?.value ?? state.snapshot.prompt,
-    disclosure: pendingDisclosure?.value ?? state.snapshot.disclosure,
   };
   return <main className="detached-chat" style={{ height: '100dvh', display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
     {error && <div className="agent-error" role="alert"><p>{error}</p>{snapshot ? <button type="button" onClick={() => onAction({ type: 'dock' })}>{t('주 창에 붙이기', 'Return to main window')}</button> : <button type="button" onClick={() => { setError(null); void readyRef.current().catch(problem => setError(normalizeError(problem).message)); }}>{t('다시 연결', 'Reconnect')}</button>}</div>}

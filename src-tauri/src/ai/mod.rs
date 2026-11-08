@@ -525,12 +525,6 @@ pub fn execute(workspace: &Workspace, op: &str, args: Value, emit: Emit) -> AppR
                 })?
                 .to_owned();
             let reasoning_effort = model_catalog::requested_effort(&args)?.map(str::to_owned);
-            if args["disclosureAccepted"] != true {
-                return Err(AppError::new(
-                    "DISCLOSURE_REQUIRED",
-                    "Confirm that selected workspace contents will be sent to the chosen cloud provider",
-                ));
-            }
             let context = frozen_context(workspace, &args)?;
             // UI flushes IME-safe saves before this call; native proposals still revalidate every base hash.
             let account = status(workspace, &args)?;

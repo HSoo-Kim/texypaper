@@ -58,9 +58,6 @@
 .agent-attachment-notice { color:var(--warning); font-size:calc(var(--chat-font-size,.8125rem) * .923077); line-height:1.5; }
 .agent-panel .agent-disclosure { display:flex; flex-direction:row; align-items:flex-start; min-height:1.5rem; gap:.4375rem; margin:0; font-size:calc(var(--chat-font-size,.8125rem) * .923077); line-height:1.5; color:var(--secondary); }
 .agent-disclosure input { margin:.125rem 0 0; flex:none; min-width:1rem; min-height:1rem; }
-.agent-disclosure-notice { color:var(--secondary); font-size:calc(var(--chat-font-size,.8125rem) * .923077); line-height:1.5; }
-.agent-panel .agent-disclosure-notice button { display:inline; padding:0; min-height:0; border:0; background:transparent; color:var(--secondary); text-decoration:underline; text-underline-offset:.15em; cursor:pointer; }
-.agent-panel .agent-disclosure-notice button:hover:not(:disabled) { color:var(--text); }
 .agent-panel .agent-prompt-label { position:absolute; width:1px; height:1px; clip-path:inset(50%); overflow:hidden; margin:0; }
 .agent-panel .agent-composer textarea { display:block; width:100%; min-height:3.5rem; max-height:14rem; resize:vertical; background:var(--subtle); font-size:var(--chat-font-size,.8125rem); line-height:1.55; }
 .agent-composer-footer { display:flex; flex-wrap:wrap; align-items:flex-end; gap:.375rem; min-height:1.875rem; flex-shrink:0; position:sticky; bottom:0; z-index:1; padding-top:.375rem; background:var(--surface); }

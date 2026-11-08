@@ -71,10 +71,6 @@ export async function exerciseAgent({ page, provider, readSource, writeSource, o
     assert(await auth.getAttribute('data-status') === 'ready', `${provider} ${authCode}: ${authText}. Use official TexyPaper provider login; Codex requires its isolated CODEX_HOME ChatGPT login, Claude requires claude.ai subscription authentication.`);
     result.auth = { status: 'ready', text: authText };
     await page.getByTestId('chat-settings-back').click();
-    const consent = page.locator('.agent-disclosure input[type="checkbox"]');
-    const remembered = page.getByTestId('agent-disclosure-notice');
-    await waitFor(async () => await consent.count() + await remembered.count() === 1, { label: `${provider} AI disclosure state` });
-    if (await consent.count()) await consent.check();
     const metrics = await readSource('results/metrics.csv');
     const code = await readSource('code/analysis.py');
     const numericEvidence = [...metrics.matchAll(/(?:^|,)(\d+\.\d+)(?=,|\s|$)/gm)].map((match) => match[1]);

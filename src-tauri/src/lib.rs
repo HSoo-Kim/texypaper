@@ -63,54 +63,12 @@ fn validate_chat_settings(settings: &Value) -> AppResult<()> {
             "Chat font size must be an integer from 11 to 24",
         ));
     }
-    if let Some(accepted) = settings.get("aiDisclosureAccepted") {
-        let valid = accepted.as_object().is_some_and(|providers| {
-            providers.iter().all(|(provider, accepted)| {
-                matches!(provider.as_str(), "codex" | "claude") && accepted.as_bool() == Some(true)
-            })
-        });
-        if !valid {
-            return Err(AppError::new(
-                "INVALID_SETTINGS",
-                "AI disclosure acceptance must contain only codex/claude entries with value true",
-            ));
-        }
-    }
     Ok(())
 }
 
 #[cfg(test)]
 mod chat_settings_tests {
     use super::*;
-
-    #[test]
-    fn disclosure_settings_accept_only_explicit_provider_opt_ins() {
-        for settings in [
-            json!({}),
-            json!({"aiDisclosureAccepted": {}}),
-            json!({"aiDisclosureAccepted": {"codex": true}}),
-            json!({"aiDisclosureAccepted": {"codex": true, "claude": true}}),
-        ] {
-            assert!(validate_chat_settings(&settings).is_ok());
-        }
-        for accepted in [
-            Value::Null,
-            json!(true),
-            json!([]),
-            json!({"codex": false}),
-            json!({"claude": "true"}),
-            json!({"codex": 1}),
-            json!({"other": true}),
-            json!({"codex": true, "disclosure": true}),
-        ] {
-            assert_eq!(
-                validate_chat_settings(&json!({"aiDisclosureAccepted": accepted}))
-                    .unwrap_err()
-                    .code,
-                "INVALID_SETTINGS"
-            );
-        }
-    }
 
     #[test]
     fn chat_font_size_settings_are_bounded_integers() {
@@ -154,6 +112,8 @@ async fn app_settings(
     for (key, value) in settings.as_object().expect("validated settings object") {
         merged.insert(key.clone(), value.clone());
     }
+    // The AI cloud-transfer consent was retired in 0.0.9; drop its stale value on the next write.
+    merged.remove("aiDisclosureAccepted");
     let merged = Value::Object(merged);
     if serde_json::to_vec(&merged)?.len() > 65536 {
         return Err(AppError::new(

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.9 — 2026-11-08
+
+### AI
+
+- The cloud-transfer consent checkbox (“I agree to send selected content and requested files to … cloud”), its remembered note and **Revoke consent** are removed. The AI providers are the official Codex and Claude Code CLIs, whose models run in the provider's cloud, so sending a request is the transfer; the extra step added nothing. **Send** now only needs a prompt and a ready account. What actually left the PC is still listed under **Sent to OpenAI/Anthropic**. The stored `aiDisclosureAccepted` setting is no longer read and is dropped the next time settings are saved, and the native `agent_start` no longer requires `disclosureAccepted`.
+
 ## 0.0.8 — 2026-11-08
 
 ### Editor

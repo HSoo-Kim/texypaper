@@ -1,8 +1,23 @@
-# Verification — TexyPaper 0.0.8
+# Verification — TexyPaper 0.0.9
 
 Evidence is generated under ignored `artifacts/` directories. The scripts use isolated synthetic papers and app-data; no user paper is a writable fixture. A passing unit suite is not presented as proof of a desktop, SSH, model or installer interaction.
 
-## Current release — TexyPaper 0.0.8 / 현재 릴리스
+## Current release — TexyPaper 0.0.9 / 현재 릴리스
+
+Observed on Windows x64, 2026-11-08 (KST). This release only removes the AI cloud-transfer consent step (checkbox, remembered note, **Revoke consent**, the stored `aiDisclosureAccepted` setting and the native `disclosureAccepted` requirement). Runtime checks used a separately compiled hidden-start verification binary of the 0.0.9 source; the distributed binaries are normal-start builds. All fixtures and profiles were synthetic and isolated.
+
+| Exercise | Observed result | Evidence |
+| --- | --- | --- |
+| Frontend | TypeScript check passed; 479 tests across 36 files passed. The composer test now requires an enabled **Send** with no checkbox for a ready account, and a disabled one without a prompt or subscription | `pnpm typecheck`, `pnpm test` |
+| Native | Formatting and strict Clippy passed; 161 tests passed (the consent-setting test was removed; the relay tests now reject extra fields generically) | Cargo output |
+| Composer in the real app | With both Codex and Claude selected, the composer had no checkbox and no consent text, and **Send** was present. An isolated profile seeded with `aiDisclosureAccepted` no longer contained it after the app's next settings write | `artifacts/consent-probe-01/run-1/probe.json`, `composer-codex.png`, `composer-claude.png` |
+| Feature, usability, desktop, SSH suites | All passed once: features 10, usability 14, desktop 22 (native save dialog not run), SSH 14 | `artifacts/features-009-01/`, `usability-009-01/`, `desktop-009-01/`, `ssh-009-01/` |
+| Production distribution and package integrity | Normal visible-start release and NSIS build with the production release feed, packaged by `pnpm package:release`; executable and installer report 0.0.9 and are unsigned. 655 payload files; license files match source in both distributions; the installer's executable differs from the normal one only in the three-byte bundle marker | `artifacts/texypaper-release-0.0.9/release-manifest.json`, `package-proof.json`, `SHA256SUMS.txt` |
+| Local installation | The running 0.0.8 app was stopped on the user's standing request and 0.0.9 was installed silently. `settings.json` and the profile file list did not change during the install, the installed payload equals the portable payload apart from the bundle marker and `uninstall.exe`, and one 0.0.9 instance was launched afterwards | `artifacts/texypaper-release-0.0.9/local-installation.json` |
+
+**Not exercised:** sending to a real provider (no signed-in provider account in the test profiles), so an `agent_start` without `disclosureAccepted` was not run end to end; the check was deleted from that command. The 0.0.8 limits below still apply.
+
+## Previous release — TexyPaper 0.0.8 / 이전 릴리스
 
 Observed on Windows x64, 2026-11-08 (KST). This release adds line-number selection, automatic checkpoints, the **Sent to** record, adaptive SSH polling and one-diagnostic-per-error builds, fixes the COM apartment conflict behind “PDF export cancelled”, loads rarely used parts of the window on demand, and adds CI, a release packager and an optional signing path. Runtime checks used a separately compiled hidden-start verification binary of the final 0.0.8 source (no baked-in update feed); the distributed binaries are normal-start builds. All fixtures and profiles were synthetic and isolated; no real paper or normal account store was used.
 
@@ -30,7 +45,7 @@ Two incidents on the user's session: the desktop suite opened the real PDF save 
 
 **Not exercised:** the native PDF save dialog in the real app after the COM fix (needs the user's permission, because it appears on screen); a real Explorer drag (desktop automation was refused: “private file DACL grants an untrusted principal”); the **Sent to** record with a live provider, so the record written at the provider handoff is covered by native tests and the pending state by the app; the Windows English dictionary branch (this PC has only Korean); trusted signing (no certificate); memory at 100% scale; CI, which first runs on the release push. macOS, cloud accounts and real-time collaboration are not supplied.
 
-## Previous release — TexyPaper 0.0.7 / 이전 릴리스
+## Earlier release — TexyPaper 0.0.7 / 이전 릴리스
 
 Observed on Windows x64, 2026-11-08 (KST). This release only returns the editor's line numbers to the Overleaf rule (CodeMirror's own gutter: one number per source line on its first row, nothing on wrapped rows) and removes the `↳` rows added in 0.0.6. No native source changed. Runtime checks used a separately compiled hidden-start verification binary of the 0.0.7 source (no baked-in update feed); the distributed binaries are normal-start builds. All fixtures and profiles were synthetic and isolated; no real paper or normal account store was used.
 

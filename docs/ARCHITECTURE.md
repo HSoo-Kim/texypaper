@@ -230,9 +230,9 @@ MCP 파일 읽기는 private key·`.env*`·credential·`.git` 내부·auth/histo
 `execution.rs`의 `deny|ask|session` 권한은 workspace ID+epoch에 묶인 메모리 상태이며 프로젝트 JSON이나 모델 인자로 설정할 수 없습니다. 기본값은 `ask`; `session`은 UI의 별도 위험 확인을 요구합니다. 승인 API는 staged ID만 받으며 argv를 바꾸거나 같은 ID를 재실행할 수 없습니다. 로컬은 Windows Job Object, 원격은 worker의 POSIX process group을 소유합니다. stdin은 닫고 stdout/stderr를 독립적으로 drain하며, 취소·권한 해제·종료는 실제 트리가 멈출 때까지 기다립니다. 원격 결과를 확인할 수 없는 전송 실패는 `COMMAND_REMOTE_UNCERTAIN`으로 표시하고 재실행하지 않습니다. 명령 상태 snapshot은 반복 출력 누적을 피하려고 대화 journal에 저장하지 않으며 현재 연결에서 제한된 결과를 다음 AI 턴에 전달합니다.
 
 
-작업 전 UI는 저장을 flush하고 선택 문맥·공급자·모델을 고정하며 cloud disclosure를 확인받습니다. 보이는 진행/답변만 제한된 history로 남기고 숨겨진 chain-of-thought는 저장하지 않습니다. 현재 실행은 턴 종료 시 transport를 닫고 session/thread ID를 저장해 다음 실행에서 resume하므로 idle prewarm 서버가 없습니다. 취소는 interrupt 후 2초 grace와 owned tree 종료를 사용합니다.
+작업 전 UI는 저장을 flush하고 선택 문맥·공급자·모델을 고정합니다. 공식 CLI는 공급자 클라우드의 모델로 동작하므로 보내기 자체가 전송이며 별도 동의 단계는 없습니다(0.0.9에서 제거). 보이는 진행/답변만 제한된 history로 남기고 숨겨진 chain-of-thought는 저장하지 않습니다. 현재 실행은 턴 종료 시 transport를 닫고 session/thread ID를 저장해 다음 실행에서 resume하므로 idle prewarm 서버가 없습니다. 취소는 interrupt 후 2초 grace와 owned tree 종료를 사용합니다.
 
-선택 문맥은 암묵적으로 공유되지 않습니다. 사용자가 우클릭이나 `Ctrl+L`로 첨부한 소스 구간(`sources`)과 PDF 인용(`pdfs`)만 `agent_start`의 `context`로 전달합니다(종류별 최대 8개, 전체 JSON 128KiB). native는 각 소스의 읽기 허용과 선택 텍스트의 현재 파일 포함 여부를 검증하고 소스별 base hash를 붙입니다. 클라우드 전송 동의는 공급자별로 설정 `aiDisclosureAccepted`에 한 번 저장할 수 있지만 native는 계속 `disclosureAccepted:true` 없는 시작을 거부하며, 복구·읽기 위치 기록과 분리 창 patch는 동의를 만들거나 되살리지 못합니다.
+선택 문맥은 암묵적으로 공유되지 않습니다. 사용자가 우클릭이나 `Ctrl+L`로 첨부한 소스 구간(`sources`)과 PDF 인용(`pdfs`)만 `agent_start`의 `context`로 전달합니다(종류별 최대 8개, 전체 JSON 128KiB). native는 각 소스의 읽기 허용과 선택 텍스트의 현재 파일 포함 여부를 검증하고 소스별 base hash를 붙입니다. 복구·읽기 위치 기록과 분리 창 patch는 실행 권한을 만들거나 되살리지 못합니다.
 
 ## 11. 설정, 색상과 업데이트
 

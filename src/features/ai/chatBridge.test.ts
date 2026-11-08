@@ -7,7 +7,7 @@ function snapshot(): ChatSnapshot {
     workspace: { id: 'workspace', epoch: 3, environmentId: 'local', root: 'C:/fixture' },
     provider: 'codex', model: 'model', reasoningEffort: '', account: null,
     configuration: { models: [], allowCustom: false, loading: false, instructions: false, executable: '', error: null },
-    prompt: 'draft', disclosure: true, busy: false, status: 'idle', taskId: '', sessionId: '', loginUrl: '', error: null,
+    prompt: 'draft', busy: false, status: 'idle', taskId: '', sessionId: '', loginUrl: '', error: null,
     history: [], proposals: [], proposalBusy: [], context: {}, pages: [], historyPage: '', settingsOpen: false,
     executionPermission: 'ask', executions: [],
   };
@@ -73,13 +73,12 @@ describe('main-owned chat patches', () => {
     expect(() => applyChatPatch(previous, { changes: {}, history: { start: 1, deleteCount: 3, rows: [] } })).toThrow();
     expect(() => applyChatPatch(previous, { changes: {}, history: { start: 0.5, deleteCount: 0, rows: [] } })).toThrow();
   });
-  it('round-trips historical reading state through detach patches without restoring consent', () => {
-    const previous = { ...snapshot(), disclosure: false, executionPermission: 'ask' as const };
+  it('round-trips historical reading state through detach patches without restoring execution permission', () => {
+    const previous = { ...snapshot(), executionPermission: 'ask' as const };
     const readingPosition = { provider: 'claude' as const, historyPage: 'history-123.jsonl', following: false, scrollTop: 240, anchor: { id: 'message', inset: 16 } };
     const next = { ...previous, readingPosition };
     const restored = applyChatPatch(previous, diffChatSnapshot(previous, next));
     expect(restored.readingPosition).toEqual(readingPosition);
-    expect(restored.disclosure).toBe(false);
     expect(restored.executionPermission).toBe('ask');
   });
 
@@ -116,11 +115,9 @@ describe('detached intent boundaries', () => {
     expect(isChatAction({ type: 'decide', id: '', decision: 'apply' })).toBe(false);
     expect(isChatAction({ type: '__proto__' })).toBe(false);
   });
-  it('allows chat size and chip intents without allowing them to inject consent', () => {
+  it('allows chat size and chip intents with exact fields only', () => {
     expect(isChatAction({ type: 'chat-font-size', value: 11 })).toBe(true);
     expect(isChatAction({ type: 'chat-font-size', value: 24 })).toBe(true);
-    expect(isChatAction({ type: 'revoke-disclosure' })).toBe(true);
-    expect(isChatAction({ type: 'disclosure', value: true })).toBe(true);
     for (const type of ['context-remove', 'context-open']) {
       expect(isChatAction({ type, kind: 'source', index: 0 })).toBe(true);
       expect(isChatAction({ type, kind: 'pdf', index: 7 })).toBe(true);
@@ -128,23 +125,22 @@ describe('detached intent boundaries', () => {
       expect(isChatAction({ type, kind: 'source', index: -1 })).toBe(false);
       expect(isChatAction({ type, kind: 'pdf', index: .5 })).toBe(false);
       expect(isChatAction({ type, kind: 'other', index: 0 })).toBe(false);
-      expect(isChatAction({ type, kind: 'source', index: 0, disclosure: true })).toBe(false);
+      expect(isChatAction({ type, kind: 'source', index: 0, extra: true })).toBe(false);
     }
     for (const action of [
       { type: 'chat-font-size', value: 25 },
       { type: 'chat-font-size', value: 13.5 },
       { type: 'chat-font-size', value: NaN },
-      { type: 'chat-font-size', value: 14, disclosure: true },
-      { type: 'revoke-disclosure', value: true },
-      { type: 'provider', value: 'claude', aiDisclosureAccepted: { claude: true } },
-      { type: 'model', value: 'model', disclosure: true },
-      { type: 'settings', value: true, aiDisclosureAccepted: { codex: true } },
+      { type: 'chat-font-size', value: 14, extra: true },
+      { type: 'provider', value: 'claude', extra: true },
+      { type: 'model', value: 'model', extra: true },
+      { type: 'settings', value: true, extra: true },
     ]) expect(isChatAction(action)).toBe(false);
   });
-  it('accepts reading-only intents and rejects consent injection or invalid positions', () => {
+  it('accepts reading-only intents and rejects extra fields or invalid positions', () => {
     const value = { provider: 'claude', historyPage: 'history-123.jsonl', following: false, scrollTop: 240, anchor: { id: 'message', inset: -16 } };
     expect(isChatAction({ type: 'reading-position', value })).toBe(true);
-    for (const change of [{ disclosure: true }, { disclosureRemembered: true }, { aiDisclosureAccepted: { claude: true } }, { context: { sources: [] } }, { executionPermission: 'session' }, { sessionId: 'restored' }, { scrollTop: Infinity }, { scrollTop: -1 }, { historyPage: '../current.jsonl' }, { historyPage: 'C:current.jsonl' }, { anchor: { id: 'message', inset: NaN } }]) {
+    for (const change of [{ extra: true }, { context: { sources: [] } }, { executionPermission: 'session' }, { sessionId: 'restored' }, { scrollTop: Infinity }, { scrollTop: -1 }, { historyPage: '../current.jsonl' }, { historyPage: 'C:current.jsonl' }, { anchor: { id: 'message', inset: NaN } }]) {
       expect(isChatAction({ type: 'reading-position', value: { ...value, ...change } })).toBe(false);
     }
     expect(isChatAction({ type: 'history', page: '../../current.jsonl' })).toBe(false);
