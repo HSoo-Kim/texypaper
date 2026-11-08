@@ -1,8 +1,21 @@
-# Verification — TexyPaper 0.0.9
+# Verification — TexyPaper 0.0.10
 
 Evidence is generated under ignored `artifacts/` directories. The scripts use isolated synthetic papers and app-data; no user paper is a writable fixture. A passing unit suite is not presented as proof of a desktop, SSH, model or installer interaction.
 
-## Current release — TexyPaper 0.0.9 / 현재 릴리스
+## Current release — TexyPaper 0.0.10 / 현재 릴리스
+
+Observed on Windows x64, 2026-11-08 (KST). This release fixes concurrent atomic writes to one file on Windows. The 0.0.9 release commit's CI run failed once in `execution::tests::pending_deny_duplicate_and_epoch_authority`: reopening a project returned OS error 183 (“Cannot create a file when that file already exists”), and a second test then failed on the poisoned lock. Rerunning the same job passed, so it was a race. `replace` checked whether the target existed and then moved the temporary file without permission to replace; a second writer creating the target in between made the move fail. With that alone fixed, eight concurrent writers then hit OS error 5 from overlapping `ReplaceFileW` calls.
+
+| Exercise | Observed result | Evidence |
+| --- | --- | --- |
+| Regression test | `concurrent_writers_creating_the_same_file_all_succeed` (8 threads × 40 new files) failed with OS error 183 before the change, then with OS error 5 after only the retry was added, and passes with the per-target lock (3 consecutive runs) | Cargo output |
+| Native and frontend | Formatting and strict Clippy passed; 162 Rust tests and 479 frontend tests passed | Cargo output, `pnpm test` |
+| SSH suite | The first run failed at template creation: an automatic build from the preceding restore/undo started after the harness waited for builds to finish, and the suite did not answer the resulting **진행 중인 작업** dialog. The harness now answers it with **중지하고 계속**; the next 2 runs passed all 14 scenarios | `artifacts/ssh-010-01/` (failed, not counted), `ssh-010-02/`, `ssh-010-03/` |
+| Feature, usability, desktop suites | All passed once: features 10, usability 14, desktop 22 (native save dialog not run) | `artifacts/features-010-01/`, `usability-010-01/`, `desktop-010-01/` |
+| Production distribution and package integrity | Normal visible-start release and NSIS build with the production release feed, packaged by `pnpm package:release`; executable and installer report 0.0.10 and are unsigned. 655 payload files; license files match source in both distributions; the installer's executable differs from the normal one only in the three-byte bundle marker | `artifacts/texypaper-release-0.0.10/release-manifest.json`, `package-proof.json`, `SHA256SUMS.txt` |
+| Local installation | The running 0.0.9 app was stopped on the user's standing request and 0.0.10 was installed silently. `settings.json` and the profile file list did not change during the install, the installed payload equals the portable payload apart from the bundle marker and `uninstall.exe`, and one 0.0.10 instance was launched afterwards | `artifacts/texypaper-release-0.0.10/local-installation.json` |
+
+## Previous release — TexyPaper 0.0.9 / 이전 릴리스
 
 Observed on Windows x64, 2026-11-08 (KST). This release only removes the AI cloud-transfer consent step (checkbox, remembered note, **Revoke consent**, the stored `aiDisclosureAccepted` setting and the native `disclosureAccepted` requirement). Runtime checks used a separately compiled hidden-start verification binary of the 0.0.9 source; the distributed binaries are normal-start builds. All fixtures and profiles were synthetic and isolated.
 
@@ -17,7 +30,7 @@ Observed on Windows x64, 2026-11-08 (KST). This release only removes the AI clou
 
 **Not exercised:** sending to a real provider (no signed-in provider account in the test profiles), so an `agent_start` without `disclosureAccepted` was not run end to end; the check was deleted from that command. The 0.0.8 limits below still apply.
 
-## Previous release — TexyPaper 0.0.8 / 이전 릴리스
+## Earlier release — TexyPaper 0.0.8 / 이전 릴리스
 
 Observed on Windows x64, 2026-11-08 (KST). This release adds line-number selection, automatic checkpoints, the **Sent to** record, adaptive SSH polling and one-diagnostic-per-error builds, fixes the COM apartment conflict behind “PDF export cancelled”, loads rarely used parts of the window on demand, and adds CI, a release packager and an optional signing path. Runtime checks used a separately compiled hidden-start verification binary of the final 0.0.8 source (no baked-in update feed); the distributed binaries are normal-start builds. All fixtures and profiles were synthetic and isolated; no real paper or normal account store was used.
 

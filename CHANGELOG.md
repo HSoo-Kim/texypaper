@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.10 — 2026-11-08
+
+### Fixes
+
+- Two saves of the same new file at the same moment could fail on Windows with “Cannot create a file when that file already exists” (or “Access is denied”). It showed up in CI when a test reopened a project right after a command had written a file there; the likely pair of writers is the closing session's file watcher and the reopened project, both saving the project index. Replacements of one file are now serialized inside the app, and a file that appears between the existence check and the move is replaced instead of reported as an error. A new test with eight concurrent writers failed with OS error 183 before the change and passes now.
+
 ## 0.0.9 — 2026-11-08
 
 ### AI

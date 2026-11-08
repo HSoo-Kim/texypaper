@@ -64,6 +64,34 @@ fn save_waits_for_a_reader_that_briefly_denies_delete_sharing() {
     assert_eq!(leftovers, 0, "temporary replacement file leaked");
 }
 #[test]
+fn concurrent_writers_creating_the_same_file_all_succeed() {
+    // A closing workspace's watcher and a reopened workspace can save the same new index file at once.
+    let dir = root();
+    for round in 0..40 {
+        let target = dir.path().join(format!("state-{round}.json"));
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(8));
+        let writers: Vec<_> = (0..8u8)
+            .map(|writer| {
+                let (target, barrier) = (target.clone(), barrier.clone());
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    transactions::atomic_write(&target, &[writer; 64])
+                })
+            })
+            .collect();
+        for writer in writers {
+            writer.join().unwrap().unwrap();
+        }
+        let bytes = fs::read(&target).unwrap();
+        assert!(bytes.len() == 64 && bytes.iter().all(|byte| *byte == bytes[0]));
+    }
+    assert_eq!(
+        fs::read_dir(dir.path()).unwrap().count(),
+        40,
+        "temporary files leaked"
+    );
+}
+#[test]
 fn same_length_external_write_conflicts() {
     let dir = root();
     let root = fs::canonicalize(dir.path()).unwrap();

@@ -319,7 +319,12 @@ async function remoteFeatures(page, host) {
   if (await consent.count()) await consent.check();
   await page.getByTestId('template-choice-article').check();
   await page.getByTestId('template-create').click();
-  await waitFor(async () => (await host.read('template-target/main.tex').catch(() => '')).includes('\\documentclass'), { timeoutMs: 90000, label: 'template files created on the server' });
+  // An automatic build from the restore/undo above can start after quiet(); switching then asks to stop it first.
+  await waitFor(async () => {
+    const guard = page.getByRole('alertdialog');
+    if (await guard.isVisible().catch(() => false)) await guard.getByRole('button', { name: /^(중지하고 계속|Stop and continue)$/ }).click({ timeout: 2000 }).catch(() => {});
+    return (await host.read('template-target/main.tex').catch(() => '')).includes('\\documentclass');
+  }, { timeoutMs: 90000, label: 'template files created on the server' });
   const project = JSON.parse(await host.read('template-target/.texypaper/project.json'));
   assert(project.rootTex === 'main.tex' && project.engine === 'pdflatex', `Template project settings: ${JSON.stringify(project)}`);
   evidence.template = 'created-on-server';

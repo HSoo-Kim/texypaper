@@ -117,12 +117,25 @@ fn replace(from: &Path, to: &Path) -> AppResult<()> {
     }
     let from_wide: Vec<u16> = from.as_os_str().encode_wide().chain(Some(0)).collect();
     let to_wide: Vec<u16> = to.as_os_str().encode_wide().chain(Some(0)).collect();
+    // Two in-process writers replacing one target at once fail on Windows (access denied
+    // while the other ReplaceFile is in flight), so replacements of a path are serialized.
+    static LOCKS: [std::sync::Mutex<()>; 64] = [const { std::sync::Mutex::new(()) }; 64];
+    let stripe = {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        to.hash(&mut hasher);
+        hasher.finish() as usize % LOCKS.len()
+    };
+    let _guard = LOCKS[stripe]
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     // A TeX engine, indexer or antivirus scanner may briefly hold the target without
     // FILE_SHARE_DELETE. Those failures leave both files in place, so a bounded retry
     // is safe; every other error is reported unchanged.
     const SHARING_VIOLATION: i32 = 32;
     const UNABLE_TO_REMOVE_REPLACED: i32 = 1175;
     const UNABLE_TO_MOVE_REPLACEMENT: i32 = 1176;
+    const ALREADY_EXISTS: i32 = 183;
     const MOVEFILE_REPLACE_EXISTING: u32 = 1;
     const MOVEFILE_WRITE_THROUGH: u32 = 8;
     let mut attempt = 0;
@@ -163,6 +176,9 @@ fn replace(from: &Path, to: &Path) -> AppResult<()> {
                 }
                 return Err(std::io::Error::last_os_error().into());
             }
+            // Another writer created the target after the existence check; replace it
+            // on the next attempt, matching POSIX rename (last writer wins).
+            Some(ALREADY_EXISTS) if !exists && attempt < 40 => attempt += 1,
             Some(SHARING_VIOLATION | UNABLE_TO_REMOVE_REPLACED) if attempt < 40 => {
                 attempt += 1;
                 std::thread::sleep(std::time::Duration::from_millis(25 * attempt.min(4)));
