@@ -197,6 +197,7 @@ AI は `propose_command` を通じてコマンドを提案し、コマンドは�
 - **Detach chat window** でチャットを別ウィンドウにし、**Dock in main window** で戻せます。会話、下書き、閲覧位置、実行中の作業、承認待ちの項目はメインコントローラーで保持します。別ウィンドウを閉じると、チャットはメインウィンドウに戻ります。過去のメッセージを読んだり選択したりしている間は、新しい応答が届いても末尾へスクロールしません。
 - メインウィンドウで**初めて X を押すと**、**Keep running in tray / Exit completely / Cancel** を確認します。トレイでの継続を選択した後は、X でメインウィンドウと別ウィンドウのチャットをまとめて隠し、AI・コマンド・ビルドは継続します。
 - **File → Exit TexyPaper**、`Ctrl+Shift+Q`、トレイの **Exit TexyPaper** は、作業の停止と未保存内容について確認してから終了します。トレイの **Open TexyPaper**、アイコンのダブルクリック、または同じ Windows ユーザーとプロファイルでの TexyPaper の再起動で、既存のウィンドウを復元します。異なる `--data-dir` を指定すると別のインスタンスになります。Windows の自動起動は設定しません。
+- SSH 切断中に終了する場合は、サーバーの処理が続いている可能性を確認します。未保存の編集は **Keep recovery copy and exit** でこの PC に残し、再接続後にサーバーの内容と比較できます。
 
 Claude サブスクリプションとの連携は、個人利用を想定しています。他者へ配布する前に、[公式のサブスクリプションガイダンス](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan)と [Agent SDK ポリシー](https://code.claude.com/docs/en/agent-sdk/overview)を再確認してください。
 

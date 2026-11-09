@@ -120,23 +120,41 @@ export default function AppShell(){
   useEffect(()=>{setLocale(settings.locale);applyTheme(settings);const media=matchMedia('(prefers-color-scheme: dark)'),update=()=>applyTheme(settings);media.addEventListener('change',update);return()=>media.removeEventListener('change',update);},[settings]);
   useEffect(()=>{void getCurrentWindow().setTheme(settings.theme==='system'?null:settings.theme).catch(showError);},[settings.theme,showError]);
   const flush=useCallback(async()=>{try{await storeRef.current?.flush();return true;}catch(error){showError(error);return false;}},[showError]);
-  const stopWork=useCallback(async()=>{
+  const stopWork=useCallback(async(allowDisconnected=false)=>{
     const current=active.current;if(!current)return;
-    if(buildActive.current){pendingBuild.current=false;await request('build_cancel',current);await buildRequest.current?.catch(()=>{});}
+    if(buildActive.current){
+      pendingBuild.current=false;
+      try{await request('build_cancel',current);}
+      catch(error){if(!allowDisconnected||!storeRef.current?.remote||normalizeError(error).code!=='SSH_DISCONNECTED')throw error;}
+      await buildRequest.current?.catch(()=>{});
+    }
     await request('agent_cancel',current);
     const commands=await request<{requests:{id:string;status:string}[]}>('command_list',current);
     await Promise.all(commands.requests.filter(command=>command.status==='running').map(command=>request('command_cancel',current,{id:command.id})));
   },[]);
-  const guardSwitch=useCallback(async(reason:'switch'|'quit'='switch')=>{
+  const guardSwitch=useCallback(async(reason:'switch'|'quit'='switch',allowDisconnected=false)=>{
     const currentWorkspace=active.current;
     const runningCommands=currentWorkspace?(await request<{requests:{status:string}[]}>('command_list',currentWorkspace)).requests.some(command=>command.status==='running'):false;
     if(buildActive.current||agentBusy||runningCommands){
-      const answer=await choose(reason==='quit'?t('TexyPaper 종료','Exit TexyPaper'):t('진행 중인 작업'),reason==='quit'?t('TexyPaper를 종료하기 전에 실행 중인 빌드, AI 작업과 명령을 중지할까요?','Stop running builds, AI tasks, and commands before exiting TexyPaper?'):t('프로젝트를 바꾸기 전에 실행 중인 빌드, AI 작업과 명령을 중지해야 합니다.','Stop running builds, AI tasks, and commands before switching projects.'),[{label:reason==='quit'?t('중지하고 종료','Stop and exit'):t('중지하고 계속'),value:'stop'},{label:reason==='quit'?t('취소'):t('현재 프로젝트에 머무르기'),value:'cancel'}]);
-      if(answer!=='stop')return false;await stopWork();
+      const message=reason==='quit'&&allowDisconnected
+        ?t('로컬 작업을 중지하고 종료할까요? SSH 연결이 끊겨 서버 작업의 종료 여부는 확인할 수 없습니다.','Stop local work and exit? The SSH connection is lost, so remote work cannot be confirmed stopped.')
+        :reason==='quit'?t('TexyPaper를 종료하기 전에 실행 중인 빌드, AI 작업과 명령을 중지할까요?','Stop running builds, AI tasks, and commands before exiting TexyPaper?'):t('프로젝트를 바꾸기 전에 실행 중인 빌드, AI 작업과 명령을 중지해야 합니다.','Stop running builds, AI tasks, and commands before switching projects.');
+      const answer=await choose(reason==='quit'?t('TexyPaper 종료','Exit TexyPaper'):t('진행 중인 작업'),message,[{label:reason==='quit'?t('중지하고 종료','Stop and exit'):t('중지하고 계속'),value:'stop'},{label:reason==='quit'?t('취소'):t('현재 프로젝트에 머무르기'),value:'cancel'}]);
+      if(answer!=='stop')return false;await stopWork(reason==='quit'&&allowDisconnected);
     }
     const current=storeRef.current;if(current&&[...current.records.values()].some(buffer=>buffer.dirty)){
-      const answer=await choose(t('저장하지 않은 변경'),t('열린 파일의 변경 사항을 어떻게 처리할까요?'),[{label:t('모두 저장'),value:'save'},{label:t('변경 버리기'),value:'discard'},{label:t('취소'),value:'cancel'}]);
-      if(answer==='cancel')return false;if(answer==='save'&&!await flush())return false;if(answer==='discard'){const paths=[...current.records.values()].filter(buffer=>buffer.dirty).map(buffer=>buffer.path);if(reason==='quit')quitDiscardPaths.current=paths;for(const path of paths)await request('recovery_clear',current.workspace,{path});current.discard();}
+      const offline=reason==='quit'&&allowDisconnected&&current.remote;
+      const answer=await choose(t('저장하지 않은 변경'),offline?t('SSH 연결이 끊겨 서버에 저장할 수 없습니다. 이 컴퓨터에 복구본을 남기고 종료하거나 변경을 버리세요.','SSH is disconnected, so changes cannot be saved to the server. Keep a local recovery copy or discard the changes.'):t('열린 파일의 변경 사항을 어떻게 처리할까요?'),offline?[{label:t('복구본 남기고 종료','Keep recovery copy and exit'),value:'recover'},{label:t('변경 버리기'),value:'discard'},{label:t('취소'),value:'cancel'}]:[{label:t('모두 저장'),value:'save'},{label:t('변경 버리기'),value:'discard'},{label:t('취소'),value:'cancel'}]);
+      if(answer==='cancel')return false;
+      if(answer==='save'&&!await flush()){
+        if(reason==='quit'&&current.remote&&current.disconnected&&!allowDisconnected)throw {code:'SSH_DISCONNECTED',message:'SSH disconnected during save',retryable:true};
+        return false;
+      }
+      if(answer==='discard'){
+        const paths=[...current.records.values()].filter(buffer=>buffer.dirty).map(buffer=>buffer.path);
+        if(reason==='quit')quitDiscardPaths.current=paths;
+        else{for(const path of paths)await request('recovery_clear',current.workspace,{path});current.discard();}
+      }
     }clearTimeout(buildTimer.current);pendingBuild.current=false;return true;
   },[agentBusy,choose,flush,stopWork]);
   const open=useCallback(async(environment:Environment,root:string)=>{
@@ -201,15 +219,30 @@ export default function AppShell(){
   const quit=useCallback(async()=>{
     if(quitInProgress.current||choiceRef.current||opening)return;
     quitInProgress.current=true;quitDiscardPaths.current=[];
+    const confirmOffline=async()=>await choose(t('SSH 연결이 끊긴 상태에서 종료','Exit with SSH disconnected'),t('서버에 연결할 수 없어 원격 빌드나 명령이 종료됐는지 확인할 수 없습니다. 앱을 종료해도 서버 작업이 계속될 수 있습니다.','The server is unreachable, so TexyPaper cannot confirm that remote builds or commands have stopped. They may continue after the app exits.'),[{label:t('계속 종료','Exit anyway'),value:'exit'},{label:t('취소'),value:'cancel'}])==='exit';
     try{
-      if(!await guardSwitch('quit'))return;
-      setOpening(true);clearTimeout(buildTimer.current);pendingBuild.current=false;
-      await stopWork();await storeRef.current?.persistRecovery();
-      await flushWorkspaceState();
-      const current=active.current;
-      await native('app_quit',{workspaceId:current?.id??null,epoch:current?.epoch??null,discardPaths:quitDiscardPaths.current});
+      let allowDisconnected=false;
+      if(storeRef.current?.remote&&storeRef.current.disconnected){if(!await confirmOffline())return;allowDisconnected=true;}
+      for(;;){
+        quitDiscardPaths.current=[];
+        try{
+          if(!await guardSwitch('quit',allowDisconnected))return;
+          setOpening(true);clearTimeout(buildTimer.current);pendingBuild.current=false;
+          await stopWork(allowDisconnected);await storeRef.current?.persistRecovery();
+          await flushWorkspaceState();
+          const current=active.current;
+          await native('app_quit',{workspaceId:current?.id??null,epoch:current?.epoch??null,discardPaths:quitDiscardPaths.current,allowDisconnected});
+          return;
+        }catch(error){
+          setOpening(false);
+          if(!allowDisconnected&&storeRef.current?.remote&&normalizeError(error).code==='SSH_DISCONNECTED'){
+            if(!await confirmOffline())return;allowDisconnected=true;continue;
+          }
+          throw error;
+        }
+      }
     }catch(error){showError(error);}finally{quitInProgress.current=false;setOpening(false);}
-  },[guardSwitch,opening,stopWork,showError,flushWorkspaceState]);
+  },[choose,guardSwitch,opening,stopWork,showError,flushWorkspaceState]);
   const quitRef=useRef(quit);quitRef.current=quit;
   useEffect(()=>{const unlisten=getCurrentWindow().listen('texypaper:quit-requested',()=>void quitRef.current());return()=>{void unlisten.then(dispose=>dispose());};},[]);
   const trayPromptPending=useRef(false);

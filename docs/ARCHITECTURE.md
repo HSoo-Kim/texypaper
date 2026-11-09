@@ -32,6 +32,8 @@ React는 파일시스템·임의 shell 권한을 갖지 않습니다. `src/api.t
 
 `tray.rs`는 첫 메인 X를 막고 main-only `texypaper:tray-close-requested`로 설명을 요청합니다. main-only `app_hide_to_tray({acknowledge:true})`가 원자적으로 `trayCloseExplained`를 저장한 뒤 창들을 숨기며 일반 settings API로는 이를 설정할 수 없습니다. 이후 X는 메인·분리 창을 보존해 숨기므로 작업과 권한 epoch가 유지됩니다. 파일 메뉴·단축키·트레이의 명시적 종료는 같은 UI 저장/버리기/취소와 작업 중지 확인 뒤 main-only `app_quit`으로 진행합니다. native 종료 중에는 새 앱 작업을 막고, 실제 소유 프로세스·변경 작업의 종료를 확인한 뒤 workspace와 창을 닫습니다. 정리를 확인하지 못하면 앱을 유지하고 오류를 반환합니다.
 
+SSH가 끊긴 상태의 종료는 원격 작업이 실제 멈췄다고 판단하지 않습니다. 사용자가 서버 작업의 불확실성을 확인한 경우에만 닫힌 SSH 전송의 `SSH_DISCONNECTED` 빌드 취소 실패를 통과하고 로컬 소유 프로세스를 정리합니다. 미저장 편집은 로컬 복구본으로 남기거나 명시적으로 버릴 수 있으며, 버리기를 선택한 뒤 연결이 끊겨 추가 경고에서 종료를 취소해도 편집 내용과 복구본은 보존합니다. 그 외 취소·저장·종료 실패는 계속 오류로 남깁니다.
+
 Windows의 `activation.rs`는 같은 사용자 SID와 canonical profile 경로의 hash로 이름을 만든 restore-only event를 사용합니다. 현재 사용자만 접근할 수 있는 DACL을 적용하고 어떤 파일 경로나 명령 payload도 받지 않습니다. exclusive profile lock의 `PROFILE_IN_USE`일 때만 기존 인스턴스에 복원을 요청합니다. 초기화 전 요청은 큐에 남고 종료 중 요청은 창을 다시 만들지 않습니다. 다른 profile과 migration conflict는 우회하지 않습니다.
 
 

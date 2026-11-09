@@ -195,6 +195,7 @@ A session permission resets when you switch project, reconnect or really quit (h
 - **Detach chat window** detaches the chat and **Dock in main window** brings it back. The conversation, draft, reading position, running work and pending approvals stay with the main controller, and closing the detached window returns the chat to the main window. New replies don't pull the view to the end while you read or select older messages.
 - The main window's **first X** asks **Keep running in tray / Exit completely / Cancel**. After you accept the tray, X hides the main window and the detached chat together while AI, commands and builds keep going.
 - **File → Exit TexyPaper**, `Ctrl+Shift+Q` and the tray's **Exit TexyPaper** confirm stopping work and unsaved content, then quit. The tray's **Open TexyPaper**, a double-click on the icon, or starting TexyPaper again with the same Windows user and profile restores the existing window; a different `--data-dir` is a separate instance. No Windows autostart is configured.
+- When quitting after SSH disconnects, the app warns that remote work may still continue. Choose **Keep recovery copy and exit** to preserve unsaved edits on this PC, then compare them with the server after reconnecting.
 
 The Claude subscription link is meant for personal use. Before distributing to others, re-read the [official subscription guidance](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan) and the [Agent SDK policy](https://code.claude.com/docs/en/agent-sdk/overview).
 

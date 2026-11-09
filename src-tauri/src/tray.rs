@@ -208,6 +208,7 @@ pub async fn app_quit(
     workspace_id: Option<String>,
     epoch: Option<u64>,
     discard_paths: Vec<String>,
+    allow_disconnected: bool,
 ) -> AppResult<()> {
     if window.label() != "main" {
         return Err(AppError::new(
@@ -229,7 +230,16 @@ pub async fn app_quit(
         if let Some(workspace) = &workspace {
             crate::ai::cancel_workspace(&workspace.reference.id, workspace.reference.epoch)?;
             crate::execution::cancel_workspace(&workspace.reference.id, workspace.reference.epoch)?;
-            crate::latex::execute(workspace, "build_cancel", json!({}))?;
+            if let Err(error) = crate::latex::execute(workspace, "build_cancel", json!({})) {
+                // A confirmed offline exit may close the local SSH process, but it
+                // cannot assert that a remote build stopped. Other errors still abort.
+                if !(allow_disconnected
+                    && workspace.ssh_disconnected()
+                    && error.code == "SSH_DISCONNECTED")
+                {
+                    return Err(error);
+                }
+            }
         }
         // Agent cancellation is asynchronous. Never turn a cancellation request into
         // process exit until its owned process and all in-flight mutations have settled.

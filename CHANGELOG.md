@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.12 — 2026-11-09
+
+### Fixes
+
+- Quitting no longer requires a disconnected SSH server to acknowledge build cancellation. Before an offline quit, the app warns that remote work may still be running; unsaved edits can be kept in the local recovery journal for the next reconnect, explicitly discarded, or left open. Cancelling an offline quit no longer discards edits selected for disposal earlier in the same quit attempt.
+
 ## 0.0.11 — 2026-11-09
 
 ### Interface

@@ -94,6 +94,10 @@ pub struct SshBackend {
     inner: Arc<Inner>,
 }
 impl SshBackend {
+    pub(crate) fn is_disconnected(&self) -> bool {
+        self.inner.closed.load(Ordering::Acquire)
+    }
+
     pub fn connect(
         environment: &Environment,
         root: &str,

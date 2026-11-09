@@ -250,6 +250,10 @@ impl Workspace {
             Backend::Local(_) => None,
         }
     }
+    pub(crate) fn ssh_disconnected(&self) -> bool {
+        matches!(&self.inner.backend, Backend::Ssh(remote) if remote.is_disconnected())
+    }
+
     pub fn local_root(&self) -> Option<PathBuf> {
         match &self.inner.backend {
             Backend::Local(root) => Some(root.clone()),

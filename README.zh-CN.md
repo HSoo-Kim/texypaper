@@ -197,6 +197,7 @@ AI 通过 `propose_command` 提出命令；命令在项目实际所在的主机�
 - **Detach chat window** 将聊天分离为独立窗口，**Dock in main window** 将其移回。对话、草稿、阅读位置、运行中的任务和待批准操作仍由主控制器管理；关闭独立窗口会将聊天移回主窗口。当你阅读或选择较早的消息时，新回复不会将视图拉到末尾。
 - 主窗口**第一次点击 X** 时会询问 **Keep running in tray / Exit completely / Cancel**。同意驻留托盘后，点击 X 会同时隐藏主窗口和独立聊天窗口，AI、命令和编译仍会继续运行。
 - **File → Exit TexyPaper**、`Ctrl+Shift+Q` 和托盘中的 **Exit TexyPaper** 会在确认停止任务和处理未保存内容后退出。托盘中的 **Open TexyPaper**、双击图标，或以相同 Windows 用户和配置再次启动 TexyPaper，均会恢复现有窗口；不同的 `--data-dir` 会启动独立实例。应用不会配置 Windows 开机自启。
+- SSH 断开后退出时，应用会提示服务器上的任务可能仍在运行。选择 **Keep recovery copy and exit** 可将未保存的修改保留在本机，重新连接后再与服务器版本比较。
 
 Claude 订阅连接旨在供个人使用。向他人分发前，请重新阅读[官方订阅指南](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan)和 [Agent SDK 政策](https://code.claude.com/docs/en/agent-sdk/overview)。
 

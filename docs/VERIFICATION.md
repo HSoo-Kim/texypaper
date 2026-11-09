@@ -1,8 +1,21 @@
-# Verification — TexyPaper 0.0.11
+# Verification — TexyPaper 0.0.12
 
 Evidence is generated under ignored `artifacts/` directories. The scripts use isolated synthetic papers and app-data; no user paper is a writable fixture. A passing unit suite is not presented as proof of a desktop, SSH, model or installer interaction.
 
-## Current release — TexyPaper 0.0.11 / 현재 릴리스
+## Current release — TexyPaper 0.0.12 / 현재 릴리스
+
+Observed on Windows x64, 2026-11-09. This release permits a confirmed quit after an SSH disconnect without silently claiming that remote work stopped. Runtime checks used a hidden-start verification build, an isolated synthetic paper and profile, and a dedicated loopback SSH host; the user's project, clipboard and profile were not used.
+
+| Exercise | Observed result | Evidence |
+| --- | --- | --- |
+| Frontend | TypeScript check passed; 479 tests across 36 files passed; production frontend build passed | `pnpm typecheck`, `pnpm test`, Tauri build output |
+| Native build | Rust formatting check and hidden-start release build passed | `cargo fmt --check`, Tauri build output |
+| SSH exit | Four scenarios passed: cancelling after a disconnect during a discard confirmation preserves the dirty buffer; confirmed offline quit keeps local recovery and exits; reconnect restores the unsaved content without overwriting the remote file; connected quit still honors discard | `artifacts/ssh-exit-012-01/ssh-exit-results.json` |
+| Production package | Normal-start Windows installer and portable ZIP built with the release feed. Package verification checked all 655 payload files, executable versions and checksums; neither distribution contains the hidden verification executable. The release is unsigned | `artifacts/texypaper-release-0.0.12/release-manifest.json`, `package-proof.json`, `SHA256SUMS.txt` |
+
+The SSH exit test injected the tray's quit event into the main window. It did **not** exercise a physical Windows tray menu, the user's SSH session, or the state of server processes during a real network partition. Older release limitations below still apply.
+
+## Previous release — TexyPaper 0.0.11 / 이전 릴리스
 
 Observed on Windows x64, 2026-11-09. This release removes the visual source/PDF divider grip, rounds the collapse controls and aligns the side-panel control. Runtime checks used a hidden-start verification build with isolated synthetic fixtures; the user's projects, clipboard and profile were not used.
 
