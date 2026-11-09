@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.11 — 2026-11-09
+
+### Interface
+
+- Removed the visible grip above the source/PDF collapse controls. The divider still resizes by dragging or keyboard, shows its help on hover and resets to equal widths on double-click.
+- Rounded the source/PDF collapse and restore buttons to fit their border. The side-panel button now shares their vertical center and moves clear of the restore button when the source is collapsed.
+
 ## 0.0.10 — 2026-11-08
 
 ### Fixes

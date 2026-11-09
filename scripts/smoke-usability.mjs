@@ -189,6 +189,17 @@ try {
     await page.getByTestId('restore-pdf').click();
     await divider.waitFor({ state: 'visible' });
     assert(Math.abs(await number(divider, 'aria-valuenow') - dragged) < 1, 'Restoring the PDF pane must return to the previous ratio.');
+    const restoredBox = await divider.boundingBox();
+    await page.mouse.dblclick(restoredBox.x + restoredBox.width / 2, restoredBox.y + restoredBox.height * 0.2);
+    assert(await number(divider, 'aria-valuenow') === 50, 'Double-clicking the divider must restore equal widths.');
+    await page.getByRole('button', { name: /^(소스 접기|Collapse source)$/ }).click();
+    await page.getByTestId('restore-source').waitFor({ state: 'visible' });
+    await page.getByRole('button', { name: /^(사이드 패널 접기|Collapse side panel)$/ }).click();
+    assert(!await page.getByTestId('file-tree').isVisible(), 'The side panel button must remain clickable beside the restore-source button.');
+    await page.getByTestId('restore-source').click();
+    await divider.waitFor({ state: 'visible' });
+    await page.getByRole('button', { name: /^(탐색기 표시|Show explorer)$/ }).click();
+    await page.getByTestId('file-tree').waitFor({ state: 'visible' });
     return { start, dragged };
   });
 

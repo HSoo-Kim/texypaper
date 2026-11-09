@@ -118,14 +118,17 @@ kbd { border:1px solid var(--border); border-radius:3px; padding:0 .25rem; font-
 .center-divider { position:relative; width:14px; flex:0 0 14px; z-index:20; background:var(--subtle); border-inline:1px solid var(--border); }
 .center-divider>.source-pdf-splitter { position:absolute; inset:0; width:100%; height:100%; border:0; background:transparent; color:var(--secondary); display:flex; justify-content:center; user-select:none; }
 .center-divider>.source-pdf-splitter:hover,.center-divider>.source-pdf-splitter:focus-visible,.center-divider>.source-pdf-splitter[data-dragging=true] { background:var(--selection); color:var(--action); outline-offset:-2px; }
-.splitter-grip { position:absolute; top:calc(50% - 3.75rem); width:5px; height:1.75rem; border-inline:1px solid currentColor; border-radius:2px; pointer-events:none; }
 .center-divider .pane-collapse-group { width:1.625rem; overflow:visible; }
 .center-divider .pane-collapse { width:100%; min-height:1.75rem; }
 .view-source .center-divider .pane-collapse-group,.compact-layout .view-split .center-divider .pane-collapse-group { left:auto; right:0; transform:translateY(-50%); }
 .view-pdf .center-divider .pane-collapse-group { left:0; transform:translateY(-50%); }
-.sidebar-divider>.pane-collapse { right:-.4375rem; }
+.sidebar-divider>.pane-collapse { right:-.4375rem; transform:translateY(-50%); }
+.view-pdf .sidebar-divider>.pane-collapse { right:1px; }
 .pane-collapse-group { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); display:flex; flex-direction:column; overflow:hidden; border:1px solid var(--chrome-border); border-radius:6px; z-index:21; }
 .pane-collapse-group>.pane-collapse { position:static; height:1.25rem; border:0; border-radius:0; }
+.pane-collapse-group>.pane-collapse:first-child { border-radius:5px 5px 0 0; }
+.pane-collapse-group>.pane-collapse:last-child { border-radius:0 0 5px 5px; }
+.pane-collapse-group>.pane-collapse:only-child { border-radius:5px; }
 .pane-collapse-group>.pane-collapse+.pane-collapse { border-top:1px solid var(--chrome-border); }
 .view-split .source-pane { flex:0 0 calc(var(--source-fraction,50%) - 7px); }
 .center-panes { flex:1; display:flex; min-width:0; min-height:0; overflow:hidden; }

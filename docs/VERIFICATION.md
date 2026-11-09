@@ -1,8 +1,22 @@
-# Verification — TexyPaper 0.0.10
+# Verification — TexyPaper 0.0.11
 
 Evidence is generated under ignored `artifacts/` directories. The scripts use isolated synthetic papers and app-data; no user paper is a writable fixture. A passing unit suite is not presented as proof of a desktop, SSH, model or installer interaction.
 
-## Current release — TexyPaper 0.0.10 / 현재 릴리스
+## Current release — TexyPaper 0.0.11 / 현재 릴리스
+
+Observed on Windows x64, 2026-11-09. This release removes the visual source/PDF divider grip, rounds the collapse controls and aligns the side-panel control. Runtime checks used a hidden-start verification build with isolated synthetic fixtures; the user's projects, clipboard and profile were not used.
+
+| Exercise | Observed result | Evidence |
+| --- | --- | --- |
+| Frontend | TypeScript build passed; 479 frontend tests passed | `pnpm build`, `pnpm test` |
+| Split controls in the real app | In light and dark themes, the split and single buttons have rounded corners and visible keyboard focus; the source/PDF divider has no grip. Hover help and resize cursor remain. Arrow key changed the source width 50 → 52%, dragging changed it to 37%, and double-click reset it to 50%. Both adjacent controls could be clicked independently with the source collapsed | `artifacts/pane-probe-011/run-1/` and `run-2/` |
+| Renderer scaling | The split control was captured with device-scale emulation at 1×, 1.25× and 2×. The actual verification WebView reported approximately 1×; emulation is not a Windows display-scale change | `artifacts/pane-probe-011/run-1/split-dpr-*.png` |
+| Usability suite | All 14 scenarios passed, including drag, keyboard, reset, both source/PDF collapse-and-restore paths and the adjacent side-panel button | `artifacts/usability-011-01/usability-results.json` |
+| Production package | Normal-start Windows installer and portable ZIP built with the release feed. Package verification checked all 655 payload files, executable versions and checksums; neither distribution contains the hidden verification executable. The release is unsigned | `artifacts/texypaper-release-0.0.11/release-manifest.json`, `package-proof.json`, `SHA256SUMS.txt` |
+
+**Not exercised for this change:** a real Windows display-scale change, other operating systems, or the user's real project and profile. The older release limitations below still apply.
+
+## Previous release — TexyPaper 0.0.10 / 이전 릴리스
 
 Observed on Windows x64, 2026-11-08 (KST). This release fixes concurrent atomic writes to one file on Windows. The 0.0.9 release commit's CI run failed once in `execution::tests::pending_deny_duplicate_and_epoch_authority`: reopening a project returned OS error 183 (“Cannot create a file when that file already exists”), and a second test then failed on the poisoned lock. Rerunning the same job passed, so it was a race. `replace` checked whether the target existed and then moved the temporary file without permission to replace; a second writer creating the target in between made the move fail. With that alone fixed, eight concurrent writers then hit OS error 5 from overlapping `ReplaceFileW` calls.
 

@@ -34,7 +34,7 @@ pnpm tauri build --ci --target x86_64-pc-windows-msvc --bundles nsis -- --locked
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows-build.ps1
 ```
 
-실행 파일은 `src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.exe`, NSIS 패키지는 같은 release 아래 `bundle/nsis/TexyPaper_0.0.10_x64-setup.exe`에 생성하도록 구성되어 있습니다. `CARGO_TARGET_DIR`을 지정하면 그 경로를 사용합니다. 실제 생성 여부와 설치 결과는 별도로 확인해야 합니다.
+실행 파일은 `src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.exe`, NSIS 패키지는 같은 release 아래 `bundle/nsis/TexyPaper_0.0.11_x64-setup.exe`에 생성하도록 구성되어 있습니다. `CARGO_TARGET_DIR`을 지정하면 그 경로를 사용합니다. 실제 생성 여부와 설치 결과는 별도로 확인해야 합니다.
 
 ```powershell
 $app = (Resolve-Path 'src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.exe').Path
@@ -115,10 +115,10 @@ pnpm measure:memory -AppPath $app -DurationSeconds 120 -Provider codex -Authenti
 설치까지 검사하려면 생성한 NSIS 실행 파일을 정확히 지정합니다. 기존 TexyPaper 설치가 있으면 격리 설치 검사는 덮어쓰지 않고 거부합니다.
 
 ```powershell
-pnpm smoke:desktop --binary $app --installer 'C:\Builds\TexyPaper_0.0.10_x64-setup.exe' --output (Join-Path $run 'installer-desktop')
+pnpm smoke:desktop --binary $app --installer 'C:\Builds\TexyPaper_0.0.11_x64-setup.exe' --output (Join-Path $run 'installer-desktop')
 ```
 
-위 설치 파일 경로는 사용자가 실제 생성한 파일로 바꾸어야 하는 입력 예시입니다. 다음 통합 실행도 보이는 앱 창을 실행하므로 사용자 허가가 필요하며, 설치된 도구와 이름이 정확히 `TexyPaper_0.0.10_x64-setup.exe`인 NSIS 산출물을 요구합니다. 데스크톱 스위트는 `--native-dialogs`를 줄 때만 네이티브 PDF 저장 대화상자를 엽니다. 이 대화상자는 숨김 시험 앱이어도 화면에 나타나기 때문입니다.
+위 설치 파일 경로는 사용자가 실제 생성한 파일로 바꾸어야 하는 입력 예시입니다. 다음 통합 실행도 보이는 앱 창을 실행하므로 사용자 허가가 필요하며, 설치된 도구와 이름이 정확히 `TexyPaper_0.0.11_x64-setup.exe`인 NSIS 산출물을 요구합니다. 데스크톱 스위트는 `--native-dialogs`를 줄 때만 네이티브 PDF 저장 대화상자를 엽니다. 이 대화상자는 숨김 시험 앱이어도 화면에 나타나기 때문입니다.
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows-build.ps1 -RunSmoke -LiveAgents -MeasureMemory -OutputDirectory (Join-Path $env:TEMP ('texypaper-full-' + [guid]::NewGuid().ToString('N')))
