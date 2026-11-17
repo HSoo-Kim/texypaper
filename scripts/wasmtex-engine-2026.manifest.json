@@ -1,0 +1,293 @@
+{
+  "version": "2026",
+  "releaseId": "2026-f5d94438a7c75a23",
+  "legal": {
+    "manifest": "LICENSE-MANIFEST.json",
+    "releaseStatus": "release-cleared",
+    "noticePath": "../../../THIRD_PARTY_NOTICES.md",
+    "requirementsPath": "../../../docs/licensing.md",
+    "correspondingSource": {
+      "url": "https://github.com/corca-ai/wasmtex/releases/download/engine-2026-f5d94438a7c75a23/wasmtex-2026-f5d94438a7c75a23-source.tar.xz",
+      "sha256": "e6a1f9b8ad84c7127368bb521217af381407fcc0d5c5518114345d55b470d637"
+    },
+    "releaseBlockers": []
+  },
+  "buildRuns": {
+    "pdftex-bibtex": 42000911085,
+    "bibtex8": 42000925312,
+    "makeindex": 42000931105,
+    "metafont": 42000936556,
+    "xetex": 42000916012,
+    "luahbtex": 42000920633
+  },
+  "buildReceipts": [
+    {
+      "name": "BUILD-RECEIPT.bibtex.json",
+      "sha256": "7813d1f559d56fd77c8d3e45a2d0d3c598a91301c7fb6fa1e063af392549d2a9",
+      "family": "bibtex",
+      "buildId": "03f144c21fc8491829fd6bda59ddb69bc4c0d7b57b2cf3e5c9a21a8162073dcb",
+      "sourceRevision": "a97db8a62ed86b118bcfcc8784b7752aa8e988ac"
+    },
+    {
+      "name": "BUILD-RECEIPT.bibtex8.json",
+      "sha256": "4330f5942b26b8c9c37117cac2cfead18eb99f3b2e4c5b223e4ffc5ba1e086cf",
+      "family": "bibtex8",
+      "buildId": "07d6a3ec78f8377c8c126634d74ad16293ad1d4e72cde041e12586f128978daa",
+      "sourceRevision": "a97db8a62ed86b118bcfcc8784b7752aa8e988ac"
+    },
+    {
+      "name": "BUILD-RECEIPT.luahbtex.json",
+      "sha256": "4bb79b1f9e8ff176df2b1ff7ab3670f552fa7eab5220f666aefec410471b2a33",
+      "family": "luahbtex",
+      "buildId": "751199b3c53bf4b69f09ab3a30d78fe631c908370b0e405bb3c21de614c0a527",
+      "sourceRevision": "a97db8a62ed86b118bcfcc8784b7752aa8e988ac",
+      "sourceRevisions": [
+        "a97db8a62ed86b118bcfcc8784b7752aa8e988ac",
+        "c8b5f0d1c50d67e917a150b1334ab5ff03d8ae96"
+      ]
+    },
+    {
+      "name": "BUILD-RECEIPT.makeindex.json",
+      "sha256": "71fd4a5bd13fc9489374e6e011c77cb56848990c4d4e3213e271d82c1dbd7b54",
+      "family": "makeindex",
+      "buildId": "82ff2c06f4dbe96da68ffa8ab149f7057fd3ab3df39813af2d1abd4184babb76",
+      "sourceRevision": "a97db8a62ed86b118bcfcc8784b7752aa8e988ac"
+    },
+    {
+      "name": "BUILD-RECEIPT.metafont.json",
+      "sha256": "6beaac875465d453246ca872086aa721e2d9e9a408e98996f8daef65d21d2bea",
+      "family": "metafont",
+      "buildId": "c9f30db0f252022d7003de4184201ff76d3812f1f3a2c7eed1e6956f118c54ff",
+      "sourceRevision": "a97db8a62ed86b118bcfcc8784b7752aa8e988ac"
+    },
+    {
+      "name": "BUILD-RECEIPT.pdftex.json",
+      "sha256": "fcbac46c7f21524a10f5ab5cb5e711a5cf2037243d845bc8135c6906331db7a9",
+      "family": "pdftex",
+      "buildId": "1ebf6852c36707fb1d9b5c1d92f519148c44ee89d934a6d8d1fa965fb4c8d024",
+      "sourceRevision": "a97db8a62ed86b118bcfcc8784b7752aa8e988ac",
+      "sourceRevisions": [
+        "0dddc924cc6e69bd2a4b4630e02efe414f84515e",
+        "a97db8a62ed86b118bcfcc8784b7752aa8e988ac"
+      ]
+    },
+    {
+      "name": "BUILD-RECEIPT.xetex.json",
+      "sha256": "a3a98241fedf5b117ce0655f85e87e725a46060056325c0469befaf4238262dd",
+      "family": "xetex",
+      "buildId": "2ef6ee0c46c077f86123805158f7fe9073e3948aff8589382141970538ce3daf",
+      "sourceRevision": "a97db8a62ed86b118bcfcc8784b7752aa8e988ac",
+      "sourceRevisions": [
+        "0dddc924cc6e69bd2a4b4630e02efe414f84515e",
+        "a97db8a62ed86b118bcfcc8784b7752aa8e988ac"
+      ]
+    }
+  ],
+  "files": [
+    {
+      "name": "BUILD-RECEIPT.bibtex.json",
+      "bytes": 1241,
+      "sha256": "7813d1f559d56fd77c8d3e45a2d0d3c598a91301c7fb6fa1e063af392549d2a9"
+    },
+    {
+      "name": "BUILD-RECEIPT.bibtex8.json",
+      "bytes": 1245,
+      "sha256": "4330f5942b26b8c9c37117cac2cfead18eb99f3b2e4c5b223e4ffc5ba1e086cf"
+    },
+    {
+      "name": "BUILD-RECEIPT.luahbtex.json",
+      "bytes": 6214,
+      "sha256": "4bb79b1f9e8ff176df2b1ff7ab3670f552fa7eab5220f666aefec410471b2a33"
+    },
+    {
+      "name": "BUILD-RECEIPT.makeindex.json",
+      "bytes": 1253,
+      "sha256": "71fd4a5bd13fc9489374e6e011c77cb56848990c4d4e3213e271d82c1dbd7b54"
+    },
+    {
+      "name": "BUILD-RECEIPT.metafont.json",
+      "bytes": 931,
+      "sha256": "6beaac875465d453246ca872086aa721e2d9e9a408e98996f8daef65d21d2bea"
+    },
+    {
+      "name": "BUILD-RECEIPT.pdftex.json",
+      "bytes": 6715,
+      "sha256": "fcbac46c7f21524a10f5ab5cb5e711a5cf2037243d845bc8135c6906331db7a9"
+    },
+    {
+      "name": "BUILD-RECEIPT.xetex.json",
+      "bytes": 6647,
+      "sha256": "a3a98241fedf5b117ce0655f85e87e725a46060056325c0469befaf4238262dd"
+    },
+    {
+      "name": "LICENSE-MANIFEST.json",
+      "bytes": 3564,
+      "sha256": "2fcf3ab799a5542f3082154abb5b5e8f975357d5d52b43b5efc49d8ef346072b"
+    },
+    {
+      "name": "wasmtex-bibtex.js",
+      "bytes": 77802,
+      "sha256": "1355f9aa7a7fa27a514876a448bbe7b17ba07cfb1ec2c1a251a2d4f0ebc9d9b4"
+    },
+    {
+      "name": "wasmtex-bibtex.wasm",
+      "bytes": 205813,
+      "sha256": "7ee47f5959d9f2a0d4cbde264be97472b6c1b7a1da2ca58b67baea759b03c3d6"
+    },
+    {
+      "name": "wasmtex-bibtex.worker.js",
+      "bytes": 9572,
+      "sha256": "73700491b6c38c1d1ba7275e294542dcce9d3ef4485b12dcb63bf53a23a4d990"
+    },
+    {
+      "name": "wasmtex-bibtex8.js",
+      "bytes": 79476,
+      "sha256": "ffd5029614868f153877117ed3a82d9189844137f06b0180b0135735b3d6edc9"
+    },
+    {
+      "name": "wasmtex-bibtex8.wasm",
+      "bytes": 222168,
+      "sha256": "f2ad8f96a35cd5d0b7fd291cd966f0659664bc60ab1d88594af62569a41f1d6c"
+    },
+    {
+      "name": "wasmtex-bibtex8.worker.js",
+      "bytes": 9131,
+      "sha256": "a5a47af842ad07c866708f178b7e431adfbe3c3d5dfd29a8db6bd743c73221b7"
+    },
+    {
+      "name": "wasmtex-dvipdfm.js",
+      "bytes": 86824,
+      "sha256": "7544b3deee749bc7a5d23a02eb12f35e4c799af1989cdfd1a56d6905ba334555"
+    },
+    {
+      "name": "wasmtex-dvipdfm.wasm",
+      "bytes": 835084,
+      "sha256": "6db16f91d02d3fae93e9d576aef912c052f7649dbf5c15b338c59ac3177397e1"
+    },
+    {
+      "name": "wasmtex-dvipdfm.worker.js",
+      "bytes": 23948,
+      "sha256": "aacf3e27ce0cdf47aeebbde57f6259a8a605c99d099a90418557336ba50714d9"
+    },
+    {
+      "name": "wasmtex-kpse-resolve.js",
+      "bytes": 3223,
+      "sha256": "0303650d65055961498677e0e109357b061873b86a063cb901800a2a84b4859d"
+    },
+    {
+      "name": "wasmtex-luatex-checkpoint.js",
+      "bytes": 122783,
+      "sha256": "15af50ec80499d0d411b1d094fa9f8b4aa11386654c5ff6699ca810a33206e98"
+    },
+    {
+      "name": "wasmtex-luatex-checkpoint.wasm",
+      "bytes": 8087608,
+      "sha256": "4ea79ab2b6fc99988da91de62ed18438d6a0f38c71e27fa4d1b9c880af0b9b2a"
+    },
+    {
+      "name": "wasmtex-luatex-resolver-evidence.js",
+      "bytes": 589,
+      "sha256": "f42ab09591de3108ac07635f060cc1fca27571f62a852edf5e6307515b83b728"
+    },
+    {
+      "name": "wasmtex-luatex.fmt.gz",
+      "bytes": 4034143,
+      "sha256": "1e58b5d1ee400e937c5b690cc4e34af20458c42162b0340f8c06903c40a5ed0b"
+    },
+    {
+      "name": "wasmtex-luatex.js",
+      "bytes": 116890,
+      "sha256": "2b16bc7f892a068a548e8950b7d3987f6b23ff2bac4ba6258520739a402906ef"
+    },
+    {
+      "name": "wasmtex-luatex.wasm",
+      "bytes": 8077323,
+      "sha256": "a5d940bf6e8f989c55816ceb06dfad8687100a58d109fa92873175ed4e48b53e"
+    },
+    {
+      "name": "wasmtex-luatex.worker.js",
+      "bytes": 50436,
+      "sha256": "9a065d4c22b05ac7d937956fc3d654079a599744e5e8fb753fa528e7489da084"
+    },
+    {
+      "name": "wasmtex-makeindex.js",
+      "bytes": 77620,
+      "sha256": "1db836b1dfb04fc851f37fca1ab65be6c435b04bbab4c9edeec02686bea622f0"
+    },
+    {
+      "name": "wasmtex-makeindex.wasm",
+      "bytes": 129077,
+      "sha256": "acd26c3c1643c7612e2057063c2a3a157b0550500f9d25518c39b402608e4293"
+    },
+    {
+      "name": "wasmtex-makeindex.worker.js",
+      "bytes": 8846,
+      "sha256": "6df8e091d2548d242e5d3c4af52959ff1d29b470d757c7b7ec5eede06a401834"
+    },
+    {
+      "name": "wasmtex-metafont.js",
+      "bytes": 973611,
+      "sha256": "013b7f64218c4dce07504a59b4a0013d3597ded60212f1bdc12965682c4a463f"
+    },
+    {
+      "name": "wasmtex-pdftex-checkpoint.js",
+      "bytes": 113911,
+      "sha256": "31cb00bb0e96df2fb8838345c9077cdf207074e94b35c2c15403541c7109ecd9"
+    },
+    {
+      "name": "wasmtex-pdftex-checkpoint.wasm",
+      "bytes": 2700638,
+      "sha256": "5a9121e21992c96e6f5839a8e8debc2116aa9c6910d0e50ea32d91773090956e"
+    },
+    {
+      "name": "wasmtex-pdftex-resolver-evidence.js",
+      "bytes": 589,
+      "sha256": "f42ab09591de3108ac07635f060cc1fca27571f62a852edf5e6307515b83b728"
+    },
+    {
+      "name": "wasmtex-pdftex.fmt",
+      "bytes": 3657154,
+      "sha256": "fd1f4c0411b9bceb8562acd847b62da030b3b803b72799bff6c73dc095935bb5"
+    },
+    {
+      "name": "wasmtex-pdftex.js",
+      "bytes": 107362,
+      "sha256": "4b84cb947bd8ecc5f5c60fef8635965e3d99c29a4fcc8741813662ef9621be08"
+    },
+    {
+      "name": "wasmtex-pdftex.wasm",
+      "bytes": 1672974,
+      "sha256": "3c743c8119de1858227df4f99f4ec6c1ac7fb0d42bee4282dd79eb0e736dd7bc"
+    },
+    {
+      "name": "wasmtex-pdftex.worker.js",
+      "bytes": 105093,
+      "sha256": "4857d210f6798b71ed88a2727cde0d4ea52ede6eb1d5da9c732533ab502defd2"
+    },
+    {
+      "name": "wasmtex-xetex-resolver-evidence.js",
+      "bytes": 589,
+      "sha256": "f42ab09591de3108ac07635f060cc1fca27571f62a852edf5e6307515b83b728"
+    },
+    {
+      "name": "wasmtex-xetex.fmt.gz",
+      "bytes": 3920543,
+      "sha256": "0b2bb28f6de7793488fdc11cfc1f6ff42c631d93486530f879036ec4b5307513"
+    },
+    {
+      "name": "wasmtex-xetex.js",
+      "bytes": 108974,
+      "sha256": "87a1a4a6dc407fcaddf1f51f7772265bc152967ce3a5eb775adf328f827e4063"
+    },
+    {
+      "name": "wasmtex-xetex.wasm",
+      "bytes": 3495203,
+      "sha256": "cd3b52220eb79d949deb48bebc95539f1845dc3ec545cf7d61ca6a9e4350eb57"
+    },
+    {
+      "name": "wasmtex-xetex.worker.js",
+      "bytes": 22238,
+      "sha256": "d6f74b53385604c2fa5692b4c9144822672ace3b467cba50b142dd6aabc522fe"
+    }
+  ]
+}

@@ -4,11 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AppError, BuildManifest, CommentThread, WorkspaceRef } from '../../contracts';
 import { normalizeError, request } from '../../api';
 import type { SourceSelection } from '../../editor/buffers';
+import { ReviewExport } from './ReviewExport';
 export type CommentSelection={source?:SourceSelection;pdf?:CommentThread['pdf']};
 type CommentFile={version:1;revision:string;threads:CommentThread[]};
 type Props={workspace:WorkspaceRef;selection?:CommentSelection|null;selectionVersion?:number;onNavigate:(thread:CommentThread)=>void;onError:(error:AppError)=>void;manifest?:BuildManifest|null;refreshKey?:number;focusThreadId?:string;displayedPdf?:{buildId:string;pdfSha256:string}|null;};
 export function CommentsPanel({workspace,selection,selectionVersion,onNavigate,onError,manifest,refreshKey,focusThreadId,displayedPdf}:Props){
   const [file,setFile]=useState<CommentFile|null>(null),[text,setText]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState<AppError|null>(null),[filter,setFilter]=useState('open'),[page,setPage]=useState(0),[replyTo,setReplyTo]=useState<string|null>(null);
+  const [exportOpen,setExportOpen]=useState(false);
   const mounted=useRef(true),loadSequence=useRef(0),composer=useRef<HTMLTextAreaElement>(null),latest=useRef(file);latest.current=file;
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;loadSequence.current++;latest.current=null;};},[]);
   const load=useCallback(async()=>{try{const sequence=++loadSequence.current;const value=await request<CommentFile>('comments_read',workspace);if(!mounted.current||sequence!==loadSequence.current)return;setFile(value);setError(null);}catch(error){if(!mounted.current)return;const value=normalizeError(error);setError(value);onError(value);}},[workspace,onError]);
@@ -23,8 +25,8 @@ export function CommentsPanel({workspace,selection,selectionVersion,onNavigate,o
     const marks=(file?.threads??[]).slice(page*30,(page+1)*30).flatMap(thread=>thread.pdf?.pdfSha256===displayedPdf.pdfSha256?[{threadId:thread.id,page:thread.pdf.page,rects:thread.pdf.rects,status:thread.status}]:[]);
     window.dispatchEvent(new CustomEvent('texypaper:comment-marks',{detail:{buildId:displayedPdf.buildId,pdfSha256:displayedPdf.pdfSha256,marks}}));
   },[file,displayedPdf,page]);
-  useEffect(()=>{if(focusThreadId){const target=document.getElementById(`comment-${focusThreadId}`);target?.scrollIntoView({block:'nearest'});target?.focus();}},[focusThreadId,file]);
-  useEffect(()=>{if(selectionVersion)composer.current?.focus();},[selectionVersion]);
+  useEffect(()=>{if(focusThreadId&&!document.querySelector('[aria-modal="true"]')){const target=document.getElementById(`comment-${focusThreadId}`);target?.scrollIntoView({block:'nearest'});target?.focus();}},[focusThreadId,file]);
+  useEffect(()=>{if(selectionVersion&&!document.querySelector('[aria-modal="true"]'))composer.current?.focus();},[selectionVersion]);
   const save=async(threads:CommentThread[])=>{
     if(!latest.current||busy)return false;setBusy(true);try{const saved=await request<CommentFile>('comments_update',workspace,{expectedRevision:latest.current.revision,threads,transactionId:crypto.randomUUID()});if(!mounted.current)return true;setFile(saved);setError(null);return true;}catch(error){if(mounted.current){const value=normalizeError(error);setError(value);onError(value);}return false;}finally{if(mounted.current)setBusy(false);}
   };
@@ -37,6 +39,7 @@ export function CommentsPanel({workspace,selection,selectionVersion,onNavigate,o
   const filtered=(file?.threads??[]).filter(thread=>filter==='all'||thread.status===filter),visible=filtered.slice(page*30,(page+1)*30);
   return <section className="comments-panel" aria-label={t("댓글")}>
     <div className="inspector-subheading"><label>{t("댓글 상태")}<select value={filter} onChange={event=>{setFilter(event.target.value);setPage(0);}}><option value="open">{t("미해결")}</option><option value="resolved">{t("해결됨")}</option><option value="orphaned">{t("연결 끊김")}</option><option value="all">{t("전체")}</option></select></label><button disabled={busy} onClick={()=>void load()}>{t("새로 고침")}</button></div>
+    <div className="review-export-toolbar"><button type="button" disabled={!file||busy} onClick={()=>setExportOpen(true)} title={t('모든 상태의 저장된 댓글과 답글을 Markdown 보고서로 내보냅니다.','Export saved comments and replies across all statuses as a Markdown report.')}>{t('검토 보고서 내보내기','Export review report')}</button></div>
     {error&&<div role="alert" className="inline-error"><strong>{error.code}</strong><p>{errorText(error)}</p>{error.code.includes('CONFLICT')&&<p>{t("외부 댓글 파일이 변경되었습니다. 입력 중인 내용은 유지됩니다.")}</p>}<button onClick={()=>void load()}>{t("디스크 댓글 다시 불러오기")}</button></div>}
     <div className="comments-list">{!file&&!error&&<p className="muted">{t("댓글 불러오는 중…")}</p>}{file&&filtered.length===0&&<p className="empty-small">{t("이 상태의 댓글이 없습니다.")}<br/>{t("소스나 PDF의 텍스트를 선택해 댓글을 남기세요.")}</p>}{visible.map(thread=><article className="comment-thread" key={thread.id} id={`comment-${thread.id}`} tabIndex={-1}>
       <button className="comment-anchor" onClick={()=>onNavigate(thread)} title={t("연결된 위치로 이동")}>{thread.source?.path??(thread.pdf?t(`PDF ${thread.pdf.page}쪽`,`PDF page ${thread.pdf.page}`):t('프로젝트 메모'))}<blockquote>{thread.source?.quote??thread.pdf?.quote??''}</blockquote></button>
@@ -46,5 +49,6 @@ export function CommentsPanel({workspace,selection,selectionVersion,onNavigate,o
     </article>)}</div>
     {filtered.length>30&&<div className="pagination"><button disabled={page===0} onClick={()=>setPage(page-1)}>{t("이전")}</button><span>{page+1} / {Math.ceil(filtered.length/30)}</span><button disabled={(page+1)*30>=filtered.length} onClick={()=>setPage(page+1)}>{t("다음")}</button></div>}
     <div className="comment-composer"><label htmlFor="comment-text">{replyTo?t('답글 작성'):selection?.source?t('선택한 소스에 댓글'):selection?.pdf?t('선택한 PDF에 댓글'):t('프로젝트 메모')}</label><textarea id="comment-text" ref={composer} value={text} onChange={event=>setText(event.target.value)} placeholder={t("댓글을 입력하세요")} /><div className="button-row">{replyTo&&<button onClick={()=>setReplyTo(null)}>{t("답글 취소")}</button>}<button className="primary" disabled={busy||!text.trim()||!file} onClick={()=>void send()}>{busy?t('저장 중…'):t('댓글 저장')}</button></div></div>
+    {exportOpen&&file&&<ReviewExport workspace={workspace} threads={file.threads} onClose={()=>setExportOpen(false)}/>}
   </section>;
 }

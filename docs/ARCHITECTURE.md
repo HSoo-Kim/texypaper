@@ -140,7 +140,7 @@ worker는 hello/open_root, directory/stat/scan/search, text/range read, hash-che
 
 `latex/scheduler.rs`와 원격 worker는 프로젝트 호스트에서 `latexmk`를 실행합니다. root TeX의 부모를 cwd로 두고 파일명·출력 경로를 각각 argv로 전달합니다. `basic`은 `-norc`와 engine `-no-shell-escape` override, `project`는 명시적 trust 후 사용자 latexmk 설정을 사용합니다. trust는 app-data에 환경+root 신원으로 보관하며 프로젝트가 JSON을 바꿔 스스로 신뢰받을 수 없습니다. Basic도 OS sandbox를 주장하지 않습니다.
 
-작업은 하나이며 최신 대기 요청으로 coalesce합니다. 저장 후 800ms debounce, 명시적 build는 즉시 요청, 기본 deadline은 120초입니다. `latexmk -pvc`를 상주시킬 필요가 없습니다. stdout/stderr와 log/blg를 제한해 읽고 file:line·classic TeX error·warning을 진단으로 변환합니다. 위치가 추론된 경우 정확한 column으로 꾸미지 않습니다.
+정식 빌드 작업은 하나이며 최신 대기 요청으로 coalesce합니다. 소스 변경을 로컬 150ms·SSH 250ms로 병합해 저장하고, 저장 뒤에는 별도 대기 없이 빌드를 요청합니다. IME 조합 중에는 자동 저장을 미루며 복구 기록은 유지합니다. 비동기 root 탐색·flush 전부터 single-flight를 예약하고, flush에 포함된 요청을 다시 실행하지 않습니다. 기본 deadline은 120초입니다. stdout/stderr와 log/blg를 제한해 읽고 file:line·classic TeX error·warning을 진단으로 변환합니다. 위치가 추론된 경우 정확한 column으로 꾸미지 않습니다.
 
 ```text
 <project>/.texypaper/build/<rootId>/
@@ -151,6 +151,25 @@ worker는 hello/open_root, directory/stat/scan/search, text/range read, hash-che
 시도 전 알려진 workspace text input을 stream-copy하고 SHA-256을 기록합니다. `.fls`로 실제 의존성을 확인하고 새 입력이 있으면 완전한 snapshot을 갖춘 강제 안정화 빌드를 제한된 횟수만 수행합니다. 빌드 중 파일 변경 또는 불안정한 입력은 PDF를 읽을 수 있더라도 `mappingReady:false`로 남길 수 있습니다. 성공 exit 없이 이전 PDF만 있다는 것은 성공이 아닙니다.
 
 manifest에는 workspace/build/root/engine/cwd/jobName/시각, PDF·SyncTeX hash, source path/hash/snapshot path와 `mappingReady`가 있습니다. PDF와 정확히 대응하는 SyncTeX 및 manifest가 준비된 후 publish합니다. root별 마지막 두 성공 세대를 유지합니다. 실패·취소는 마지막 성공 세대를 stale 상태로 유지하고 journal/recovery와 렌더 cache는 별도 수명으로 관리합니다.
+
+Basic pdfLaTeX의 warm 재빌드는 검증된 경우에만 보안 옵션을 유지한 엔진 직접 실행을 사용합니다. 휘발성 출력을 제외한 private work 파일의 바이트, 정확한 FLS input/output 집합, 참조 수렴 상태, 생략할 생성기의 외부 의존성 hash를 비교합니다. 증명이 없거나 달라지면 `latexmk -g`로 되돌아갑니다. 직접 실행 후에는 driver 상태를 dirty로 표시해 소스를 되돌렸을 때 오래된 PDF를 재사용하지 못하게 합니다. 이 경로도 위의 snapshot·안정화·publish 검증을 통과해야 합니다.
+
+### 상주 엔진 미리보기
+
+`livePreview.ts`는 같은 이벤트 루프의 입력을 병합한 뒤 별도 debounce 없이 로컬 WasmTex worker에서 실제 TeX PDF를 만듭니다. Basic 자동 빌드에서만 사용하며, 기존 소스·PDF 화면과 PDF.js renderer를 그대로 공유합니다. 엔진 초기화와 compile은 직렬화하고, 작업 중 입력은 최신 요청으로 병합합니다. 같은 native build 세대에서는 입력이 더 들어왔다는 이유만으로 완료된 스냅샷을 버리지 않고 순서대로 표시합니다. IME·충돌·연결 해제·workspace/epoch/root 변경·취소는 이전 결과의 반영을 막습니다.
+
+TeX 오류 진단이 없는 첫 pass의 PDF는 빠른 미리보기일 뿐 정식 artifact가 아닙니다. SDK의 `success`는 오류 없이 끝났다는 보장이 아니므로 중간·최종 결과 모두 error 진단을 확인하고, 경고만 있는 결과는 허용합니다. 내보내기와 PDF 앵커는 정식 host 빌드에만 허용합니다. 최종 SDK 결과의 raw 또는 spliced SyncTeX와 해당 PDF를 만든 입력 스냅샷은 그 프레임에 묶습니다. 일반 클릭은 이 매핑 또는 현재 정식 PDF의 매핑으로만 이동하며, 편집 버퍼와 컴파일 입력이 다르면 안내만 표시합니다. 요청 순번·파일 열기 순번·workspace/epoch·표시 프레임이 바뀌면 늦게 도착한 탐색 결과를 폐기합니다. PDF 클릭 표식은 즉시 보이고, 소스에는 현재 줄과 찾아간 줄을 표시합니다. 드래그·더블클릭 선택과 명시적 이동 단축키는 별도로 유지합니다.
+
+전체 SDK 빌드로 준비한 상태가 있으면 `previewPages(현재 물리 페이지 + 1, {placement:true})`를 먼저 시도합니다. `partial.firstPage/pageLimit/baseBuildId`와 범위가 제한된 SyncTeX를 해당 스냅샷에 묶고, 미리보기만 성공한 경우에는 매 입력마다 전체 SDK 빌드를 다시 돌리지 않습니다. native 세대 번호만 바뀌면 호환되는 체크포인트를 보존합니다. 입력 제거·보조 파일 변경은 전체 SDK 빌드를 요구하고, preamble 변경·체크포인트 거부·지원하지 않는 경우에도 전체 컴파일로 돌아갑니다. 보존 체크포인트는 2개, 바이트 예산은 SDK 기본 320MiB이며 전체 앱 RAM 제한은 아닙니다.
+
+PDF.js는 마지막 전체 문서와 현재 부분 문서를 별도로 소유해 화면에서 페이지를 선택합니다. 매 입력마다 전체 PDF 바이트를 합치지 않습니다. 물리 페이지 수와 스크롤 위치를 유지하며, 부분 PDF 밖의 쪽은 이전 결과로 표시하고 매핑·검색·댓글의 현재 결과로 취급하지 않습니다. 같은 workspace·epoch·root·engine에서는 이미 승인해 표시한 불변 부분 프레임을 native 세대 교체 중에도 유지하되, 새로 도착한 프레임은 현재 세대와 대조합니다. native 배경 문서는 오래된 artifact가 정리되기 전에 최신 세대로 교체하며, 그 문서의 페이지 작업만 종료해 앞의 부분 canvas를 지우지 않습니다. 부분 문서 교체·scope 종료 뒤에는 해당 task와 page 작업을 해제합니다. 정식 빌드가 현재 입력과 일치하면 부분 문서를 폐기하고 정식 페이지 수와 export 권한을 복원합니다.
+
+`AutomaticBuild`는 저장과 정식 컴파일을 분리합니다. 기존 PDF가 있는 basic/pdfLaTeX 자동 빌드는 마지막 소스 변경 뒤 1,000ms의 유휴 시간이 지나야 시작하며, 진행 중 빌드 뒤에는 최신 요청 하나만 남깁니다. 명시적 빌드·첫 빌드·다른 프로필은 지연시키지 않습니다. 프로젝트 전환·취소·종료는 예약을 취소합니다. 자동 저장과 복구 기록은 이 유휴 시간에 묶이지 않습니다.
+
+`preview.rs`와 SSH worker는 publish된 source snapshot의 소유권·epoch·경로·크기를 확인하고, 클라이언트의 hash 검증을 통과한 입력만 엔진에 제공합니다. 최대 10,000개·128MiB이며 이미 받은 hash의 내용은 다시 보내지 않습니다. `mappingReady:false`는 native PDF와 소스의 대응이 증명되지 않았다는 뜻이지, 별도로 검증한 불변 입력을 다시 컴파일할 수 없다는 뜻은 아닙니다. 이 상태에서는 native PDF의 최신성을 추정하지 않고 미리보기를 provisional로 유지합니다. 문서 파일은 메모리에 올리지만 원격 프로젝트 전체를 디스크로 복제하지 않습니다. root 아래의 상대 경로는 engine cwd에 맞춰 이동하고, 상위 폴더 의존성은 정식 빌드로 처리합니다.
+
+엔진·format·고지·대응 소스는 버전을 고정해 앱에 포함합니다. `texmf:`는 로컬 TeX Live 2026의 확인된 설치 디렉터리만 읽습니다. 일반 형식의 유일한 파일은 설치된 `ls-R` 목록에서 찾고, 모호한 이름·별칭·다른 형식은 kpathsea에 맡깁니다. 목록 메모리는 총 32MiB로 제한하고 30초마다 갱신하며, 반환 파일의 canonical 경로는 다시 확인합니다. 상대 하위 폴더 리소스는 로컬 공급자에만 허용하며 절대 경로·상위 폴더·제어 문자·중복 인코딩은 거부합니다. 워커의 해당 소스 패치와 원본 아카이브를 함께 배포하고, 수정 전후 해시와 원본 receipt를 구분합니다. 문서 경로를 외부 패키지 서버로 보내거나 누락 파일을 임의 내용으로 대체하지 않습니다. 호환성이 없거나 compile이 실패하면 기존 host 빌드가 남습니다.
+
 
 ## 7. PDF 전달과 메모리 경계
 
@@ -166,7 +185,8 @@ SSH artifact는 native 디스크 cache로 chunk 단위 전송하고 hash를 확�
 | PDF canvas | 현재 페이지와 앞뒤 이웃, 최대 3개, 추정 RGBA 48MiB; DPI/zoom에 따라 backing ratio 제한 |
 | PDF text | 보이는 페이지의 text layer; 검색은 페이지별·취소 가능, 결과 최대 200개 |
 | range 전송 | 첫 64KiB, 후속 bounded chunk; teardown 시 fetch abort |
-| build | 하나의 활성 compiler와 최신 pending 요청; log tail 256KiB |
+| build | 정식 host compiler 1개와 최신 pending 요청; log tail 256KiB |
+| resident preview | Wasm compiler 1개; 입력 128MiB/10,000개; 보관 heap checkpoint 최대 2개/64MiB — 총 RAM 상한 아님 |
 | AI | 하나의 작업, 프로세스 on demand, JSON line 1MiB 제한, stderr 64KiB, 20분 deadline |
 | 승인 명령 | 활성 1개, 승인 대기 8개, 완료 기록 20개, stdout/stderr 각각 16KiB tail, 기본 120초·최대 1200초 |
 | history/UI | 디스크 history paging, 렌더 이벤트 수/bytes 제한, 가상화 tree/comment/history |

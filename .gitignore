@@ -26,3 +26,6 @@ credentials.json
 *.p8
 id_rsa*
 id_ed25519*
+
+# Pinned engine/source payloads are provisioned and hash-verified before builds.
+public/wasmtex/2026/

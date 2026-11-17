@@ -9,7 +9,7 @@ How to build from source, run the verification scripts and carry over data from 
 Work from the repository root in Windows PowerShell. You need Node.js (24.x is the reference here), `pnpm@12.16.1`, an MSVC toolchain that supports Rust edition 2024, the Visual Studio C++ Build Tools / Windows SDK, and WebView2. The two lockfiles are the source of truth for exact JS and Rust dependencies. The commands below assume the tools are already installed and include no global installs.
 
 ```powershell
-pnpm install --frozen-lockfile
+pnpm install --frozen-lockfile --ignore-scripts
 pnpm dev -- -- --data-dir "$env:TEMP\texypaper-dev-isolated"
 ```
 
@@ -30,11 +30,15 @@ pnpm tauri build --ci --target x86_64-pc-windows-msvc --bundles nsis -- --locked
 
 `pnpm typecheck` only type-checks. The full build script checks the exit code of every external command and stops on failure.
 
+Build/dev hooks run `scripts/setup-wasmtex.mjs` to provision and verify the pinned WasmTex engine, formats, notices and complete corresponding source. First provisioning needs access to the pinned public release; runtime compilation and package lookup do not use that server. Keep the separately distributed engine assets out of the application's JS bundle. Fast preview also needs a compatible local TeX Live 2026 installation; the canonical host compiler remains the fallback.
+
+Use the committed SDK library rather than running its Unix-specific Git `prepare` build; the install commands intentionally disable dependency lifecycle scripts. `pnpm-workspace.yaml` applies `patches/wasmtex@0.1.0.patch` so a PDF with TeX error diagnostics cannot become a first-pass preview. The app checks final diagnostics too; warnings remain displayable. This patch changes the MIT SDK, not the separately pinned engine binaries or their corresponding-source archive.
+
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows-build.ps1
 ```
 
-The executable is configured to land at `src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.exe` and the NSIS package at `bundle/nsis/TexyPaper_0.0.12_x64-setup.exe` under the same release folder (a set `CARGO_TARGET_DIR` takes precedence). Whether they were actually produced, and how the installer behaves, must be checked separately.
+The executable is configured to land at `src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.exe` and the NSIS package at `bundle/nsis/TexyPaper_0.0.13_x64-setup.exe` under the same release folder (a set `CARGO_TARGET_DIR` takes precedence). Whether they were actually produced, and how the installer behaves, must be checked separately.
 
 ```powershell
 $app = (Resolve-Path 'src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.exe').Path
@@ -80,6 +84,8 @@ By default 7-Zip is `artifacts/publication-tools/sevenzip/usr/lib/7zip/7z`, invo
 
 The ZIP contains `LICENSE`, `THIRD_PARTY_NOTICES.md`, `texypaper.exe`, then all `licenses/` files in ordinal full-path order. Headers use DOS host/0644 file mode and a fixed 2026-11-08 00:00:00 timestamp, with raw deflate level 9 and no directory entries. Node/zlib versions can change compressed bytes: retain the packaging runtime version with release evidence. The script reopens the ZIP, inflates every member and checks its CRC, size and SHA-256, then checks the exact installer license file set/hashes against source. Unsigned builds additionally require the extracted exe to differ from the normal exe by exactly the three bytes in `__TAURI_BUNDLE_TYPE_VAR_UNK` → `__TAURI_BUNDLE_TYPE_VAR_NSS`.
 
+Packaging also verifies the resident-engine distribution and copies its matching corresponding-source archive alongside the release assets, recording its checksum in the manifest and checksums file. Do not omit this companion when distributing releases. The app includes the notices and source archive offline under Settings → Open source.
+
 For signed releases add `--signed` only after signing the embedded app, installer **and** standalone exe (see Code signing). Every binary must have a `Valid`, timestamped Authenticode signature and matching signer subject/issuer; individual thumbprints are recorded and may differ with short-lived certificates. The signed proof records all three identities/statuses under `signedExecutableVerification` and sets `installerExecutableDiffersOnlyByTauriBundleType` to `null`: signature validation is not a claim of byte equivalence.
 
 Release checklist:
@@ -117,10 +123,10 @@ The standard memory verdict is taken at a real Windows display scale of 100%. To
 To also check installation, name the NSIS executable you built exactly. If a TexyPaper installation already exists, the isolated install check refuses rather than overwrite it.
 
 ```powershell
-pnpm smoke:desktop --binary $app --installer 'C:\Builds\TexyPaper_0.0.12_x64-setup.exe' --output (Join-Path $run 'installer-desktop')
+pnpm smoke:desktop --binary $app --installer 'C:\Builds\TexyPaper_0.0.13_x64-setup.exe' --output (Join-Path $run 'installer-desktop')
 ```
 
-The installer path above is an example input you must replace with the file you actually built. The integrated run below also opens visible windows and needs the user's permission; it requires the installed tools and an NSIS artifact named exactly `TexyPaper_0.0.12_x64-setup.exe`. The desktop suite opens the native PDF save dialog only with `--native-dialogs`, because that dialog appears on the screen even for the hidden test app.
+The installer path above is an example input you must replace with the file you actually built. The integrated run below also opens visible windows and needs the user's permission; it requires the installed tools and an NSIS artifact named exactly `TexyPaper_0.0.13_x64-setup.exe`. The desktop suite opens the native PDF save dialog only with `--native-dialogs`, because that dialog appears on the screen even for the hidden test app.
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows-build.ps1 -RunSmoke -LiveAgents -MeasureMemory -OutputDirectory (Join-Path $env:TEMP ('texypaper-full-' + [guid]::NewGuid().ToString('N')))

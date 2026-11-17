@@ -1,0 +1,24 @@
+WasmTex host SDK 0.1.0 — MIT
+Copyright (c) 2025-2026 WasmTex contributors
+Exact commit: b2930ab196d17594eed3beefa0fd00e4f5fb5257
+Dependency: https://codeload.github.com/corca-ai/wasmtex/tar.gz/b2930ab196d17594eed3beefa0fd00e4f5fb5257
+Source: https://github.com/corca-ai/wasmtex/tree/b2930ab196d17594eed3beefa0fd00e4f5fb5257
+
+The dependency uses the committed lib/ without running upstream prepare or build.
+pnpm-lock.yaml retains the tarball SHA-512 integrity. Node 24+ is required.
+Import: wasmtex/headless
+JavaScript: node_modules/wasmtex/lib/headless.js
+Types: node_modules/wasmtex/lib/headless.d.ts
+
+LICENSE, LICENSES/, THIRD_PARTY_NOTICES.md and docs/ are unmodified copies
+of the installed dependency's license material. SyncTeX carries its additional
+MIT-like non-endorsement notice. Optional Monaco is not installed or used.
+TexyPaper supplies pdf-lib 1.17.1 for the SDK's incremental PDF splice operation;
+its own MIT notice and its dependency notices are retained separately.
+The existing PDF.js 6.5.438 remains TexyPaper's renderer; the SDK's optional
+PDF.js peer declares a different major, but headless does not import its viewer.
+No claim is made that every optional upstream example or browser UI is used.
+
+The independently pinned generated TeX engines are not MIT-only and are not
+application imports. See licenses/wasmtex-engine-2026/ORIGIN.txt and the bundled
+/wasmtex/2026/index.html for their exact release, notices and corresponding source.

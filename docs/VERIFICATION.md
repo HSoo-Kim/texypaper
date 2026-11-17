@@ -1,6 +1,229 @@
-# Verification — TexyPaper 0.0.12
+# Verification — TexyPaper
 
-Evidence is generated under ignored `artifacts/` directories. The scripts use isolated synthetic papers and app-data; no user paper is a writable fixture. A passing unit suite is not presented as proof of a desktop, SSH, model or installer interaction.
+Evidence is generated under ignored `artifacts/` directories. The scripts use isolated synthetic papers or disposable copies of immutable snapshots, with separate app-data; no original user paper is a writable fixture. A passing unit suite is not presented as proof of a desktop, SSH, model or installer interaction.
+
+## 0.0.13 release checks
+
+Observed on Windows x64, 2026-11-18: Node 24.14.0, pnpm 12.16.1, frozen dependency installation with lifecycle scripts disabled, **659 frontend tests**, production TypeScript/Vite build, `cargo fmt --check`, all-target Clippy with warnings denied, and **176 Rust tests** passed. The locale-specific CP949 case was explicitly skipped, matching CI's documented exclusion.
+
+The feature/latency qualification below used private builds labelled 0.0.12 before the release-version increment; those original executable hashes and measurements are preserved. Version 0.0.13 does not relabel those measurements as a fresh benchmark.
+
+## 0.0.13 qualification — irregular input / fresh CorTeX comparison
+
+Observed on Windows x64, 2026-11-17, experiment **R01/E07**. The actual [CorTeX website](https://cortex.corca.ai/#features) and the optimized TexyPaper/WebView2 executable received identical synthetic one-page and thirty-page projects: `main.tex`, an included `body.tex`, a bibliography and a cross-reference. No original paper or user profile was used or uploaded.
+
+Each document received seven warm edits followed by 24 cumulative irregular inputs. Requested gaps ranged from 25 to 3,500 ms, including both sides of the 1,000 ms native-build threshold and resumed input during full builds. The endpoint is trusted `beforeinput` to matching changed text in a rendered PDF canvas, not a worker reply. Saved source, captured PDF bytes, visible word geometry and the final full PDF were checked separately. Explicit adjacent-line hyphenation is recognized without treating clipped or unrelated fragments as visible text.
+
+| Physical pages | TexyPaper warm median (ms) | CorTeX warm median (ms) | TexyPaper irregular median (ms) | CorTeX irregular median (ms) | TexyPaper irregular maximum (ms) | CorTeX irregular maximum (ms) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 136.1 | 927.2 | 123.85 | 643.80 | 219.5 | 1,100.3 |
+| 30 | 123.9 | 568.3 | 120.25 | 622.75 | 176.5 | 1,147.4 |
+
+The irregular median was **5.20× / 5.18× faster in these two cases**. Both warm medians passed the predeclared ≤1.10× CorTeX threshold. This is a scoped measurement, not a general performance ranking.
+
+### Correctness and fixes
+
+- All 48 TexyPaper irregular inputs survived exact saved-source and final full-PDF verification. The final PDFs retained the expected one/thirty physical pages. Nineteen and twenty inputs respectively arrived during native builds; no forced-overlap substitute was needed.
+- Both products had **zero visible prefix regressions** in the final comparison. TexyPaper's irregular p95 was 166.6 / 172.8 ms.
+- Earlier native attempts exposed a real stall after native publication: a `mappingReady:false` manifest incorrectly rejected otherwise verified immutable input snapshots and destroyed the warm worker. Local and POSIX input authorization now remains independent of native mapping proof; identity, path, size and content checks remain.
+- A subsequent complete thirty-page run still showed two regressions from `IRREG019` back to `IRREG017`, with a 1,503.5 ms maximum. The controller now retains already displayed immutable frames while reconciling a new bundle. The renderer retains authorized partial canvases while renewing the native backdrop, rather than rejecting a previously accepted frame or stopping its page work. Newly completed obsolete frames remain fenced.
+- Compatible native turnover no longer discards resident checkpoints. Removed or changed non-TeX inputs still require a full SDK pass. Unverified bundles, cancellation, conflict and scope changes retain their invalidation guards.
+- Targeted checks passed: **46 controller tests**, **6 partial-page tests**, **4 Rust preview-input tests**, Rust formatting, production TypeScript/frontend compilation and the optimized Windows build. A real POSIX worker check served original immutable bytes with `mappingReady:false` and rejected foreign workspace, missing root, foreign-generation snapshot and missing snapshot inputs. This was not an SSH-network latency measurement.
+- Final native and CorTeX split screenshots were inspected. CorTeX performed actual partial PDF compilation followed by full reconciliation; it was not merely replacing source text with HTML.
+
+### Conditions and limits
+
+Both renderers used a 2036×982 CSS viewport at DPR 1.25, with file/AI sidebars closed. PDF-pane widths were not equal, and Chrome and WebView2 are different renderers. Requested schedules matched; actual inter-input gaps differed because of automation overhead: TexyPaper 45.5–3,513.3 / 29.7–3,510.2 ms, CorTeX 61.8–3,522.8 / 61.3–3,537.8 ms. This does not establish cold-start, arbitrary-paper, SSH-network, IME or all possible cadence guarantees.
+
+Evidence under `artifacts/4-irregular-comparison/`: `0-protocol.json`, `0-matched-viewport.json`, `0-comparison.json`, `11-cortex/verified-results.json`, `15-texypaper/verified-results.json`, captured PDFs and screenshots. Earlier incomplete runs and the regressing `13-texypaper` run are retained, not substituted into the final comparison.
+
+Lab runs: CorTeX `20261117-044453-desktopdo7eho9-b613`; final TexyPaper `20261117-051344-desktopdo7eho9-e323`. Hidden verification executable: `14-hidden/texypaper.exe`, SHA-256 `3a72f4505bd43597b509c74191c23f36fb21480b5baffb34eb701dbdf4d13e16`.
+
+Reproduce native measurement through `lab run -e R01/E07 --by <agent> -- python scripts/measure-irregular.py --kind texypaper --binary <hidden-start.exe> --protocol <0-protocol.json> --comparison <0-matched-viewport.json> --output <new-directory>`. CorTeX uses the same wrapper with `--kind cortex --script <fresh ego-browser task entrypoint>`; fixture changes are untimed and wait for the actual editable CodeMirror model. `--validate-only` rechecks complete existing raw data without running UI input or overwriting raw evidence.
+
+### Local installation
+
+The normal visible-startup **0.0.12** executable and NSIS/portable packages were rebuilt separately from the hidden measurement executable. Packaging verified all **732 payload files**, license/source companions, archive contents and exclusion of the hidden executable. Packages are unsigned and were not published to GitHub.
+
+The installer exited 0 and updated `C:\Users\ADMIN\AppData\Local\TexyPaper\texypaper.exe`. Installation required no running TexyPaper process and the exact previous installed hash; no user process was terminated. Every installed payload matched the verified portable package, allowing only Tauri's three-byte `NSS` versus `UNK` executable bundle marker. Installed executable SHA-256: `9580aa3fc57339555beecd164197742c65657988a55b2f2075b57a9b369734b5`.
+
+An isolated-app-data launch of that installed executable confirmed a visible native window, rendered home screen and the exact verified PDF-renderer asset hash. The screenshot was inspected and only the smoke-owned process tree was closed. Evidence: `16-package/package-proof.json`, `17-installed-payload.json`, and `18-installed-startup/installed-startup-proof.json` under the same experiment artifact directory.
+
+## 0.0.13 qualification — page-priority refresh / 현재 쪽 우선 갱신
+
+Observed on Windows x64, 2026-11-17. E06 reused E05's immutable, hash-checked 47-input CAS paper snapshot in separate disposable local copies. Both runs used basic/pdfLaTeX, fresh app-data, a 1440×900 source/PDF split with the file tree retained, and five warm body-text edits. No original paper/profile was modified, and no paper was uploaded.
+
+| Measurement | Prior installed logic, measured again | Page-priority candidate |
+| --- | ---: | ---: |
+| Input → visible changed PDF, median | 786.1 ms | 195.3 ms |
+| Input → visible changed PDF, maximum | 9,520.1 ms | 260.9 ms |
+| First-visible frames from the resident engine | 4 / 5 | 5 / 5 |
+| First-visible partial frames | 0 / 5 | 5 / 5 |
+| Intermediate frames during 60 uninterrupted inputs | 7 | 49 |
+| Authoritative native PDF completion, median | 4,936.1 ms | 5,775.8 ms |
+
+Warm visible-refresh latency fell **75.2% (4.03×)** in this case. All five candidate samples were 182.9–260.9 ms. The baseline's native-fallback outlier is retained, not discarded. The initial local document has **32 physical pages**; edits on page 6 produced an actual partial PDF covering pages 1–7, while the viewer retained the full document's page navigation. This is checkpoint reuse plus bounded-prefix compilation, not a claim that arbitrary TeX pages can be compiled independently.
+
+Automatic full builds now wait for **1,000 ms of input inactivity** where resident preview is eligible. Durable autosave is unchanged; explicit builds, first builds and unsupported profiles are not delayed by this queue. The tradeoff is visible in the longer authoritative completion above. Export remains unavailable on provisional frames and returns on the verified native PDF.
+
+### Correctness evidence
+
+- All five edits and the 60-input burst preserved the exact expected saved source. The burst produced 49 intermediate frames and **zero native build starts during typing**.
+- Canonical and partial PDFs passed bidirectional source/PDF navigation, cross-file navigation, visible click/line markers, focus preservation, drag selection and double-click selection.
+- Navigating beyond the fresh page-7 boundary to physical page 9 requested an expanded partial PDF; its actual coverage reached page 10 without changing the source. Pages outside the accepted partial span retain the previous full result, are marked stale, and cannot supply current search or source-mapping results.
+- A preamble edit refused the unsafe partial path and produced a successful full resident PDF before the authoritative native PDF. A deliberately invalid command preserved the last good frame; repairing it restored a canonical PDF and exact saved bytes.
+- The affected source-only suite passed **57 tests**: 37 resident-controller, 10 live-mapping, 6 partial-page and 4 automatic-build tests. The production TypeScript/frontend and hidden Windows release build passed. No Rust code changed in this increment.
+- Screenshots of partial forward navigation, expanded coverage and recovered canonical output were inspected. The changed-surface UI detector exited 0 with no findings.
+
+Evidence: `artifacts/3-page-preview/1-baseline/live-project-results.json`, `3-candidate/live-project-results.json`, and `3-candidate/{live-forward,live-inverse,expanded-partial,final-project}.png`. Lab runs: baseline `20261117-015934-desktopdo7eho9-d5db`, candidate `20261117-020603-desktopdo7eho9-f4e6`. Hidden verification executable: `2-hidden/texypaper.exe`, SHA-256 `b7d0318c5676d37648d929946cc6588a4d44c93e43d6c2dba65dc6b1852ecbab`.
+
+Reproduce through `lab run -e R01/E06 --by <agent> -- python scripts/measure-live-project.py --binary <hidden-start.exe> --snapshot <authorized-immutable-snapshot> --headless <actual-bundled-headless-module> --output <new-directory> --variant page-priority --mode page-priority`.
+
+**Limits:** five warm samples from this local paper are not a latency guarantee for arbitrary documents, cold initialization or the user's real SSH transport. The fresh-app scenario took 26.1 s to reach full resident readiness; this is not time to the first native PDF and is not claimed as improved startup. CorTeX was not measured on this same paper. Checkpoint retention observed in the baseline was approximately 43–46 MiB with no budget refusals; restoring the SDK's default 320 MiB retained-checkpoint ceiling provides headroom, not an evidenced explanation for this speedup or a total-RAM limit.
+
+### Local installation
+
+The normal-start Windows x64 NSIS build passed and was installed locally, retaining version **0.0.12**. No GitHub release or live CI run is claimed.
+
+- Packaging verified **732 payload files**, normal-start identity, corresponding-source companions and exclusion of the hidden verification executable. The installer is 188,898,926 bytes; installer and portable package remain unsigned.
+- Immediately before installation, no TexyPaper process was running and the installed executable matched the E05 baseline. The installer exited **0**; no user process was terminated.
+- All **732 installed payload files** matched the verified portable ZIP, allowing only Tauri's expected unique `UNK`→`NSS` executable bundle marker. Installed path: `C:/Users/ADMIN/AppData/Local/TexyPaper/texypaper.exe`; SHA-256 `c6b8f6358c6c400b3aad0868a71c864808218e23e13da834ca09ca66a05ee150`.
+- The installed executable opened a visible, responsive window with disposable app-data. Settings opened and closed, the bundled manifest had the expected derived engine identity, and the offline legal frame exposed both source archive and patch links. This did not use a user project/profile or native download/save dialog.
+
+Evidence: `artifacts/3-page-preview/4-package/{release-manifest,package-proof}.json`, `5-installed-payload.json`, and `6-installed-startup/installed-startup-proof.json` plus screenshots. A relative import typo in the one-off startup probe failed before app launch; correcting the probe alone produced the passing startup check. The one-off probe was removed after verification.
+
+E06 concluded **supported** for the stated warm, local workload. `lab ls --pending` reported **164** human-review records across the research history, with no unexplained configuration differences shown. No reviews were approved automatically.
+
+
+## 0.0.13 qualification — actual-paper refresh and click locations / 실제 논문 갱신·위치 표시
+
+Observed on Windows x64, 2026-11-16. The user's reported slowness was reproduced with a read-only, hash-checked copy of the 47 published inputs of the real CAS-class paper, not dismissed using the earlier synthetic benchmark. All edits were confined to a new disposable local copy. No paper was uploaded to CorTeX or a cloud compiler.
+
+### Matched actual-paper result
+
+Both executables used the same immutable input snapshot, basic/pdfLaTeX profile, fresh app-data, 1440×900 source/PDF split with the file tree retained and AI pane closed, and five warm body-text edits. The endpoint is actual `beforeinput` to the changed PDF text/canvas being visible in the viewport. The prior installed logic is retained in a hidden-start baseline binary; the final candidate also uses hidden startup solely to avoid disturbing the user's desktop.
+
+| Measurement | Prior installed logic | Final candidate |
+| --- | ---: | ---: |
+| Input → visible changed PDF, median | 5,150.4 ms | 774.5 ms |
+| Input → visible changed PDF, maximum | 9,829.8 ms | 808.9 ms |
+| Warm samples that displayed resident PDFs | 0 / 5 | 5 / 5 |
+| Intermediate resident frames during 60 uninterrupted inputs | 0 | 7 |
+| Authoritative native PDF completion, median | 5,150.4 ms | 5,184.5 ms |
+
+Visible-refresh latency fell **85.0% (6.65×)** for this case. This is not a faster final native build: export still waits for the authoritative PDF. Both local engines produced the complete **32-page** document. The original remote TeX Live 2023 publication has 30 pages; these local TeX Live 2026 measurements neither establish identical remote layout nor measure the user's real SSH transport. The earlier synthetic CorTeX comparison below is a different workload; no same-paper CorTeX comparison is claimed.
+
+### Failures found and verified corrections
+
+- CAS package thumbnails such as `thumbnails/cas-email.jpeg` were rejected by both the native provider and the upstream worker, silently leaving the preview on the slower native path. Safe relative package resources now work locally, without forwarding relative paths to a cloud mirror. Bounded installed filename databases avoid repeated `kpsewhich` startup for unambiguous lookups; ambiguous/unsupported lookups retain native resolution.
+- Continuous input previously invalidated every completed resident result. Completed immutable frames now publish monotonically within the current native generation while newer edits coalesce.
+- The first continuous-input check caught reordered characters: PDF replacement cleared the document-global DOM selection and reset CodeMirror's caret. Selection clearing is now restricted to selections wholly inside the PDF pane. The same exact-saved-text assertion passed after the fix; it was not weakened.
+- Plain PDF clicks show a point marker and highlight the corresponding source line; plain source clicks show the matching PDF rectangle. Actual canonical **and** resident frames passed cross-file navigation, pane-focus preservation, drag selection and double-click selection checks. Mapping uses the displayed frame's own SyncTeX and matching immutable inputs; pending or invalidated mappings show status instead of stale coordinates.
+
+The five edits and the 60-input burst preserved the exact expected saved source. The original snapshot remained read-only. Screenshots of the final live forward/inverse navigation were inspected, including the correctly ordered burst text and visible location markers.
+
+| Check | Observed result |
+| --- | --- |
+| Current-source unit tests | 51 passed: 24 buffer, 19 resident-controller, 8 live-mapping tests; archived copies are excluded from this count |
+| Native provider tests | 2 passed |
+| Worker source-patch tests | 3 passed, including local resource caching and rejection of traversal/cloud-relative requests |
+| Types, production frontend and Rust | TypeScript and hidden-start release build passed; strict library Clippy passed with `-D warnings` |
+| Engine integrity | Derived asset verification passed; applying the shipped patch to the upstream archive's controller reproduces the modified generated worker byte-for-byte |
+| Actual desktop | Canonical/resident bidirectional clicks, focus, text selection, uninterrupted input order, complete PDF pages and canonical-only export passed |
+
+Evidence under `artifacts/2-live-interaction/`: `5-baseline/live-project-results.json`, `6-candidate/live-project-results.json`, `6-candidate/live-{forward,inverse}.png`, and `source-binding-proof.json`. Lab runs: baseline `20261116-114236-desktopdo7eho9-44ca`, final candidate `20261116-115338-desktopdo7eho9-bc53`. The failed `4-candidate` run is retained as evidence of the caret bug, not counted as a pass. Final hidden verification executable: `caret-fixed-hidden/texypaper.exe`, SHA-256 `6707b3ee855605377a9467aaed07a3d1645244b7390f32f48ba2da0ed7cc345d`.
+
+Reproduction requires an authorized immutable input snapshot: `lab run -e R01/E05 --by <agent> -- python scripts/measure-live-project.py --binary <hidden-start.exe> --snapshot <snapshot> --headless <actual-bundled-headless-module> --output <new-directory> --variant <name> --mode candidate`. The current scenario targets the included methodology file of this snapshot; it is not a general-purpose arbitrary-paper benchmark.
+
+### Local installation
+
+The normal-start Windows x64 NSIS build passed and was installed locally, retaining version **0.0.12**. These changes remain unreleased; no GitHub publication or live CI run is claimed.
+
+- Packaging verified all **732 payload files**, normal-start identity, source/archive/patch hashes and exclusion of the hidden executable. The installer is 188,904,028 bytes; installer and portable distribution are unsigned. Both corresponding-source companions are supplied alongside the binaries.
+- Immediately before installation, no TexyPaper process was running and the installed executable still matched the recorded baseline. The installer exited **0**; no user process was terminated.
+- All **732 installed payload files** matched the verified portable package, allowing only Tauri's expected `UNK`→`NSS` executable bundle marker. Installed path: `C:/Users/ADMIN/AppData/Local/TexyPaper/texypaper.exe`; SHA-256 `430b996492425f351f63f533604ca3eb4997928ea5ad7e0af2a8e76aaa797309`.
+- The installed executable opened a visible, responsive window using fresh disposable app-data. Settings opened and closed; its offline legal frame exposed both the source archive and local patch. The actual bundled manifest reported the expected locally patched release ID. No user project/profile or native download/save dialog was used for this startup check.
+
+Evidence: `7-package/{release-manifest,package-proof}.json`, `8-installed-payload.json`, and `9-installed-startup/installed-startup-proof.json` plus screenshots. The first startup probe incorrectly expected the derived release ID in prose that names the upstream release; the corrected probe reads the identity from the actual bundled manifest and separately checks both offline links. No application change was needed.
+
+E05 concluded **supported** for this stated warm, local actual-paper workload. `lab ls --pending` reported **145** human-review records across the research history, with no unexplained configuration differences remaining. No reviews were approved automatically. One-off diagnostic/startup scripts were removed after retaining their evidence; the repeatable real-project scenario remains documented above.
+
+
+## Earlier synthetic comparison — source-to-PDF latency / 합성 문서 갱신 지연
+
+Observed on Windows x64, 2026-11-16. The existing source/PDF split is unchanged; no second editing surface was added. CorTeX was measured at [cortex.corca.ai](https://cortex.corca.ai/), not the unrelated `mtybadger/cortex` repository. The resident engine uses the pinned public [WasmTex SDK](https://github.com/corca-ai/wasmtex/tree/b2930ab196d17594eed3beefa0fd00e4f5fb5257).
+
+### Matched visible-refresh comparison
+
+Same Windows machine, synthetic 1-page/30-page documents and seven warm source replacements per case; measured viewport 2036×982, DPR 1.25, source+PDF with side/AI panels closed. The endpoint is actual `beforeinput` to the newly rendered PDF canvas/text containing the changed marker, not a worker response or an HTML imitation. Panes were not claimed to have pixel-identical proportions.
+
+| Document | CorTeX median | Native-only optimized TexyPaper median | Final resident TexyPaper median | Final resident maximum |
+| --- | ---: | ---: | ---: | ---: |
+| 1 page | 218.3 ms | 803.7 ms | 138.1 ms | 143.0 ms |
+| 30 pages | 217.2 ms | 819.3 ms | 155.6 ms | 158.7 ms |
+
+The predeclared visible-refresh threshold (both medians ≤1.10× CorTeX) passed. All 14 final samples displayed real resident PDFs; both provisional and canonical page counts matched the complete fixture. Every final source file matched the saved input bytes. Export was disabled on provisional frames and restored on the verified host PDF.
+
+**Different endpoints:** CorTeX displays a compiled prefix before its final full PDF. Its observed 30-page final completion median was 719.5 ms. TexyPaper's final authoritative PDF medians were 826.4 ms/828.7 ms for 1/30 pages. The result above is faster visible refresh, **not** faster final authoritative export. Cold worker/package initialization, arbitrary papers, complex packages/fonts and total RAM were not benchmarked by this comparison.
+
+Evidence: `artifacts/1-live-latency/19-final-matched/`; CorTeX `C:/Users/ADMIN/ego/cortex-latency-20261116/measured-8/`. Lab runs: CorTeX `20261116-024714-desktopdo7eho9-7e26`, native-only `20261116-024824-desktopdo7eho9-b4e7`, final resident `20261116-050017-desktopdo7eho9-b8b4`.
+
+### Correctness and integration
+
+| Exercise | Observed result | Evidence |
+| --- | --- | --- |
+| Source checks | 63 affected buffer/PDF tests passed; after adding error-vs-warning cases, all 8 resident-controller tests passed. TypeScript and production frontend build passed | Targeted Vitest runs; Tauri output |
+| Native checks | 11 scheduler tests plus the preview-input and package-provider path tests passed; Rust format, strict library Clippy and Python worker syntax passed | Cargo/AST output |
+| Local runtime | 8 safeguards passed: same-size/same-mtime external edit, bibliography change, error retention/recovery, rapid typing, edit/save during a build, cancellation retention/recovery | `15-resident-safe-guards/local-short/refresh-checks.json` |
+| Reading position | After fast/native replacements, page 10 and 125% zoom remained selected; the saved source and newly compiled PDF were checked | `15-resident-safe-guards/local-long/reading-position-preserved.png` and its result entry |
+| SSH runtime | All 8 safeguards passed using real OpenSSH, loopback SSH and the Python/TeX worker in WSL; 7 warm edits all displayed resident PDFs, median 149.4 ms at the separate 1440×900 correctness layout | `18-resident-ssh/latency-results.json` |
+| Offline legal surface | The actual settings iframe exposed the pinned release and bundled corresponding-source link and closed normally; no native download/save dialog was exercised | `17-offline-notices/notices-proof.json` |
+| Dependency installation | Frozen install with dependency lifecycle scripts disabled passed; the pinned SDK patch is recorded in the lockfile. Windows build-script syntax passed | `pnpm install --frozen-lockfile --ignore-scripts`; PowerShell parser |
+
+Runtime evidence paths in this table are under `artifacts/1-live-latency/`. Together the local and SSH correctness runs passed **17 scenarios**. The final hidden verification executable is retained under `verified-hidden/`, SHA-256 `c006c8c2e227133a9badc27ec9d49f8787bad3e2e437f87c6a1aabdcb772ff38`; it is not a distribution binary.
+
+The investigation caught and fixed three real integration failures: Windows verbatim executable paths prevented `kpsewhich` from locating TeX; SDK `success` plus a produced PDF could still contain TeX errors, so both progress and final error diagnostics are now rejected; the remote reader incorrectly expected hyphenated UUIDs even though the worker publishes 32-character hex IDs. Successful local cases were retained when only the failed SSH case was resumed. An initial notice probe counted the upstream mirror as a second offline source link; the corrected probe targets the actual `download` link.
+
+Earlier native-only optimization at 1440×900 reduced medians from 3762.2→837.6 ms (local 1 page), 3760.1→827.9 ms (local 30 pages), and 2139.7→587.5 ms (SSH 1 page), with the original 17 safeguards passing. Those numbers use a different layout from the matched CorTeX comparison and are not mixed into its ratios.
+
+**Limits:** Basic automatic preview needs compatible local TeX Live 2026 packages. Unsupported profiles, parent-directory inputs, unavailable packages/fonts or engine failures retain the verified native path. Fast previews do not grant export, comment-anchor or SyncTeX authority. Input and retained-checkpoint bounds are not total-RAM limits. No user paper/profile, clipboard, physical tray menu, native save dialog or cloud compiler was used for these tests; no public release or live GitHub CI run is claimed.
+
+### Local distribution and installation
+
+The normal-start Windows x64 build was packaged as version **0.0.12** and installed locally; these changes are still **unreleased**, not a new GitHub release. The hidden verification override was omitted. The installer and portable distribution are unsigned.
+
+- Packaging verified all **731 payload files**, license/source hashes, normal-start identity and exclusion of the hidden binary. The 188,876,044-byte installer and portable ZIP include the pinned engine and complete corresponding source; the matching 154,968,364-byte source archive is also supplied beside them.
+- The installer exited **0** after confirming no TexyPaper process was running; no running user instance was force-terminated.
+- Installed at `C:/Users/ADMIN/AppData/Local/TexyPaper/texypaper.exe`. Every installed payload file was compared against the verified portable ZIP. The executable differs only by Tauri's expected three-byte `UNK`→`NSS` bundle marker; installed SHA-256: `088ec54ed0664484a9917bc99bd5ea7339f2077f3b5c404323840b5e0fbabcdc`.
+- The **installed executable** was then launched with disposable app-data. The native window reported visible; settings, the bundled offline corresponding-source link and settings close worked. This did not open a real user paper or use the user's app profile. No source download/save dialog was tested.
+
+Evidence under `artifacts/1-live-latency/`: `21-local-package/release-manifest.json`, `21-local-package/package-proof.json`, `22-installed-payload.json`, and `22-installed-startup/notices-proof.json` plus its screenshot. E04 concluded **supported** for the stated warm visible-refresh hypothesis; `lab ls --pending` reported **111** human-review items. No reviews were automatically approved.
+
+
+
+## 0.0.13 qualification — paper workflow tools / 논문 작업 도구
+
+Observed on Windows x64, 2026-11-16, before public release. Feature smoke checks used a hidden-start build, disposable local/SSH papers and separate app-data directories; no user paper, normal profile, clipboard, native file dialog or live AI provider was used as a test input. On the user's subsequent request, a normal-start build was installed locally with the version label remaining 0.0.12.
+
+| Exercise | Observed result | Evidence |
+| --- | --- | --- |
+| Source tests and types | TypeScript passed. The affected current source paths passed 339 tests in 24 files, including 103 new tests for bibliography/preflight, corpus boundaries, tables, review export and writing tasks | `pnpm typecheck`; targeted Vitest run |
+| Production build | Frontend production build and Windows x64 release compilation passed for both hidden verification and normal-start NSIS builds | Tauri build output; `artifacts/paper-tools-check/hidden.json`; `artifacts/paper-tools-local-install/package/` |
+| References | Both hosts found an unopened nested bibliography by title, excluded a hidden bibliography, inserted the selected citation, preserved CRLF and restored exact bytes with one undo; duplicate keys were disabled | `artifacts/paper-tools-run-02/paper-tools-results.json` |
+| Tables | Both hosts rejected ragged input, escaped special characters and multiline cells, inserted/undid the table as one operation, and compiled an actual PDF. A separate valid 80,007-character input expanded past 1 MiB, was saved without truncation and undone exactly | Same result file; `local/compiled-table.png`, `ssh/compiled-table.png` |
+| Preflight | Both hosts found missing citations/labels, duplicate keys/labels and TODOs; navigation placed the caret on the reported source line. After repairs and a build, findings cleared and the current build was recognized; later edits required a rebuild | Same result file; `local/preflight-findings.png` |
+| Review report | Both hosts exported the saved original comment, reply, resolved status and source location. File content exactly matched the preview, an existing report was preserved, comment storage was unchanged, and Escape closed the dialog after saving | Same result file; `local/review-report.png` |
+| Writing presets | All four presets appended without overwriting the draft or attachments and left the agent idle. A combined prompt over 65,536 characters was refused without truncation | Same result file; `local/academic-draft.png` |
+| Safety and layout | Both hosts refused insertion after an external source change and into a read-only file, disclosed an incomplete scan and disabled citation insertion. Keyboard focus stayed in the dialog, which fit the 960×640 dark viewport | Same result file; `local/table-dark-960.png`, `local/workspace-dark-960.png` |
+| Local installation | Verified all 655 package payload files, installed silently with exit code 0, matched the installed executable to the package and verified all 654 resource files. The old app was already closed; no forced termination or profile reads were performed by the installer script. The installed app opened a responsive visible window and remained running after the installer script exited. Version display remains 0.0.12; no GitHub release was created | `artifacts/paper-tools-local-install/local-installation.json`, `package/package-proof.json` |
+
+Final desktop run: **14 scenarios passed, 0 failed**. The UI detector reported no findings for the changed surfaces. Screenshots were inspected for the reference dialog, generated PDF, report, AI draft and small-screen dark layout.
+
+The first desktop run passed 6 of 12 scenarios. Its navigation assertion looked for a CodeMirror active-line extension this app does not install; it now checks the actual caret's source line. A product bug also left focus outside the report after the Save button became disabled, so Escape did not close it and blocked two subsequent scenarios per host. Saving now moves focus to the preview before disabling the button, and the smoke explicitly verifies closing. The first type check found case-insensitive module resolution collisions on Windows; pure helper modules were renamed to `delimitedTable.ts` and `reviewReport.ts`.
+
+The targeted Vitest command also discovered archived source copies under ignored `artifacts/` directories; those additional passing tests are not counted above. Use `--dir src` when reproducing the source-only run. `pnpm smoke:paper-tools --binary <hidden-start-release.exe> --output <new-isolated-directory>` reproduces the desktop scenarios.
+
+**Limits:** preflight is conservative static analysis, not TeX expansion, bibliographic fact checking or venue certification. AI verification covers draft preparation, not real model quality or provider transmission; the shared detached-window renderer is covered by component tests, not a newly opened native chat window. No public release, CI run, other desktop OS or physical display-scale change was exercised for these features.
 
 ## Current release — TexyPaper 0.0.12 / 현재 릴리스
 

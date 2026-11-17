@@ -64,7 +64,7 @@ export class BufferStore {
     buffer.state=state;buffer.document.text='';return true;
   }
   startPolling() {return startWorkspacePolling({remote:this.remote,poll:()=>this.poll()});}
-  async open(path:string, allowLarge = false): Promise<BufferRecord> {
+  async open(path:string, allowLarge = false, activate?:()=>boolean): Promise<BufferRecord> {
     const generation=++this.openGeneration;const cached = this.records.get(path);
     if (cached) {
       if(cached.evicted){
@@ -73,7 +73,7 @@ export class BufferStore {
         this.replace(cached,document);
       }
       if(this.disposed)throw new Error(t('작업 공간이 닫혔습니다.'));
-      if(generation===this.openGeneration){this.activePath = path;cached.lastUsed = Date.now();this.evict();this.notify();}return cached;
+      if(generation===this.openGeneration&&(activate?.()??true)){this.activePath = path;cached.lastUsed = Date.now();this.evict();this.notify();}return cached;
     }
     const document = await request<TextDocument>('file_read',this.workspace,{path,allowLarge});
     if (this.disposed) throw new Error(t('작업 공간이 닫혔습니다.'));
@@ -89,10 +89,10 @@ export class BufferStore {
     if(this.disposed)throw new Error(t('작업 공간이 닫혔습니다.'));
     // A candidate never displaces a record already owned by a view, even if its read finishes later.
     const raced=this.records.get(path);
-    if(raced&&!raced.evicted){if(generation===this.openGeneration){this.activePath=path;raced.lastUsed=Date.now();this.evict();this.notify();}return raced;}
+    if(raced&&!raced.evicted){if(generation===this.openGeneration&&(activate?.()??true)){this.activePath=path;raced.lastUsed=Date.now();this.evict();this.notify();}return raced;}
     this.records.set(path,buffer);
     if(clearRecovery&&this.owns(buffer,buffer.generation))void request('recovery_clear',this.workspace,{path}).catch(()=>{});
-    if(generation===this.openGeneration){this.activePath=path;this.evict();this.notify();}return buffer;
+    if(generation===this.openGeneration&&(activate?.()??true)){this.activePath=path;this.evict();this.notify();}return buffer;
   }
   update(path:string,state:EditorState,changes:ChangeSet|undefined,generation:number) {
     const buffer = this.records.get(path); if (!buffer || !this.owns(buffer,generation)||buffer.evicted) return false;
@@ -100,11 +100,12 @@ export class BufferStore {
     buffer.state = state; buffer.dirty = true; buffer.version++; buffer.error = undefined; this.onDirty(); this.notify();
     this.schedule(buffer);return true;
   }
-  composition(path:string, composing:boolean,generation:number) { const buffer = this.records.get(path); if (!buffer||!this.owns(buffer,generation)) return; buffer.composing = composing; if (!composing && buffer.dirty) this.schedule(buffer); }
+  composition(path:string, composing:boolean,generation:number) { const buffer = this.records.get(path); if (!buffer||!this.owns(buffer,generation)||buffer.composing===composing) return; buffer.composing = composing; if(composing){clearTimeout(this.timers.get(path));this.timers.delete(path);}else if(buffer.dirty)this.schedule(buffer);this.notify(); }
   private schedule(buffer:BufferRecord) {
     const generation=buffer.generation;
-    clearTimeout(this.timers.get(buffer.path));
-    this.timers.set(buffer.path,window.setTimeout(()=>{ this.timers.delete(buffer.path); if(this.owns(buffer,generation))void this.save(buffer.path).catch(()=>{}); },700));
+    clearTimeout(this.timers.get(buffer.path));this.timers.delete(buffer.path);
+    // Coalesce keystrokes once, before the durable save; the build adds no second debounce.
+    if(!buffer.composing)this.timers.set(buffer.path,window.setTimeout(()=>{ this.timers.delete(buffer.path); if(this.owns(buffer,generation))void this.save(buffer.path).catch(()=>{}); },this.remote?250:150));
     clearTimeout(this.recoveryTimers.get(buffer.path));this.recoveryTimers.set(buffer.path,window.setTimeout(()=>{this.recoveryTimers.delete(buffer.path);if(!this.owns(buffer,generation))return;void request('recovery_write',this.workspace,{path:buffer.path,text:this.text(buffer),baseSha256:buffer.document.revision.sha256,transactionId:buffer.transactionId}).catch(error=>{if(this.owns(buffer,generation)){buffer.error=normalizeError(error);this.notify();}});},250));
   }
   async save(path:string):Promise<void> {
@@ -122,6 +123,7 @@ export class BufferStore {
         if(buffer.composing)throw {code:'IME_ACTIVE',message:t('입력을 마친 후 저장해 주세요.'),retryable:true};
         if(buffer.external)throw {code:'FILE_CONFLICT',message:t('외부 변경을 먼저 비교하거나 다시 불러오세요.'),path,retryable:true};
         clearTimeout(this.timers.get(path));this.timers.delete(path);
+        clearTimeout(this.recoveryTimers.get(path));this.recoveryTimers.delete(path);
         const text=this.text(buffer),version=buffer.version,expectedSha256=buffer.document.revision.sha256,transactionId=crypto.randomUUID();
         buffer.transactionId=transactionId;buffer.saving=true;this.notify();
         await request('recovery_write',this.workspace,{path,text,baseSha256:expectedSha256,transactionId});

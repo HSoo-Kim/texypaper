@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>WasmTex licenses and corresponding source</title></head>
+<body>
+<main>
+<h1>WasmTex licenses and corresponding source</h1>
+<p>TexyPaper uses the MIT WasmTex host SDK at commit <code>b2930ab196d17594eed3beefa0fd00e4f5fb5257</code>. Its separately licensed static engine distribution is based on TeX Live 2026 release <code>2026-f5d94438a7c75a23</code>, with the local worker source patch documented below. Generated engine modules are not imported into TexyPaper's application bundle.</p>
+<h2>Host SDK — MIT</h2>
+<ul>
+<li><a href="legal/sdk/LICENSE">Full MIT copyright and permission notice</a></li>
+<li><a href="legal/sdk/THIRD_PARTY_NOTICES.md">SDK third-party notices</a></li>
+<li><a href="legal/sdk/LICENSES/SyncTeX.txt">SDK SyncTeX parser notice</a></li>
+<li><a href="https://github.com/corca-ai/wasmtex/tree/b2930ab196d17594eed3beefa0fd00e4f5fb5257">Exact SDK source</a></li>
+</ul>
+<h2>Separate engine distribution</h2>
+<p>The upstream release is marked <code>release-cleared</code>; this does not claim upstream qualification of TexyPaper's local worker modification. Its GPL, LGPL, LPPL, permissive and component-specific terms are not replaced by the SDK or TexyPaper MIT licenses. No additional restriction, reverse-engineering prohibition or confidentiality term in TexyPaper overrides recipients' rights under these component licenses.</p>
+<ul>
+<li><a href="manifest.json">Installed engine asset manifest, local modification provenance and exact hashes</a></li>
+<li><a href="upstream-manifest.json">Unmodified upstream manifest and build-receipt bindings</a></li>
+<li><a href="LICENSE-MANIFEST.json">Engine component terms and release status</a></li>
+<li><a href="DISTRIBUTION.json">Local distribution paths and source digest</a></li>
+<li><a href="legal/engine/THIRD_PARTY_NOTICES.md">Complete upstream engine notices</a></li>
+<li><a href="legal/engine/LICENSES/README.md">License-text inventory</a></li>
+<li><a href="legal/engine/scripts/engine-components-2026.json">TeX Live 2026 linked-component inventory</a></li>
+<li><a href="legal/engine/docs/licensing.md">Upstream licensing and redistribution requirements</a></li>
+<li><a href="legal/engine/docs/corresponding-source.md">Source and rebuild procedure</a></li>
+<li><a href="legal/engine/ORIGIN.txt">Distribution provenance</a></li>
+</ul>
+<h2>Complete corresponding source — available offline</h2>
+<p>The complete corresponding source consists of the <a href="wasmtex-2026-f5d94438a7c75a23-source.tar.xz" download>upstream source archive</a> (154,968,364 bytes) together with the <a href="texypaper-wasmtex-2026-local-assets.patch" download>TexyPaper worker source patch</a>. Both are available offline in this distribution.</p>
+<p>SHA-256: <code>e6a1f9b8ad84c7127368bb521217af381407fcc0d5c5518114345d55b470d637</code>.</p>
+<p>The unmodified archive contains engine source snapshots, toolchain and port sources, patches, glue, interface definitions, Docker/build scripts, format inputs, manifests and rebuild/relink instructions. The WebAssembly MakeIndex port is modified; its exact source is in this archive. Unrelated TexyPaper code is not part of this engine source unit.</p>
+<p>The local modification permits safe relative package names only through TexyPaper's installed-tree provider, never a remote mirror, and encodes them into flat cache filenames. No WebAssembly or format bytes are changed. Extract the upstream archive, then run <code>patch -p1 &lt; /path/to/texypaper-wasmtex-2026-local-assets.patch</code> from its root before following <code>REBUILD.md</code>. The patch targets <code>source/wasmtex/a97db8a62ed86b118bcfcc8784b7752aa8e988ac/wasm-build/pdftex-worker.js</code>. The installed manifest binds the original and modified worker digests to this patch.</p>
+<p><a href="https://github.com/corca-ai/wasmtex/releases/download/engine-2026-f5d94438a7c75a23/wasmtex-2026-f5d94438a7c75a23-source.tar.xz">Upstream source mirror</a>. TexyPaper's release packaging supplies the verified archive and local source patch as companion release assets. Keep both available alongside every binary release.</p>
+<p>TeX packages and fonts are read from the user's locally installed TeX Live distribution, not a cloud compiler. That separate distribution retains its own package notices, copying information and source materials; see <a href="https://tug.org/texlive/copying.html">TeX Live copying conditions</a>.</p>
+</main>
+</body>
+</html>

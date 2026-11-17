@@ -1,0 +1,22 @@
+.review-export-toolbar { padding:0 .75rem .75rem; }
+.review-export-toolbar button { width:100%; }
+.modal.review-export { display:flex; flex-direction:column; width:min(56rem,100%); padding:0; overflow:hidden; }
+.review-export-header { padding:1.25rem 1.25rem .875rem; border-bottom:1px solid var(--border); }
+.review-export-header h2 { margin:0 0 .5rem; font-size:1rem; }
+.review-export-header p { margin:0; max-width:75ch; color:var(--secondary); font-size:.8125rem; line-height:1.6; }
+.review-export-header .review-export-counts { margin-top:.625rem; color:var(--text); font-variant-numeric:tabular-nums; }
+.review-export-body { min-height:0; overflow:auto; overscroll-behavior:contain; padding:1rem 1.25rem; }
+.review-export-body>label,.review-export-preview-label { display:block; margin:0 0 .375rem; font-size:.8125rem; font-weight:500; }
+.review-export-preview { margin:0 0 1rem; padding:.875rem; max-height:38dvh; min-height:8rem; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; border:1px solid var(--border); border-radius:var(--control-radius); background:var(--sidebar); color:var(--text); font:.75rem/1.65 "Cascadia Code",Consolas,monospace; tab-size:4; }
+.review-export-body>input { width:100%; }
+.review-export-help { margin:.5rem 0; color:var(--secondary); font-size:.75rem; line-height:1.6; }
+.review-export-status { font-size:.8125rem; overflow-wrap:anywhere; }
+.review-export-status:not(:empty) { margin-top:.75rem; }
+.review-export-status p { margin:.375rem 0 0; }
+.review-export-actions { flex-shrink:0; justify-content:flex-end; flex-wrap:wrap; padding:.875rem 1.25rem; border-top:1px solid var(--border); }
+@media (max-width: 540px) {
+  .review-export-header { padding:1rem; }
+  .review-export-body { padding:.875rem 1rem; }
+  .review-export-actions { padding:.875rem 1rem; }
+  .review-export-actions button { flex:1; }
+}

@@ -1,8 +1,8 @@
 import { t, useI18n } from '../ui/i18n';
 import { useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react';
-import { Compartment, EditorState, type Extension } from '@codemirror/state';
-import { EditorView, highlightActiveLineGutter, highlightSpecialChars, drawSelection } from '@codemirror/view';
-import { history } from '@codemirror/commands';
+import { Compartment, EditorState, StateEffect, StateField, Text, type Extension } from '@codemirror/state';
+import { Decoration, EditorView, highlightActiveLine, highlightActiveLineGutter, highlightSpecialChars, drawSelection } from '@codemirror/view';
+import { history, isolateHistory } from '@codemirror/commands';
 import { bracketMatching, indentOnInput, StreamLanguage, syntaxHighlighting } from '@codemirror/language';
 import { classHighlighter } from '@lezer/highlight';
 import { highlightSelectionMatches } from '@codemirror/search';
@@ -23,9 +23,19 @@ import { countWords, countSelection } from './wordCount';
 import { selectableLineNumbers } from './lineNumbers';
 const emptyIgnoredWords:string[]=[];
 
-export type SourceEditorHandle = { captureReadingPosition:()=>void;focus:()=>void; position:()=>{line1:number;column1:number}; selectBytes:(start:number,end:number)=>void; selection:()=>SourceSelection|null; navigate:(line:number,column?:number)=>void; command:(name:EditorCommand)=>void; wordCounts:()=>{words:number;characters:number;selectionWords:number}; };
+export type SourceEditorHandle = { captureReadingPosition:()=>void;focus:()=>void; position:()=>{line1:number;column1:number}; selectBytes:(start:number,end:number)=>void; selection:()=>SourceSelection|null; navigate:(line:number,column?:number,options?:{focus?:boolean})=>void; command:(name:EditorCommand)=>void; wordCounts:()=>{words:number;characters:number;selectionWords:number}; prepareInsertion:()=>((text:string)=>boolean)|null; };
 type Props = {store:BufferStore;fontSize:number;onFontSizeChange:(size:number)=>void;loading?:boolean;visible?:boolean;onSelection?:(selection:SourceSelection|null)=>void;onReady?:(handle:SourceEditorHandle|null)=>void;onImages?:ImagePasteOptions['onImages'];spellCheck?:boolean;spellIgnore?:string[];onSpellIgnore?:(word:string)=>void;spellWorkspace?:WorkspaceRef;};
 const language = new Compartment(), editable = new Compartment(), phrases=new Compartment(), spelling=new Compartment();
+const markSourceLine=StateEffect.define<number>();
+const sourceLocation=StateField.define({
+  create:()=>Decoration.none,
+  update:(marks,transaction)=>{
+    const marked=transaction.effects.find(effect=>effect.is(markSourceLine));
+    if(marked)return Decoration.set([Decoration.line({class:'cm-synctexLine'}).range(transaction.state.doc.lineAt(marked.value).from)]);
+    return transaction.docChanged||transaction.selection?Decoration.none:marks;
+  },
+  provide:field=>EditorView.decorations.from(field),
+});
 // StreamLanguage registers its Document node globally; reuse one instance without constructing it at launch.
 let texLanguage:Extension|undefined;
 const koreanPhrases:Record<string,string>={'Find':'찾기','Replace':'바꾸기','next':'다음','previous':'이전','all':'전체','match case':'대소문자 구분','regexp':'정규식','by word':'단어 단위','replace':'바꾸기','replace all':'모두 바꾸기','close':'닫기','Go to line':'줄로 이동','go':'이동','current match':'현재 일치','replaced $ matches':'$개 바꿈','replaced match on line $':'$줄의 일치 항목 바꿈'};
@@ -34,6 +44,8 @@ const editorTheme = EditorView.theme({
   '.cm-scroller':{fontFamily:'ui-monospace, "Cascadia Code", Consolas, monospace',lineHeight:'1.65'},
   '.cm-content':{padding:'1rem 0'}, '.cm-gutters':{background:'var(--sidebar)',color:'var(--secondary)',border:'none',borderRight:'1px solid var(--border)'},
   '.cm-activeLineGutter':{backgroundColor:'var(--selection)',color:'var(--text)'},
+  '.cm-activeLine':{backgroundColor:'var(--selection)'},
+  '.cm-synctexLine':{backgroundColor:'var(--selection)',outline:'1px solid var(--action)',outlineOffset:'-1px',borderRadius:'2px'},
   '.cm-line':{padding:'0 1rem'}, '.cm-cursor':{borderLeftColor:'var(--text)'},
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection':{backgroundColor:'var(--selection)'},
   '.cm-panels':{background:'var(--sidebar)',color:'var(--text)'},
@@ -72,9 +84,33 @@ export function SourceEditor({store,fontSize,onFontSizeChange,onSelection,onRead
     const remember=()=>{const path=pathRef.current;if(!path||!store.records.has(path)||!editor.scrollDOM.getClientRects().length)return;const {anchor,head}=editor.state.selection.main;const top=editor.lineBlockAtHeight(editor.scrollDOM.scrollTop);store.rememberPosition(path,{anchor,head,top:top.from,inset:editor.scrollDOM.scrollTop-top.top,left:editor.scrollDOM.scrollLeft});};capture.current=remember;editor.scrollDOM.addEventListener('scroll',remember,{passive:true});
     let countedDoc:EditorState['doc']|undefined,countedText='',counts={words:0,characters:0};
     const wordCounts=()=>{if(!pathRef.current)return {words:0,characters:0,selectionWords:0};if(countedDoc!==editor.state.doc){countedDoc=editor.state.doc;countedText=countedDoc.toString();counts=countWords(countedText);}const {from,to}=editor.state.selection.main;return {...counts,selectionWords:from===to?0:countSelection(countedText,from,to).words};};
-    const handle:SourceEditorHandle={wordCounts,captureReadingPosition:remember,command:name=>{if(pathRef.current)runEditorCommand(editor,name);},focus:()=>editor.focus(),position:()=>{const head=editor.state.selection.main.head,line=editor.state.doc.lineAt(head);return {line1:line.number,column1:head-line.from+1};},selectBytes:(start,end)=>{navigation.current++;const path=pathRef.current,record=path?store.records.get(path):undefined;if(!record)return;const raw=store.text(record),bom=record.document.encoding==='utf8Bom'?3:0;const toEditor=(byte:number)=>raw.slice(0,byteToUtf16(raw,Math.max(0,byte-bom))).replaceAll('\r\n','\n').replaceAll('\r','\n').length;const anchor=toEditor(start),head=toEditor(end);editor.dispatch({selection:{anchor,head},effects:EditorView.scrollIntoView(anchor,{y:'center'})});editor.focus();},selection:()=>{const path=pathRef.current,buffer=path?store.records.get(path):undefined;if(!buffer)return null;const {from,to}=editor.state.selection.main;return from===to?null:selectionAnchor(buffer,from,to);},navigate:(line,column=1)=>{navigation.current++;const target=editor.state.doc.line(Math.max(1,Math.min(line,editor.state.doc.lines)));const position=Math.min(target.to,target.from+Math.max(0,column-1));editor.dispatch({selection:{anchor:position},effects:EditorView.scrollIntoView(position,{y:'center'})});editor.focus();}};
+    const prepareInsertion=()=>{
+      const owner=ownership.current,path=pathRef.current;
+      if(!owner||!path||!/\.(tex|ltx)$/i.test(path)||!store.owns(owner.buffer,owner.generation)||owner.buffer.document.readOnly||owner.buffer.document.truncated||editor.composing||editor.compositionStarted)return null;
+      const document=editor.state.doc,{from,to}=editor.state.selection.main;
+      return (text:string)=>{
+        if(view.current!==editor||pathRef.current!==path||store.activePath!==path||!store.owns(owner.buffer,owner.generation)||owner.buffer.document.readOnly||owner.buffer.error||owner.buffer.composing||editor.composing||editor.compositionStarted||editor.state.doc!==document||!text||text.includes('\0'))return false;
+        const insert=Text.of(text.replace(/\r\n|\r/g,'\n').split('\n'));
+        editor.dispatch({changes:{from,to,insert},selection:{anchor:from+insert.length},userEvent:'input',annotations:isolateHistory.of('full'),scrollIntoView:true});
+        editor.focus();return true;
+      };
+    };
+    const handle:SourceEditorHandle={prepareInsertion,wordCounts,captureReadingPosition:remember,command:name=>{if(pathRef.current)runEditorCommand(editor,name);},focus:()=>editor.focus(),position:()=>{const head=editor.state.selection.main.head,line=editor.state.doc.lineAt(head);return {line1:line.number,column1:head-line.from+1};},selectBytes:(start,end)=>{navigation.current++;const path=pathRef.current,record=path?store.records.get(path):undefined;if(!record)return;const raw=store.text(record),bom=record.document.encoding==='utf8Bom'?3:0;const toEditor=(byte:number)=>raw.slice(0,byteToUtf16(raw,Math.max(0,byte-bom))).replaceAll('\r\n','\n').replaceAll('\r','\n').length;const anchor=toEditor(start),head=toEditor(end);editor.dispatch({selection:{anchor,head},effects:EditorView.scrollIntoView(anchor,{y:'center'})});editor.focus();},selection:()=>{const path=pathRef.current,buffer=path?store.records.get(path):undefined;if(!buffer)return null;const {from,to}=editor.state.selection.main;return from===to?null:selectionAnchor(buffer,from,to);},navigate:(line,column=1,options)=>{navigation.current++;const target=editor.state.doc.line(Math.max(1,Math.min(line,editor.state.doc.lines)));const position=Math.min(target.to,target.from+Math.max(0,column-1));editor.dispatch({selection:{anchor:position},effects:[EditorView.scrollIntoView(position,{y:'center'}),markSourceLine.of(target.from)]});if(options?.focus!==false)editor.focus();}};
+    let pressed:{x:number;y:number}|null=null,clickTimer=0;
+    const down=(event:PointerEvent)=>{window.clearTimeout(clickTimer);pressed=event.button===0?{x:event.clientX,y:event.clientY}:null;if(pressed)window.dispatchEvent(new CustomEvent('texypaper:sync-location-hit',{detail:{workspaceId:store.workspace.id,epoch:store.workspace.epoch}}));};
+    const click=(event:MouseEvent)=>{
+      window.clearTimeout(clickTimer);
+      const start=pressed;pressed=null;
+      if(!start||event.detail!==1||event.altKey||event.shiftKey||event.ctrlKey||event.metaKey||Math.hypot(event.clientX-start.x,event.clientY-start.y)>4||!(event.target instanceof Element)||!event.target.closest('.cm-content')||!editor.state.selection.main.empty)return;
+      const path=pathRef.current,offset=editor.posAtCoords({x:event.clientX,y:event.clientY});if(!path||offset===null)return;
+      const line=editor.state.doc.lineAt(offset),document=editor.state.doc;
+      clickTimer=window.setTimeout(()=>{if(pathRef.current===path&&editor.state.doc===document&&editor.state.selection.main.empty)window.dispatchEvent(new CustomEvent('texypaper:sync-source-requested',{detail:{path,line1:line.number,automatic:true}}));},240);
+    };
+    const cancelClick=()=>window.clearTimeout(clickTimer);
+    window.addEventListener('texypaper:sync-location-hit',cancelClick);
+    editor.contentDOM.addEventListener('pointerdown',down);editor.contentDOM.addEventListener('click',click);
     callbacks.current.onReady?.(handle);
-    return()=>{remember();editor.scrollDOM.removeEventListener('scroll',remember);capture.current=()=>{};callbacks.current.onReady?.(null);pathRef.current=null;ownership.current=null;editor.destroy();view.current=null;};
+    return()=>{window.clearTimeout(clickTimer);window.removeEventListener('texypaper:sync-location-hit',cancelClick);editor.contentDOM.removeEventListener('pointerdown',down);editor.contentDOM.removeEventListener('click',click);remember();editor.scrollDOM.removeEventListener('scroll',remember);capture.current=()=>{};callbacks.current.onReady?.(null);pathRef.current=null;ownership.current=null;editor.destroy();view.current=null;};
   },[store]);
   useLayoutEffect(()=>{
     fontSizeRef.current=logicalFontSize;
@@ -98,7 +134,7 @@ export function SourceEditor({store,fontSize,onFontSizeChange,onSelection,onRead
       return {from:token.from,options:[...keys].slice(0,2000).map(label=>({label,type:'constant'}))};
     };
     const imagePaste=imagePasteExtension({onImages:files=>images.current?.(files)??Promise.resolve([]),getTexFilePath:()=>store.activePath===pathRef.current?pathRef.current:null,enabled:()=>!!images.current&&/\.(tex|ltx)$/i.test(pathRef.current??'')});
-    if(!buffer.state)buffer.state=EditorState.create({doc:buffer.document.text,extensions:[imagePaste,spelling.of([]),phrases.of(EditorState.phrases.of(locale==='ko'?koreanPhrases:{})),...(buffer.document.newline==='crlf'?[EditorState.lineSeparator.of('\r\n')]:[]),...texShortcutExtensions(),selectableLineNumbers(),highlightActiveLineGutter(),highlightSpecialChars(),history(),drawSelection(),bracketMatching(),indentOnInput(),syntaxHighlighting(classHighlighter),highlightSelectionMatches(),autocompletion({override:[complete]}),editorTheme,language.of([]),editable.of([EditorState.readOnly.of(buffer.document.readOnly),EditorView.editable.of(!buffer.document.readOnly)]),EditorView.lineWrapping,EditorView.domEventHandlers({compositionstart:()=>{const owner=ownership.current;if(owner)store.composition(owner.buffer.path,true,owner.generation);return false;},compositionend:()=>{const owner=ownership.current;if(owner)store.composition(owner.buffer.path,false,owner.generation);return false;}}),EditorView.updateListener.of(update=>{
+    if(!buffer.state)buffer.state=EditorState.create({doc:buffer.document.text,extensions:[imagePaste,sourceLocation,spelling.of([]),phrases.of(EditorState.phrases.of(locale==='ko'?koreanPhrases:{})),...(buffer.document.newline==='crlf'?[EditorState.lineSeparator.of('\r\n')]:[]),...texShortcutExtensions(),selectableLineNumbers(),highlightActiveLine(),highlightActiveLineGutter(),highlightSpecialChars(),history(),drawSelection(),bracketMatching(),indentOnInput(),syntaxHighlighting(classHighlighter),highlightSelectionMatches(),autocompletion({override:[complete]}),editorTheme,language.of([]),editable.of([EditorState.readOnly.of(buffer.document.readOnly),EditorView.editable.of(!buffer.document.readOnly)]),EditorView.lineWrapping,EditorView.domEventHandlers({compositionstart:()=>{const owner=ownership.current;if(owner)store.composition(owner.buffer.path,true,owner.generation);return false;},compositionend:()=>{const owner=ownership.current;if(owner)store.composition(owner.buffer.path,false,owner.generation);return false;}}),EditorView.updateListener.of(update=>{
       const owner=ownership.current;if(!owner||!store.owns(owner.buffer,owner.generation))return;
       const record=owner.buffer,path=record.path;
       if(update.docChanged)store.update(path,update.state,update.changes,owner.generation);else store.trackState(record,owner.generation,update.state);

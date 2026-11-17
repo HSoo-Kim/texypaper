@@ -4020,7 +4020,7 @@ dependencies = [
 
 [[package]]
 name = "texypaper"
-version = "0.0.12"
+version = "0.0.13"
 dependencies = [
  "base64 0.22.1",
  "flate2",

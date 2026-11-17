@@ -9,6 +9,7 @@ import { readingScrollTop } from './chatHistory';
 import { usePaneZoom, usePreventBrowserZoom, zoomKeyDirection } from '../../ui/paneZoom';
 import { clampChatFontSize, DEFAULT_CHAT_FONT_SIZE } from './chatPreferences';
 import { Transmissions } from './Transmissions';
+import { appendWritingTask, MAX_WRITING_PROMPT_LENGTH, WRITING_TASKS, type WritingTask } from './writingTasks';
 import './agents.css';
 
 // Keep family + version intact; the adjacent provider label already identifies Claude/Codex.
@@ -181,7 +182,7 @@ function AttachmentChip({ kind, index, label, location, description, truncated, 
 }
 
 export function ChatView({ snapshot, onAction, detached = false, fontSize = DEFAULT_CHAT_FONT_SIZE }: ChatViewProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const panel = useRef<HTMLElement>(null);
   const size = clampChatFontSize(fontSize);
   const sizeRef = useRef(size); sizeRef.current = size;
@@ -204,8 +205,12 @@ export function ChatView({ snapshot, onAction, detached = false, fontSize = DEFA
   }, [snapshot.composerFocus]);
   const [sessionWarning, setSessionWarning] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
+  const [writingTaskId, setWritingTaskId] = useState<WritingTask['id'] | ''>('');
   useEffect(() => { setSessionWarning(false); setAcknowledged(false); }, [snapshot.workspace.id, snapshot.workspace.epoch, snapshot.executionPermission]);
   const { provider, model, status, busy, prompt, context, workspace, error } = snapshot;
+  const writingTask = WRITING_TASKS.find(task => task.id === writingTaskId);
+  const writingTaskDraft = writingTask ? appendWritingTask(prompt, writingTask, locale) : null;
+  const writingTaskOverflow = !!writingTask && writingTaskDraft === null;
   const ready = snapshot.account?.provider === provider && snapshot.account.subscription && !!model && !snapshot.configuration.loading && (snapshot.configuration.allowCustom || snapshot.configuration.models.some(row => row.id === model));
   const { models, allowCustom, loading } = snapshot.configuration;
   const selectedModel = models.find(row => row.id === model);
@@ -242,7 +247,21 @@ export function ChatView({ snapshot, onAction, detached = false, fontSize = DEFA
           {context.pdfs?.map((pdf, index) => <AttachmentChip key={`pdf:${index}`} kind="pdf" index={index} label={`PDF ${pdf.page}${t('쪽', '')}`} description={pdf.quote} truncated={pdf.truncated} onAction={onAction} />)}
         </div>}
         {snapshot.contextNotice && <p className="agent-attachment-notice" data-testid="agent-attachment-notice" role="status">{snapshot.contextNotice === 'invalid' ? t('첨부할 선택 내용을 확인하지 못했습니다. 소스나 PDF에서 다시 선택해 주세요.', 'Could not attach this selection. Select source or PDF text again.') : snapshot.contextNotice === 'source-limit' ? t('소스 첨부는 최대 8개입니다. 가장 오래된 첨부를 제외했습니다.', 'Up to 8 source selections can be attached. The oldest attachment was removed.') : t('PDF 첨부는 최대 8개입니다. 가장 오래된 첨부를 제외했습니다.', 'Up to 8 PDF selections can be attached. The oldest attachment was removed.')}</p>}
-        <label className="agent-prompt-label" htmlFor="agent-prompt">{t('논문 작업 요청', 'Paper task')}</label><textarea ref={composer} id="agent-prompt" data-testid="agent-prompt" value={prompt} maxLength={65536} rows={2} placeholder={t('논문 작업을 요청하세요 · 선택 내용 첨부 Ctrl+L', 'Ask about your paper · Attach selection with Ctrl+L')} onChange={event => onAction({ type: 'prompt', value: event.target.value })} onKeyDown={event => { if (event.ctrlKey && event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); onAction({ type: 'send' }); } }} />
+        <div className="agent-writing-tasks">
+          <label className="agent-quick-control" htmlFor="agent-writing-task"><span>{t('논문 글쓰기 작업', 'Academic writing task')}</span><select id="agent-writing-task" data-testid="agent-writing-task" value={writingTaskId} disabled={busy} aria-describedby={writingTaskOverflow ? 'agent-writing-task-note agent-writing-task-error' : 'agent-writing-task-note'} onChange={event => setWritingTaskId(event.target.value as WritingTask['id'] | '')}>
+            <option value="">{t('작업 선택…', 'Choose a task…')}</option>
+            {WRITING_TASKS.map(task => <option key={task.id} value={task.id}>{t(task.label.ko, task.label.en)}</option>)}
+          </select></label>
+          <button type="button" data-testid="agent-writing-task-append" disabled={busy || !writingTask || writingTaskOverflow} onClick={() => {
+            if (busy || !writingTask || writingTaskDraft === null) return;
+            onAction({ type: 'prompt', value: writingTaskDraft });
+            setWritingTaskId('');
+            composer.current?.focus({ preventScroll: true });
+          }}>{t('초안에 덧붙이기', 'Append to draft')}</button>
+        </div>
+        <p id="agent-writing-task-note" className="agent-writing-task-note">{t('요청 지침만 추가합니다. 본문·심사 의견을 첨부하고 초안을 검토한 뒤 직접 보내세요.', 'Adds instructions only. Supply text or reviewer comments, review the draft, then send explicitly.')}</p>
+        {writingTaskOverflow && <p id="agent-writing-task-error" className="agent-writing-task-error" data-testid="agent-writing-task-error" role="alert">{t('추가할 수 없습니다. 요청이 65,536자를 넘습니다. 기존 초안을 줄인 뒤 다시 시도하세요. 내용은 잘라내지 않습니다.', 'Cannot append: the request would exceed 65,536 characters. Shorten the existing draft and try again. Nothing is truncated.')}</p>}
+        <label className="agent-prompt-label" htmlFor="agent-prompt">{t('논문 작업 요청', 'Paper task')}</label><textarea ref={composer} id="agent-prompt" data-testid="agent-prompt" value={prompt} maxLength={MAX_WRITING_PROMPT_LENGTH} rows={2} placeholder={t('논문 작업을 요청하세요 · 선택 내용 첨부 Ctrl+L', 'Ask about your paper · Attach selection with Ctrl+L')} onChange={event => onAction({ type: 'prompt', value: event.target.value })} onKeyDown={event => { if (event.ctrlKey && event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); onAction({ type: 'send' }); } }} />
         <div data-testid="agent-status" data-status={status} data-state={status} data-task-id={snapshot.taskId} data-session-id={snapshot.sessionId} role="status" className="agent-task-status">{busy && snapshot.executions.some(execution => execution.status === 'running') && status !== 'running' && status !== 'cancelling' ? t('명령 실행 중', 'Running command') : labels[status]}</div>
         <div className="agent-composer-footer">
           <label className="agent-quick-control agent-model-control" htmlFor="agent-model"><span>{t('모델', 'Model')}</span><select id="agent-model" value={selectedModel || !allowCustom ? model : '__custom'} title={modelLabel || t('연결 후 모델 선택', 'Connect to select a model')} disabled={busy || loading || !snapshot.account?.subscription || (!models.length && !allowCustom)} onChange={event => onAction({ type: 'model', value: event.target.value === '__custom' ? '' : event.target.value })}>{!selectedModel && !allowCustom && <option value={model}>{model ? `${modelLabel} · ${t('목록에 없음', 'Not listed')}` : t('모델 없음', 'No model')}</option>}{models.map(row => <option key={row.id} value={row.id}>{compactModelLabel(row.label || row.id)}</option>)}{allowCustom && <option value="__custom">{t('직접 입력', 'Custom ID')}</option>}</select></label>

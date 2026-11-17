@@ -1,0 +1,13 @@
+diff --git a/lib/headless.js b/lib/headless.js
+index 86a945c876f048683950f609323cb6b3a3f46eb6..d56d435368f703a5c2af6b0e1a6d39171f815fce 100644
+--- a/lib/headless.js
++++ b/lib/headless.js
+@@ -481,7 +481,7 @@ var $ = class e {
+ 		}
+ 	}
+ 	emitProgressPdf(e, t, n) {
+-		if (!(!t?.onProgressPdf || !e.success || !e.pdf)) try {
++		if (!(!t?.onProgressPdf || !e.success || !e.pdf || e.errors.some((error) => error.severity === "error"))) try {
+ 			t.onProgressPdf({
+ 				pdf: e.pdf.slice(),
+ 				compileTime: performance.now() - n

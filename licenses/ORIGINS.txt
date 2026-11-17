@@ -4,7 +4,7 @@ LICENSE TEXT SOURCES
 DEPENDENCIES.tsv records exact resolved versions and manifest license
 expressions from the installed pnpm dependency tree and Cargo's locked
 Windows x86_64-pc-windows-msvc normal/build dependency resolution. It lists
-339 third-party Cargo packages including build tools, 35 installed npm
+339 third-party Cargo packages including build tools, 41 installed npm
 production-tree manifests and the bundled English Hunspell dictionary.
 An entry does not assert that every package is
 linked into the executable or emitted into JavaScript. Native Node canvas
@@ -58,6 +58,21 @@ The unmodified dictionary-en 4.0.0 / SCOWL en_US 2020.12.07 files and complete
 composite notices are pinned to commit 836d7c2032167880e639a1fe522748733e528c2d.
 Exact source URLs, file sizes, SHA-256 digests and upstream copyright sources
 are recorded in licenses/dictionary-en-4.0.0/ORIGIN.txt.
+
+WasmTex adds the MIT headless SDK pinned to commit
+b2930ab196d17594eed3beefa0fd00e4f5fb5257 (committed lib, no upstream build),
+plus pdf-lib 1.17.1 and four dependencies for incremental PDF splicing.
+Exact installed notices are in their licenses/npm/ directories.
+The independent release-cleared 2026-f5d94438a7c75a23 engine distribution has
+its own complete notices/provenance in licenses/wasmtex-engine-2026/ and an
+exact size/SHA-256 manifest in scripts/wasmtex-engine-2026.manifest.json.
+pnpm assets:wasmtex provisions ignored public/wasmtex/2026/ static assets,
+including the 154968364-byte corresponding-source archive; normal builds gate
+on that setup and validate all engine files and source bytes. The packaged
+app exposes offline notices/source at /wasmtex/2026/index.html.
+package:release also copies the verified source archive beside its binary
+assets and includes it in its release manifest/checksums. The archive is not
+replaced by an upstream link. SDK and engine notices are deliberately separate.
 
 This inventory preserves known dependency license material. It is not an
 exhaustive legal audit of all source-level embedded notices, generated

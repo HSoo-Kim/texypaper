@@ -31,9 +31,9 @@ A Windows desktop LaTeX editor built with Tauri 2, Rust, React and CodeMirror. I
 
 | Feature | What it does |
 |---|---|
-| **Local and SSH projects** | Open a folder on this PC, or a real POSIX path on a server through your own OpenSSH setup. Files are read and written in place; nothing is mirrored to Windows. [Details](#open-a-project) |
+| **Local and SSH projects** | Open a folder on this PC, or a real POSIX path on a server through your own OpenSSH setup. Originals are read and written in place, without synchronizing a second working directory. Editing and previews receive the needed contents in client memory. [Details](#open-a-project) |
 | **`Ctrl+S`, then PDF** | Saving compiles with latexmk on the machine that holds the paper. The main document is found from `% !TeX root`, your choice or `\documentclass`, so there is usually nothing to configure. [Details](#compile-and-read-the-pdf) |
-| **Source and PDF side by side** | `Ctrl+click` the PDF to jump to the source line; `Ctrl+Alt+J` highlights the matching PDF spot (SyncTeX). Drag the divider, and zoom the source, the PDF and the chat independently. |
+| **Source and PDF side by side** | Click either pane to mark the corresponding location without sending keyboard focus to the other pane. `Ctrl+click` the PDF and `Ctrl+Alt+J` remain available for explicit SyncTeX jumps. Drag the divider, and zoom the source, PDF and chat independently. |
 | **Overleaf-style editing** | Overleaf's default shortcuts (`Ctrl+D` delete line, `Ctrl+/` comment, multiple cursors, folding), a numbered section outline, and citation and label completion. |
 | **Spelling and word count** | English spell check for prose only, so TeX commands, math, comments and citation keys are never flagged, with suggestions on click or `Alt+F8`. The status bar shows the word count, or the count of the selection. [Details](#spelling-and-word-count) |
 | **Project-wide replace** | Preview every changed line per file, then replace across up to 16 files as one undoable save. [Details](#project-wide-replace) |
@@ -41,6 +41,7 @@ A Windows desktop LaTeX editor built with Tauri 2, Rust, React and CodeMirror. I
 | **Checkpoints** | Named snapshots of the project's text files, automatic snapshots right before AI changes, project-wide replace and PDF text edits, a per-file diff against the current state and a restore that can be undone. [Details](#checkpoints) |
 | **New paper from template** | Start from an English article, Korean article, slide deck or chapter-based report in an existing folder, local or over SSH. [Details](#start-from-a-template) |
 | **Edit text from the PDF** | Select rendered text and send a proven literal prose span to a before/after diff. Applying it is one undoable save followed by a rebuild. [Details](#fix-text-from-the-pdf) |
+| **Paper tools** | Search project BibTeX metadata and insert citations, convert CSV/TSV to LaTeX tables, and inspect source references and unfinished markers before submission. [Details](#paper-tools) |
 | **Comments** | Comment on a source or PDF selection. Threads live in `.texypaper/comments.json` and reattach by quote and context after edits. |
 | **AI that proposes, you apply** | Codex and Claude run through their official CLIs on your own subscription. They can read the project and propose changes; nothing is written until you press **Apply changes**. [Details](#ai-codex-and-claude) |
 | **Safe saving and recovery** | SHA-256 check before every write, a conflict dialog for outside edits, a recovery journal for unsaved text, and undo for the last save. |
@@ -64,12 +65,13 @@ You also need a TeX distribution whose `latexmk` is on `PATH` (on the server, fo
 |---|---|
 | The desktop app | Windows x64 and the Microsoft Edge WebView2 runtime |
 | Local TeX builds | `latexmk` on `PATH`, the engine you choose (`pdflatex`, `xelatex` or `lualatex`), and the TeX packages, fonts and BibTeX/Biber your paper needs |
+| Live preview | Local TeX Live 2026 and `kpsewhich` on `PATH`, with compatible packages/fonts. Unavailable configurations retain the authoritative host build |
 | Source ⇄ PDF jumps | SyncTeX data from the build and `synctex` on the host |
 | SSH editing | Windows OpenSSH `ssh.exe`, a Linux or macOS POSIX server with `python3` 3.9 or later, and write access to the project and a user cache folder |
 | SSH builds | The above, plus latexmk, your engine, SyncTeX and your paper's dependencies installed **on the server** |
 | AI | The official Codex or Claude Code CLI installed on Windows, a supported subscription sign-in for that provider, and an internet connection |
 
-TeX, Python, SSH and the AI CLIs are not bundled, and TexyPaper never installs global or server packages for you. An SSH server needs no Codex, Claude, Node or always-on daemon. A server without TeX still allows file editing; builds fail with `TEX_TOOL_MISSING`.
+Host TeX distributions, Python, SSH and the AI CLIs are not bundled, and TexyPaper never installs global or server packages for you. The WebAssembly TeX preview engines, licenses and exact corresponding source are bundled. An SSH server needs no Codex, Claude, Node or always-on daemon. A server without TeX still allows file editing; authoritative builds fail with `TEX_TOOL_MISSING`.
 
 ## Open a project
 
@@ -88,7 +90,7 @@ Your existing keys, SSH agent and ProxyJump settings are used, but TexyPaper nev
 
 ## Compile and read the PDF
 
-Builds always run on the host that holds the project; an SSH paper is never copied to Windows to be built. **`Ctrl+S` saves and compiles** (with **Build automatically after save** off in settings it only saves), and a pause in typing autosaves and then compiles. **Recompile** in the PDF pane, the top **Build** button and `Ctrl+Shift+B` do the same.
+**Authoritative builds and exported PDFs are produced on the project host.** `Ctrl+S` saves and compiles (with **Build automatically after save** off it only saves). Typing is coalesced for 150 ms locally or 250 ms over SSH before autosave, with no second post-save compile delay. **Recompile**, the top **Build** button and `Ctrl+Shift+B` also request an authoritative build.
 
 The main document is found without setup, in this order: `% !TeX root = ...` in the open file → the main document you chose → the open file if it has `\documentclass` → the nearest folder, from the open file's folder upward, that holds exactly one `\documentclass` file. If several candidates tie, TexyPaper asks instead of guessing: use **Build options → Main document** or the menu next to **Recompile**. A chosen main document is stored in `.texypaper/project.json`.
 
@@ -98,6 +100,13 @@ The main document is found without setup, in this order: `% !TeX root = ...` in 
 | **Project** | Uses your existing latexmk configuration, which can run commands, so it needs an explicit trust confirmation. The trust is stored in the client's app data, not in the project JSON. |
 
 One build runs at a time, and overlapping saves collapse into the newest rebuild request. The default time limit is 120 seconds, and cancelling stops the process tree the app started. If a build fails, is cancelled or times out, the last good PDF stays visible marked as out of date. The number on the log button counts errors and warnings; the log opens by itself only when there is no PDF to show.
+
+Basic-profile automatic builds can update the existing PDF pane first with a **live preview**. A resident on-device WasmTex engine receives the last verified build inputs plus current editor buffers and displays a real PDF from its first successful pass. Completed snapshots can appear while typing continues. Documents and package requests are not sent to a cloud compiler. Export and comment anchors still require the verified host build. Click navigation uses only the displayed PDF's own SyncTeX and matching source inputs; when mapping is pending or the source differs, the app shows a notice rather than applying another build's coordinates.
+
+While typing, compatible warm previews compile only through the visible page and its neighbor. Remaining pages retain the previous full result and are labeled as such; their stale source mappings are unavailable. Automatic full basic/pdfLaTeX builds wait for one second of typing idle, but saving and explicit builds do not. Preamble changes or unsupported partial compilation use the full path. Export waits for the verified complete document.
+
+Initial engine setup takes additional time. Project profiles, incompatible TeX environments/fonts and inputs outside the main document's parent directory retain the authoritative build path. Preview inputs are bounded to 128 MiB; checkpoint limits are not total app RAM limits. **Settings → Open source** exposes engine licenses and exact corresponding source.
+
 
 When a build fails and the log shows an error with a source location, **Ask AI about this error** attaches the source around the first error (20 lines either side) to the AI chat and fills in a question if the input box is empty. Nothing is sent until you press send. The log lists document errors only: the TeX Live wrapper's "command failed with exit code" line and latexmk's summary lines are dropped when a real error exists, so one mistake counts as one.
 
@@ -115,6 +124,8 @@ Repeated sentences, macros, math, citations, tables, selections across files or 
 ### Comments
 
 Create a comment from a source or PDF selection, then reply, edit, delete, resolve or reopen it. Comments are stored in `.texypaper/comments.json` on the project's real host; they are never inserted as TeX `%` comments. App edits move the byte anchor; after outside edits a comment reattaches only when its quote and surrounding context match uniquely in the same file, otherwise it shows as **Orphaned** so you can reselect it. A PDF-only comment belongs to that PDF's hash and is not moved to the same page number of a new PDF.
+
+**Export review report** previews all saved threads, replies, statuses and source/PDF anchors as Markdown, including resolved and orphaned threads regardless of the current filter. Save to a new project-relative `.md` path on the local or SSH host; existing files are never overwritten and parent folders must already exist. Draft comments are excluded, and discussion replies are not presented as formal author responses. Export does not change the comments.
 
 ## Write and revise
 
@@ -159,6 +170,16 @@ On Home, **New paper from template** creates a starter paper in a folder that al
 
 TexyPaper only creates new files; if any of the template's files or folders already exists, nothing is created and the paths are listed. The main document and engine are saved in `.texypaper/project.json` and the paper opens ready to compile.
 
+### Paper tools
+
+The **Paper** menu works with local and SSH projects without sending source text to AI:
+
+- **Find references** searches titles, authors, years and citation keys across the project's `.bib` files, including unopened folders. Select a position in an editable `.tex`/`.ltx` file first, then insert `\cite{key}`. Duplicate or unsafe keys, malformed bibliography syntax and incomplete scans disable insertion. This searches existing metadata; it does not retrieve or verify papers online.
+- **Create table from data** accepts CSV, TSV or semicolon-separated text, including quoted multiline cells. Review the data and generated LaTeX, optionally add a header, caption and label, then insert. Text is escaped; no extra LaTeX package is required. Ragged rows and malformed quotes are rejected rather than silently repaired. Limits: 200 rows, 30 columns and 200,000 input characters.
+- **Pre-submission check** follows the selected root's static input and bibliography links, reports missing citation/label definitions, duplicate keys/labels and TODO markers, and jumps to their source lines. It also shows whether the PDF needs rebuilding. Comments and literal-code environments do not create false references; dynamic TeX and incomplete coverage are explicitly flagged. This is not TeX execution, fact checking or venue-compliance certification.
+
+Scanning includes open unsaved edits, excludes hidden/generated folders, and reports skipped files. Limits: 400 files, 1 MiB per file and 8 MiB total. Use **Rescan** after changes. Citation/table insertion is one undo step and refuses a changed, replaced or read-only source; reopen the tool after choosing a new insertion position.
+
 ## AI: Codex and Claude
 
 Open **Settings** at the top of the AI chat, choose a provider and press **Refresh connection** to check the official CLI and account. The supported protocol baseline is **Codex 0.153.2 / Claude Code 2.1.300**. The model, reasoning level and execution permission sit beside the send button. Version mismatches, unavailable models, limits, authentication and network failures are shown as they are; TexyPaper never switches to a different paid API.
@@ -171,6 +192,8 @@ The model picker shows the newest version per family from GPT-6 up, and only Cla
 Both CLIs run **only on the Windows client**, never with an SSH URI as their working directory. They reach the selected local or SSH project through a private control directory and seven MCP tools: `list_files`, `read_text`, `search_text`, `get_build_status`, `propose_changes`, `propose_command` and `get_command_status`. The providers' own shell and direct file-write tools are disabled.
 
 **Attaching.** Only text you explicitly attach with `Ctrl+L` or right-click → **Attach to AI chat** (from the source or the PDF) becomes a chip in the input box; merely selecting text shares nothing. When you send, the request, its attachments and the relevant source, code and result excerpts the AI reads go to the provider you chose (OpenAI or Anthropic). The official CLIs run their models in the provider's cloud, so there is no separate consent step. The default read tools exclude secrets, `.env*`, credentials and the app's own auth and recovery stores, and `propose_changes` may only write TeX, Bib and style files.
+
+**Academic writing tasks.** Choose **Shorten without changing claims**, **Polish academic English**, **Critique argument and evidence** or **Draft reviewer responses**, then **Append to draft**. Instructions are added to the existing draft without changing attachments or sending anything. Review the editable request and press **Send** yourself. Presets request preservation of numbers, citations and TeX and prohibit invented evidence; they do not guarantee a model's accuracy. Appending is refused, without truncation, if the combined prompt exceeds 65,536 characters.
 
 **What was sent.** **Sent to OpenAI** / **Sent to Anthropic** in the chat lists what this project's conversations handed to the provider: attachments, prompt sizes, and every file read, search, build status and command result the AI received through the tools, with path, line range, size and time. An entry is written when the data is handed to the provider's CLI, not when it is prepared, so it is a record of what left the PC rather than a receipt from the cloud. Attachments still in the input box appear as **Not sent yet**. No contents are stored, the newest 500 entries are kept, and **Clear conversation history** in the chat settings deletes them with the local conversation.
 
@@ -277,7 +300,7 @@ Source editing shortcuts follow Overleaf's defaults; the in-app help lists them 
 Requirements: Windows x64, Node.js with `pnpm`, an MSVC Rust toolchain (edition 2024), the Visual Studio C++ Build Tools / Windows SDK and WebView2.
 
 ```powershell
-pnpm install --frozen-lockfile
+pnpm install --frozen-lockfile --ignore-scripts
 pnpm dev -- -- --data-dir "$env:TEMP\texypaper-dev-isolated"   # visible app window, isolated profile
 pnpm test                                                      # front-end tests
 pnpm tauri build --ci --target x86_64-pc-windows-msvc --bundles nsis -- --locked

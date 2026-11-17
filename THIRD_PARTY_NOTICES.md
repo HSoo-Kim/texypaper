@@ -16,7 +16,7 @@ Versions come from actual installed package manifests, `pnpm-lock.yaml`,
 `src-tauri/Cargo.lock`, and Cargo's locked Windows x64 dependency resolution.
 [`licenses/DEPENDENCIES.tsv`](licenses/DEPENDENCIES.tsv) records exact versions,
 declared license expressions, retained license files and exact-version source
-URLs for 339 Cargo packages in the normal/build closure, 35 installed npm
+URLs for 339 Cargo packages in the normal/build closure, 41 installed npm
 production-tree packages and the bundled English dictionary. The inventory deliberately includes build dependencies
 and optional Node support; it does not assert that every entry is linked/emitted.
 [`licenses/ORIGINS.txt`](licenses/ORIGINS.txt) explains collection and pinned
@@ -76,6 +76,66 @@ This script and npm dependency are development/smoke-test material, not the
 production SSH transport (which uses external OpenSSH). Preserve the notice when
 distributing the adapted script. Distributing all development dependencies would
 require a separate inventory of their notices.
+
+## WasmTex host SDK and separate TeX Live 2026 engines
+
+The headless host SDK is **WasmTex 0.1.0**, pinned to
+[`b2930ab196d17594eed3beefa0fd00e4f5fb5257`](https://github.com/corca-ai/wasmtex/tree/b2930ab196d17594eed3beefa0fd00e4f5fb5257),
+not a mutable branch. **Copyright (c) 2025-2026 WasmTex contributors.** Full MIT
+notice and upstream third-party notices are retained under
+[`licenses/npm/wasmtex-b2930ab196d17594eed3beefa0fd00e4f5fb5257/`](licenses/npm/wasmtex-b2930ab196d17594eed3beefa0fd00e4f5fb5257/),
+including the SDK SyncTeX parser's additional non-endorsement notice.
+
+TexyPaper applies `patches/wasmtex@0.1.0.patch` from its source tree
+to the MIT SDK's progress-PDF emitter: results with TeX error diagnostics are
+not displayed as successful previews. The WebAssembly and format bytes and the
+upstream corresponding-source archive below are unchanged; the separate worker
+controller modification is documented below.
+
+The independently pinned **TeX Live 2026 engine release
+`2026-f5d94438a7c75a23`** is a separate static worker/module/WASM/format
+distribution, not imports into TexyPaper's application bundle. Its exact upstream
+manifest and all file sizes/SHA-256 digests are pinned in
+[`scripts/wasmtex-engine-2026.manifest.json`](scripts/wasmtex-engine-2026.manifest.json).
+The generated asset directory includes the release-cleared legal manifest, all
+seven build receipts, complete notices and source. Engines include GPL-2.0-only,
+GPL-2.0-or-later, LGPL, LPPL and component-specific material; the SDK's MIT license
+does not relicense them. Unmodified release license texts, linked-component
+inventory and provenance are retained in
+[`licenses/wasmtex-engine-2026/`](licenses/wasmtex-engine-2026/).
+
+TexyPaper modifies only the PDF worker controller to allow bounded relative
+package names through its local installed-tree provider, never a remote mirror,
+and to store them as flat cache filenames. The exact source change is
+[`licenses/wasmtex-engine-2026/texypaper-local-assets.patch`](licenses/wasmtex-engine-2026/texypaper-local-assets.patch),
+SHA-256 `315cfa39941e89dc1164afaf33eb18fa60b974fe3e6fe781d975bc508af2e06a`.
+It is also bundled as `/wasmtex/2026/texypaper-wasmtex-2026-local-assets.patch`.
+Apply it with `patch -p1` from the extracted source archive's root before following
+`REBUILD.md`. The installed `manifest.json` records the derived distribution ID,
+original and modified worker hashes, source patch, and unchanged upstream receipt.
+`upstream-manifest.json` preserves the upstream trust root; upstream
+`release-cleared` status is not claimed for this local modification.
+
+Complete corresponding source is the patch above **together with** the upstream archive
+`/wasmtex/2026/wasmtex-2026-f5d94438a7c75a23-source.tar.xz` in the packaged app
+and as a companion release asset. It is **154,968,364 bytes**, SHA-256
+`e6a1f9b8ad84c7127368bb521217af381407fcc0d5c5518114345d55b470d637`.
+The archive contains engine/glue/build/toolchain/port sources and rebuild/relink
+instructions; the WebAssembly MakeIndex port is modified and its source is there.
+See the packaged **`/wasmtex/2026/index.html`** for local notices, manifests and
+the source download, or the
+[exact upstream source archive](https://github.com/corca-ai/wasmtex/releases/download/engine-2026-f5d94438a7c75a23/wasmtex-2026-f5d94438a7c75a23-source.tar.xz).
+Publish and retain both the source archive and source patch beside each installer/portable release.
+No additional TexyPaper product restriction overrides recipients' component
+license rights. Installed local TeX Live packages/fonts retain their own copying,
+notices and source materials; TexyPaper does not bundle a separate package mirror.
+
+The incremental PDF-splicing peer is **pdf-lib 1.17.1** (MIT). Its full notice is
+in [`licenses/npm/pdf-lib-1.17.1/LICENSE.md`](licenses/npm/pdf-lib-1.17.1/LICENSE.md).
+The associated notices for `@pdf-lib/standard-fonts` 1.0.0 (MIT),
+`@pdf-lib/upng` 1.0.1 (MIT), `pako` 1.0.11 (MIT AND Zlib) and `tslib` 1.14.1
+(0BSD) are retained in their exact-version `licenses/npm/` directories and
+recorded in the dependency inventory. No new editor or PDF renderer is installed.
 
 ## PDF.js 6.5.438: code and actual redistributed assets
 

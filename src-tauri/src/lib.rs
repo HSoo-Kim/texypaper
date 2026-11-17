@@ -9,11 +9,13 @@ pub mod execution;
 pub mod latex;
 pub mod media;
 pub mod migration;
+pub mod preview;
 pub mod process;
 pub mod resources;
 pub mod spell;
 pub mod ssh_askpass;
 pub mod state;
+pub mod texmf;
 pub mod tray;
 pub mod updates;
 pub mod workspace;
@@ -273,6 +275,7 @@ async fn dispatch(
    "command_list"|"command_permission"|"command_decide"|"command_cancel"=>{let mut args=args;args["_dataDir"]=json!(state.data_dir);execution::execute(&workspace,command,args,emit.clone())},
    "build_start"=>{let mut build_args=args;build_args["_projectTrusted"]=json!(state::project_trusted(&state.data_dir,&workspace)?);latex::execute(&workspace,command,build_args)},
    "build_status"|"build_cancel"|"sync_forward"|"sync_inverse"|"sync_validate_fallback"|"pdf_map_selection"|"pdf_apply_edit"=>latex::execute(&workspace,command,args),
+   "preview_inputs"=>preview::inputs(&workspace,&args),
    "export_pdf"=>{
     let english=state.settings.lock().map_err(|_|lock_error())?.get("locale").and_then(Value::as_str)==Some("en");
     let destination=dialogs::run(move||rfd::FileDialog::new().set_title(if english{"Export PDF"}else{"PDF 내보내기"}).add_filter("PDF",&["pdf"]).set_file_name("paper.pdf").save_file())?.ok_or_else(||AppError::new("CANCELLED","PDF export cancelled"))?;
@@ -343,6 +346,7 @@ workspace_commands!(
     pdf_map_selection,
     pdf_apply_edit,
     artifact_metadata,
+    preview_inputs,
     export_pdf,
     comments_read,
     comments_update,
@@ -731,6 +735,27 @@ pub fn run() {
                 }
             }
         })
+        .register_asynchronous_uri_scheme_protocol("texmf", |context, request, responder| {
+            if tray::is_exiting(context.app_handle()) {
+                responder.respond(
+                    tauri::http::Response::builder().status(503).body(Vec::new())
+                        .expect("static exiting response"),
+                );
+                return;
+            }
+            match texmf::SLOTS.clone().try_acquire_owned() {
+                Ok(permit) => {
+                    std::thread::spawn(move || {
+                        let _permit = permit;
+                        responder.respond(texmf::response(request));
+                    });
+                }
+                Err(_) => responder.respond(
+                    tauri::http::Response::builder().status(429).header("Retry-After", "1")
+                        .body(Vec::new()).expect("static texmf busy response"),
+                ),
+            }
+        })
         .register_asynchronous_uri_scheme_protocol("texypaper", |context, request, responder| {
             let state = context
                 .app_handle()
@@ -823,6 +848,7 @@ pub fn run() {
             pdf_map_selection,
             pdf_apply_edit,
             artifact_metadata,
+            preview_inputs,
             export_pdf,
             comments_read,
             comments_update,

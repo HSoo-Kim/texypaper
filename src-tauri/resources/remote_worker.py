@@ -69,6 +69,128 @@ def file_hash(path, cancel=None, deadline=None):
             require(deadline is None or time.monotonic() < deadline, 'BUILD_TIMEOUT', 'Build deadline exceeded while hashing')
             h.update(chunk)
     return h.hexdigest()
+
+
+def database_inputs(path):
+    """Read source records, including .bib files omitted by the TeX recorder."""
+    try:
+        if path.stat().st_size > 64 * PAYLOAD_LIMIT:
+            return None
+        with open(path, 'r', encoding='utf-8') as stream:
+            if stream.readline().rstrip('\r\n') not in ('# Fdb version 3', '# Fdb version 4'):
+                return None
+            result, primary = [], None
+            for line in stream:
+                if line.startswith('["'):
+                    rule, _ = line[2:].split('"]', 1)
+                    primary = rule == 'pdflatex'
+                match = re.fullmatch(r'\s+"([^"]+)"\s+(-?[0-9.]+)\s+(-?[0-9]+)\s+(?:[0-9a-fA-F]{32}|0)\s+"[^"]*"\s*', line)
+                if match:
+                    name, modified, size = match.groups()
+                    modified, size = float(modified), int(size)
+                    if primary is None:
+                        return None
+                    if math.isfinite(modified) and modified >= 0:
+                        result.append((name, max(0, size), int(modified), size < 0, primary))
+                elif line.strip().startswith('"') and re.fullmatch(r'"[^"]*"', line.strip()) is None:
+                    return None
+                if len(result) > 20000:
+                    return None
+            return result
+    except (OSError, UnicodeError, ValueError):
+        return None
+
+
+def volatile_output(path, job):
+    return path.startswith(job) and path[len(job):] in ('.pdf', '.log', '.fls', '.synctex', '.synctex.gz')
+
+
+def control_state_matches(before, after, job):
+    return (len(after) == sum(not volatile_output(path, job) for path in before)
+            and all(after.get(path) == sha for path, sha in before.items() if not volatile_output(path, job)))
+
+
+def log_is_converged(work, job):
+    try:
+        path = work / (job + '.log')
+        if path.stat().st_size > 16 * PAYLOAD_LIMIT:
+            return False
+        text = path.read_bytes().decode('utf-8', errors='replace')
+        return re.search(r'\b(?:re-?run|undefined)\b|\(re\)run|please\s+run|no file |not found|does not exist|labels? may have changed',
+                         text, re.IGNORECASE) is None
+    except OSError:
+        return False
+
+
+def recorder_state(work, cwd, job):
+    try:
+        fls = work / (job + '.fls')
+        if fls.stat().st_size > 64 * PAYLOAD_LIMIT:
+            return None
+        inputs, outputs, base = set(), set(), cwd
+        with open(fls, 'r', encoding='utf-8') as stream:
+            for line in stream:
+                line = line.rstrip('\r\n')
+                if line.startswith('PWD '):
+                    base = pathlib.Path(line[4:])
+                    if not base.is_absolute():
+                        return None
+                    base = base.resolve(strict=True)
+                elif line.startswith(('INPUT ', 'OUTPUT ')):
+                    path = (base / line.split(' ', 1)[1]).resolve(strict=True)
+                    if not path.is_file():
+                        return None
+                    if line.startswith('INPUT '):
+                        if work in path.parents and volatile_output(path.relative_to(work).as_posix(), job):
+                            return None
+                        inputs.add(str(path))
+                    else:
+                        if work not in path.parents:
+                            return None
+                        outputs.add(str(path))
+                if len(inputs) + len(outputs) > 20000:
+                    return None
+        if not inputs or not outputs:
+            return None
+        return dict(inputs=sorted(inputs), outputs=sorted(outputs))
+    except (OSError, UnicodeError, ValueError):
+        return None
+
+
+def work_hashes(work, cancel, deadline, verified=None, volatile_job=None):
+    """Prove the bounded work cache without following links or special files."""
+    verified = verified or {}
+    pending, hashes, count = [work], {}, 0
+    try:
+        while pending:
+            with os.scandir(pending.pop()) as entries:
+                for entry in entries:
+                    count += 1
+                    if count > 20000 or entry.is_symlink():
+                        return None
+                    path = pathlib.Path(entry.path)
+                    if entry.is_dir(follow_symlinks=False):
+                        pending.append(path)
+                    elif entry.is_file(follow_symlinks=False):
+                        relative = path.relative_to(work).as_posix()
+                        if volatile_job is not None and volatile_output(relative, volatile_job):
+                            continue
+                        hashes[relative] = verified[relative] if relative in verified else file_hash(path, cancel, deadline)
+                    else:
+                        return None
+        return hashes
+    except OSError:
+        return None
+
+
+def clear_final_artifacts(work):
+    # Work outputs are disposable; immutable published generations are not.
+    for path in work.iterdir():
+        if path.suffix in ('.pdf', '.fls', '.synctex') or path.name.endswith('.synctex.gz'):
+            require(not stat.S_ISDIR(path.lstat().st_mode), 'BUILD_ARTIFACT_INVALID', 'Artifact path is a directory')
+            path.unlink()
+
+
 def binary_bytes(data):
     if data.startswith((b'\xff\xfe', b'\xfe\xff')):
         return False
@@ -1755,7 +1877,7 @@ class Worker:
                     tail.extend(chunks.get(timeout=0.05))
                     if len(tail) > log_limit:
                         del tail[:-log_limit]
-                    if argv[0] == 'latexmk':
+                    if argv[0] in ('latexmk', 'pdflatex'):
                         self.build_state['logTail'] = tail.decode('utf-8', errors='replace')
                 except queue.Empty:
                     pass
@@ -1796,6 +1918,167 @@ class Worker:
                     pass
                 require(len(found) <= 20000, 'BUILD_INPUT_LIMIT', 'Build uses more than 20,000 project inputs')
         return found
+
+    def build_inputs(self, fls, cwd):
+        found = self.fls_inputs(fls, cwd)
+        database = database_inputs(fls.with_suffix('.fdb_latexmk'))
+        if database is not None:
+            for name, _, _, _, _ in database:
+                try:
+                    path = cwd / name
+                    relative = self.relative(path)
+                    if pathlib.PurePosixPath(relative).parts[0].casefold() not in PRIVATE_STATE_NAMES and path.is_file():
+                        found.add(relative)
+                except (OSError, Failure):
+                    pass
+                require(len(found) <= 20000, 'BUILD_INPUT_LIMIT', 'Build uses more than 20,000 project inputs')
+        return found
+
+    def incremental_sources_match(self, checkpoint, hashes):
+        previous = checkpoint.get('inputs')
+        if not isinstance(previous, dict) or previous.keys() != hashes.keys():
+            return False
+        for relative, sha in hashes.items():
+            record = previous[relative]
+            if (not isinstance(record, dict) or not isinstance(record.get('sha256'), str)
+                    or HEX.fullmatch(record['sha256']) is None
+                    or type(record.get('size')) is not int or record['size'] < 0
+                    or type(record.get('modifiedSeconds')) is not int or record['modifiedSeconds'] < 0):
+                return False
+            if record.get('sha256') == sha:
+                continue
+            if pathlib.PurePosixPath(relative).suffix.lower() not in ('.tex', '.ltx'):
+                return False
+            try:
+                info = self.path(relative).stat()
+            except (OSError, Failure):
+                return False
+            if record.get('size') == info.st_size and record.get('modifiedSeconds') == info.st_mtime_ns // 1000000000:
+                return False
+        return True
+
+    def direct_eligible(self, checkpoint, engine, profile, hashes):
+        previous, proof = checkpoint.get('inputs'), checkpoint.get('direct')
+        if (engine != 'pdflatex' or profile != 'basic' or not isinstance(proof, dict)
+                or not isinstance(proof.get('recorder'), dict) or not isinstance(proof.get('dependencies'), dict)
+                or not isinstance(previous, dict) or previous.keys() != hashes.keys()):
+            return False
+        return all(isinstance(previous[relative], dict) and
+                   (previous[relative].get('sha256') == sha or pathlib.PurePosixPath(relative).suffix.lower() in ('.tex', '.ltx'))
+                   for relative, sha in hashes.items())
+
+    def generator_dependencies(self, work, cwd, source, hashes, cancel, deadline):
+        database = database_inputs((work / source.name).with_suffix('.fdb_latexmk'))
+        if database is None or not any(primary for _, _, _, _, primary in database):
+            return None
+        dependencies = {}
+        for name, _, _, missing, primary in database:
+            if primary:
+                continue
+            if missing:
+                return None
+            try:
+                path = (cwd / name).resolve(strict=True)
+                if not path.is_file():
+                    return None
+            except OSError:
+                return None
+            if work in path.parents:
+                continue
+            try:
+                relative = self.relative(path)
+            except Failure:
+                relative = None
+            # The direct engine rereads its own inputs; hash only inputs to rules
+            # it skips, including external bibliography styles/index generators.
+            dependencies[str(path)] = hashes[relative] if relative in hashes else file_hash(path, cancel, deadline)
+        return dependencies
+
+    def direct_proof(self, work, cwd, source, hashes, cancel, deadline):
+        if not log_is_converged(work, source.stem):
+            return None
+        recorder = recorder_state(work, cwd, source.stem)
+        if recorder is None:
+            return None
+        dependencies = self.generator_dependencies(work, cwd, source, hashes, cancel, deadline)
+        if dependencies is None:
+            return None
+        return dict(recorder=recorder, dependencies=dependencies)
+
+    def try_direct_pass(self, checkpoint, work, cwd, source, cancel, deadline):
+        proof = checkpoint['direct']
+        def dependencies_match():
+            for name, sha in proof['dependencies'].items():
+                if not isinstance(name, str) or not pathlib.Path(name).is_absolute() or not isinstance(sha, str) or HEX.fullmatch(sha) is None:
+                    return False
+                try:
+                    if file_hash(pathlib.Path(name), cancel, deadline) != sha:
+                        return False
+                except OSError:
+                    return False
+            return True
+        if not dependencies_match():
+            return None
+        job = source.stem
+        for suffix in ('.pdf', '.log', '.fls', '.synctex', '.synctex.gz'):
+            with contextlib.suppress(FileNotFoundError):
+                (work / (job + suffix)).unlink()
+        argv = ['pdflatex', '-no-shell-escape', '-synctex=1', '-interaction=nonstopmode',
+                '-file-line-error', '-recorder', '-output-directory=' + str(work), './' + source.name]
+        code, output = self.run_process(argv, cwd, cancel, deadline)
+        if (code != 0 or not log_is_converged(work, job)
+                or recorder_state(work, cwd, job) != proof['recorder']
+                or not (work / (job + '.pdf')).is_file()
+                or not any((work / (job + suffix)).is_file() for suffix in ('.synctex.gz', '.synctex'))
+                or not dependencies_match()):
+            return None
+        control = work_hashes(work, cancel, deadline, volatile_job=job)
+        if control is None or not control_state_matches(checkpoint['work'], control, job):
+            return None
+        return output
+
+    def save_incremental_checkpoint(self, path, work, manifest, hashes, cancel, deadline, driver_current, generators_before):
+        if manifest.get('profile') != 'basic' or not manifest.get('mappingReady'):
+            return
+        cwd = self.path(manifest['rootTex']).parent
+        database = database_inputs((work / self.path(manifest['rootTex']).name).with_suffix('.fdb_latexmk'))
+        if database is None:
+            return
+        stamps = {}
+        for name, size, modified, missing, _ in database:
+            if missing:
+                continue
+            try:
+                relative = self.relative(cwd / name)
+            except (OSError, Failure):
+                continue
+            stamp = (size, modified)
+            if relative in stamps and stamps[relative] != stamp:
+                return
+            stamps[relative] = stamp
+        if not hashes.keys() <= stamps.keys():
+            return
+        inputs = {relative: dict(sha256=sha, size=stamps[relative][0], modifiedSeconds=stamps[relative][1])
+                  for relative, sha in hashes.items()}
+        verified = {pathlib.PurePosixPath(manifest[key]).name: manifest[sha]
+                    for key, sha in (('pdfPath', 'pdfSha256'), ('syncPath', 'syncSha256'))}
+        try:
+            direct = (self.direct_proof(work, cwd, self.path(manifest['rootTex']), hashes, cancel, deadline)
+                      if manifest['engine'] == 'pdflatex' and manifest.get('jobName') == pathlib.PurePosixPath(manifest['rootTex']).stem else None)
+            if direct is not None and direct['dependencies'] and direct['dependencies'] != generators_before:
+                direct = None
+            driver_current = driver_current and (manifest['engine'] != 'pdflatex' or direct is not None)
+            work_state = work_hashes(work, cancel, deadline, verified)
+        except Failure as exc:
+            if exc.value['code'] in ('CANCELED', 'BUILD_TIMEOUT'):
+                return
+            raise
+        if work_state is not None:
+            data = compact(dict(version=2, rootTex=manifest['rootTex'], engine=manifest['engine'],
+                                profile='basic', inputs=inputs, work=work_state, driverCurrent=driver_current, direct=direct))
+            if len(data) <= TEXT_LIMIT:
+                with contextlib.suppress(OSError):
+                    atomic(path, data)
 
     def snapshot_inputs(self, inputs, directory, cancel, deadline):
         records = []
@@ -1910,7 +2193,7 @@ class Worker:
             pdf = fls.with_suffix('.pdf')
             syncs = [p for p in (fls.with_suffix('.synctex.gz'), fls.with_suffix('.synctex')) if p.is_file()]
             if pdf.is_file() and syncs:
-                inputs = self.fls_inputs(fls, cwd)
+                inputs = self.build_inputs(fls, cwd)
                 if root_tex in inputs:
                     candidates.append((fls.stat().st_mtime_ns, fls, pdf, syncs[0], inputs))
         require(bool(candidates), 'BUILD_ARTIFACT_MISSING', 'No matching PDF, SyncTeX and recorder artifacts were produced')
@@ -1957,6 +2240,22 @@ class Worker:
             staging = self.state_path('build/' + root_id + '/pending/' + build_id, directory=True)
             previous = load_json(base / 'inputs.json', {})
             latest = load_json(base / 'latest.json')
+            checkpoint_path = base / 'incremental.json'
+            try:
+                checkpoint = load_json(checkpoint_path)
+            except (OSError, Failure):
+                checkpoint = None
+            if not (isinstance(checkpoint, dict) and checkpoint.get('version') == 2
+                    and checkpoint.get('rootTex') == root_tex and checkpoint.get('engine') == engine
+                    and checkpoint.get('profile') == profile == 'basic'
+                    and isinstance(checkpoint.get('work'), dict)
+                    and type(checkpoint.get('driverCurrent')) is bool
+                    and checkpoint['work'] == work_hashes(work, combined_cancel, deadline)):
+                checkpoint = None
+            # Any failed/canceled attempt invalidates the proof, even if it exits
+            # before latexmk has finished rewriting its database or artifacts.
+            with contextlib.suppress(FileNotFoundError):
+                checkpoint_path.unlink()
             previous_paths = previous.get('paths', []) if isinstance(previous, dict) else previous
             previous_hashes = previous.get('hashes', {}) if isinstance(previous, dict) else {}
             require(isinstance(previous_paths, list) and len(previous_paths) <= 20000, 'INVALID_DATA', 'Invalid recorded build inputs')
@@ -1973,6 +2272,7 @@ class Worker:
             diagnostics = []
             records = []
             artifact_tuple = None
+            driver_current = True
             for attempt in range(3):
                 self.canceled(cancel)
                 require(not self.build_cancel.is_set(), 'CANCELED', 'Build canceled')
@@ -1981,6 +2281,10 @@ class Worker:
                 with self.mutations:
                     generation = self.generation
                     records, hashes = self.snapshot_inputs(inputs, snapshot_dir, cancel, deadline)
+                # A style discovered/changed during compilation cannot seed a
+                # direct checkpoint until a full pass proves stable generator inputs.
+                generators_before = (self.generator_dependencies(work, cwd, source, hashes, combined_cancel, deadline)
+                                     if engine == 'pdflatex' and profile == 'basic' else None)
                 if attempt == 0 and latest and hashes == previous_hashes and latest.get('engine') == engine and latest.get('profile') == profile:
                     self.build_state['diagnostics'] = load_json(self.path(latest['pdfPath'], internal=True).parent / 'diagnostics.json', [])
                 argv = ['latexmk']
@@ -1990,10 +2294,18 @@ class Worker:
                 if profile == 'basic':
                     argv.append('-' + engine + '=' + engine + ' -no-shell-escape %O %S')
                 argv.extend(['-synctex=1', '-interaction=nonstopmode', '-file-line-error', '-recorder', '-outdir=' + str(work)])
-                if attempt or hashes != previous_hashes or not latest or not latest.get('mappingReady') or latest.get('engine') != engine or latest.get('profile') != profile:
-                    argv.append('-g')
                 argv.append('./' + source.name)
-                code, output = self.run_process(argv, cwd, combined_cancel, deadline)
+                direct_attempted = attempt == 0 and checkpoint is not None and self.direct_eligible(checkpoint, engine, profile, hashes)
+                direct_output = self.try_direct_pass(checkpoint, work, cwd, source, combined_cancel, deadline) if direct_attempted else None
+                if direct_output is not None:
+                    code, output, driver_current = 0, direct_output, False
+                else:
+                    driver_current = True
+                    if (attempt or direct_attempted or checkpoint is None or not checkpoint.get('driverCurrent')
+                            or not self.incremental_sources_match(checkpoint, hashes)):
+                        clear_final_artifacts(work)
+                        argv.append('-g')
+                    code, output = self.run_process(argv, cwd, combined_cancel, deadline)
                 log_tail = (log_tail + output).encode('utf-8')[-262144:].decode('utf-8', errors='replace')
                 diagnostics = self.diagnostics(output, cwd, root_tex)
                 self.build_state.update(logTail=log_tail, diagnostics=diagnostics)
@@ -2025,6 +2337,7 @@ class Worker:
                         old_diagnostics = load_json(self.path(retained['pdfPath'], internal=True).parent / 'diagnostics.json', diagnostics)
                         self.build_state = dict(status='published', manifest=retained, diagnostics=old_diagnostics,
                                                 logTail=log_tail, stale=False)
+                        self.save_incremental_checkpoint(checkpoint_path, work, retained, hashes, combined_cancel, deadline, driver_current, generators_before)
                         return self.build_state.copy(), b''
                     break
                 inputs |= actual
@@ -2088,6 +2401,7 @@ class Worker:
             generations = sorted((p for p in published_parent.iterdir() if p.is_dir() and not p.is_symlink()), key=lambda p: p.stat().st_mtime_ns, reverse=True)
             for obsolete in generations[2:]:
                 shutil.rmtree(obsolete)
+            self.save_incremental_checkpoint(checkpoint_path, work, manifest, hashes, combined_cancel, deadline, driver_current, generators_before)
             return self.build_state.copy(), b''
         except Failure as exc:
             self.build_state.update(status='canceled' if exc.value['code'] == 'CANCELED' else 'timeout' if exc.value['code'] == 'BUILD_TIMEOUT' else 'failed',
@@ -2166,6 +2480,74 @@ class Worker:
 
     def artifact_manifest(self, args, cancel, payload):
         return self.find_manifest(args.get('buildId')), b''
+
+    def preview_inputs(self, args, cancel, payload):
+        """Private chunk transport; native assembles and SHA-validates the public bundle."""
+        code = 'PREVIEW_INPUTS_UNAVAILABLE'
+        try:
+            build_id = args.get('buildId')
+            # Remote published generations use uuid4().hex, unlike local UUID strings.
+            require(isinstance(build_id, str) and uuid.UUID(build_id).hex == build_id, code, 'Invalid published build ID')
+            manifest = self.find_manifest(build_id)
+            records = manifest.get('sources')
+            root_tex = manifest.get('rootTex')
+            def source_path(value):
+                return (isinstance(value, str) and 0 < len(value.encode('utf-8')) <= 4096
+                        and not any(ord(c) < 32 or ord(c) == 127 for c in value)
+                        and ':' not in value and '\\' not in value
+                        and all(p not in ('', '.', '..') for p in value.split('/'))
+                        and value.split('/')[0].casefold() not in PRIVATE_STATE_NAMES)
+            require(manifest.get('version') == 1 and manifest.get('buildId') == build_id
+                    and manifest.get('workspaceId') == self.workspace_id, code, 'Published build belongs to a different workspace')
+            # Native PDF mapping readiness is separate from recompiling checked
+            # immutable snapshots into a disposable PDF with its own mapping.
+            require(source_path(root_tex) and manifest.get('engine') in ('pdflatex', 'xelatex', 'lualatex'),
+                    code, 'Incomplete or unsupported published generation')
+            require(isinstance(records, list) and 1 <= len(records) <= 10000, code, 'Invalid preview input count')
+            prefix = '.texypaper/build/' + digest(root_tex.encode('utf-8'))[:24] + '/published/' + build_id + '/'
+            generation = self.path(prefix[:-1], internal=True)
+            require(generation.resolve(strict=True) == generation, code, 'Published generation was redirected')
+            index = args.get('fileIndex')
+            require(index is None or type(index) is int and 0 <= index < len(records), code, 'Invalid recorded input index')
+            selected = enumerate(records) if index is None else ((index, records[index]),)
+            seen = set()
+            total = 0
+            chunk = None
+            for number, record in selected:
+                self.canceled(cancel)
+                relative, snapshot, expected = record.get('path'), record.get('snapshotPath'), record.get('sha256')
+                require(source_path(relative) and relative not in seen and isinstance(expected, str)
+                        and HEX.fullmatch(expected) is not None, code, 'Invalid recorded input identity')
+                seen.add(relative)
+                require(isinstance(snapshot, str) and snapshot.startswith(prefix), code, 'Snapshot belongs to another generation')
+                suffix = snapshot[len(prefix):].split('/')
+                require(len(suffix) >= 2 and suffix[0] in ('sources-0', 'sources-1', 'sources-2'), code, 'Invalid snapshot layout')
+                path = self.path(snapshot, internal=True)
+                require(generation in path.resolve(strict=True).parents and path.is_file(), code, 'Snapshot escaped its published generation or is not a regular file')
+                with open(path, 'rb') as stream:
+                    info = os.fstat(stream.fileno())
+                    require(stat.S_ISREG(info.st_mode) and info.st_size <= 128 * 1024 * 1024 - total, code, 'Preview inputs exceed 128 MiB')
+                    total += info.st_size
+                    if index is not None:
+                        offset = args.get('offset', 0)
+                        require(type(offset) is int and 0 <= offset <= info.st_size, code, 'Invalid snapshot offset')
+                        chunk = dict(buildId=build_id, fileIndex=number, offset=offset, path=relative,
+                                     sha256=expected, length=info.st_size)
+                        if args.get('metadataOnly') is not True:
+                            stream.seek(offset)
+                            data = stream.read(min(384 * 1024, info.st_size - offset))
+                            chunk['data'] = base64.b64encode(data).decode('ascii')
+            if index is None:
+                require(root_tex in seen, code, 'Published root input is missing')
+                return dict(buildId=build_id, rootTex=root_tex, engine=manifest['engine'], fileCount=len(records)), b''
+            return chunk, b''
+        except Failure as exc:
+            if exc.value['code'] in ('CANCELED', 'WORKSPACE_ROOT_CHANGED', 'STALE_WORKSPACE'):
+                raise
+            raise Failure(code, exc.value['message']) from exc
+        except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise Failure(code, 'Published preview inputs are unavailable: ' + str(exc)) from exc
+
     def build_validate(self, args, cancel, payload):
         with self.mutations:
             manifest = self.find_manifest(args.get('buildId'))
@@ -2439,7 +2821,7 @@ class Worker:
         allowed = {'hello', 'open_root', 'list_dir', 'stat_many', 'read_range', 'read_text', 'save_text',
                    'create', 'rename', 'trash', 'restore', 'search_text', 'scan_step', 'transaction_status',
                    'apply_proposal', 'undo_transaction', 'comments_read', 'comments_update', 'project_read',
-                   'project_update', 'build_start', 'build_status', 'artifact_manifest', 'build_validate',
+                   'project_update', 'build_start', 'build_status', 'artifact_manifest', 'build_validate', 'preview_inputs',
                    'save_text_begin', 'save_text_chunk', 'save_text_commit', 'save_text_abort', 'canonical_path',
                    'args_begin', 'args_chunk', 'args_execute', 'args_abort',
                    'asset_import_begin', 'asset_import_chunk', 'asset_import_commit', 'asset_import_abort',

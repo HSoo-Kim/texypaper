@@ -2,3 +2,5 @@ allowBuilds:
   esbuild: true
   ssh2: true
   cpu-features: false
+patchedDependencies:
+  wasmtex@0.1.0: patches/wasmtex@0.1.0.patch

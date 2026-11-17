@@ -162,6 +162,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  wasmtex@0.1.0: 3ea74966d961e9152019d705f90987720a01ebeab258b3e20986c25d81f9ad06
+
 importers:
 
   .:
@@ -205,6 +208,9 @@ importers:
       '@tauri-apps/api':
         specifier: ~2.12.4
         version: 2.12.4
+      pdf-lib:
+        specifier: 1.17.1
+        version: 1.17.1
       pdfjs-dist:
         specifier: 6.5.438
         version: 6.5.438
@@ -214,6 +220,9 @@ importers:
       react-dom:
         specifier: ^19.2.0
         version: 19.3.1(react@19.3.1)
+      wasmtex:
+        specifier: https://codeload.github.com/corca-ai/wasmtex/tar.gz/b2930ab196d17594eed3beefa0fd00e4f5fb5257
+        version: https://codeload.github.com/corca-ai/wasmtex/tar.gz/b2930ab196d17594eed3beefa0fd00e4f5fb5257(patch_hash=3ea74966d961e9152019d705f90987720a01ebeab258b3e20986c25d81f9ad06)(pdf-lib@1.17.1)(pdfjs-dist@6.5.438)
     devDependencies:
       '@tauri-apps/cli':
         specifier: ~2.12.4
@@ -553,6 +562,12 @@ packages:
   '@napi-rs/canvas@1.1.0':
     resolution: {integrity: sha512-k+ph/D8H9GS8ZZ48okvHrKeJynkqAA1kMUZRuzRWNlQUDHXngq7oRaWMZBdmSfd9ZhVy9bwNKei/7wMboI/uMg==}
     engines: {node: '>= 10'}
+
+  '@pdf-lib/standard-fonts@1.0.0':
+    resolution: {integrity: sha512-hU30BK9IUN/su0Mn9VdlVKsWBS6GyhVfqjwl1FjZN4TxP6cCw0jP2w7V3Hf5uX7M0AZJ16vey9yE0ny7Sa59ZA==}
+
+  '@pdf-lib/upng@1.0.1':
+    resolution: {integrity: sha512-dQK2FUMQtowVP00mtIksrlZhdFXQZPC+taih1q4CvPZ5vqdxR/LKBaFg0oAfzd1GlHZXXSPdQfzQnt+ViGvEIQ==}
 
   '@rollup/rollup-android-arm-eabi@4.67.5':
     resolution: {integrity: sha512-FdWPeulkH+FH+rBzyKBD59tuVN4tRKvmVilSJm0OcnoYsQTpd9UhD78OaPcsYqo2fX6hCwAG0YIjrDLoQ3pR3g==}
@@ -923,12 +938,18 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
+  pako@1.0.11:
+    resolution: {integrity: sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==}
+
   pathe@2.0.3:
     resolution: {integrity: sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==}
 
   pathval@2.0.1:
     resolution: {integrity: sha512-//nshmD55c46FuFw26xV/xFAaB5HF9Xdap7HJBBnrKdAd6/GxDBaNA1870O79+9ueg61cZLSVc+OaFlfmObYVQ==}
     engines: {node: '>= 14.16'}
+
+  pdf-lib@1.17.1:
+    resolution: {integrity: sha512-V/mpyJAoTsN4cnP31vc0wfNA1+p20evqqnap0KLoRUN0Yk/p3wN52DOEsL4oBFcLdb76hlpKPtzJIgo67j/XLw==}
 
   pdfjs-dist@6.5.438:
     resolution: {integrity: sha512-vg8Pw1x+AFKy4AMDvhuWl5cOYV8d698UoEANoFFhc79hqXDnZQqnOXoxw3HG907WHOg1JYOvLhP756boddFxpA==}
@@ -1014,6 +1035,9 @@ packages:
   tinyspy@4.0.6:
     resolution: {integrity: sha512-u8KszXvGfU68hVcZpRHKG28T0krMuv2G5nDhiHaMLen/gIuFEgIJhaJuO69qjnXg5paSrbPMFfx3brNuN8eVSg==}
     engines: {node: '>=14.0.0'}
+
+  tslib@1.14.1:
+    resolution: {integrity: sha512-Xni35NKzjgMrwevysHTCArtLDpPvye8zV/0E4EyYn43P7/7qvQwPh9BGkHewbMulVntbigmcT7rdX3BNo9wRJg==}
 
   tweetnacl@0.14.5:
     resolution: {integrity: sha512-KXXFFdAbFXY4geFIwoyNK+f5Z1b7swfXABfL7HXCmoIWMKU3dmS26672A4EeQtDzLKy7SXmfBu51JolvEKwtGA==}
@@ -1101,6 +1125,22 @@ packages:
 
   w3c-keyname@2.2.8:
     resolution: {integrity: sha512-dpojBhNsCNN7T82Tm7k26A6G9ML3NkhDsnw9n/eoxSRlVBB4CEtIQ/KTCLI2Fwf3ataSXRhYFkQi3SlnFwPvPQ==}
+
+  wasmtex@https://codeload.github.com/corca-ai/wasmtex/tar.gz/b2930ab196d17594eed3beefa0fd00e4f5fb5257:
+    resolution: {gitHosted: true, integrity: sha512-X7Hc1RuoSem78xGcxLopqXxuxUs+cA0xzSTGWx0cc9v3bZ/bgKtvp+WZVebrinGgzwCMRrDaqLXNokmFqn+4ow==, tarball: https://codeload.github.com/corca-ai/wasmtex/tar.gz/b2930ab196d17594eed3beefa0fd00e4f5fb5257}
+    version: 0.1.0
+    engines: {node: '>=24'}
+    peerDependencies:
+      monaco-editor: ^0.55.1
+      pdf-lib: ^1.17.1
+      pdfjs-dist: ^5.4.624
+    peerDependenciesMeta:
+      monaco-editor:
+        optional: true
+      pdf-lib:
+        optional: true
+      pdfjs-dist:
+        optional: true
 
   why-is-node-running@2.3.0:
     resolution: {integrity: sha512-hUrmaWBdVDcxvYqnyh09zunKzROWjbZTiNy8dBEjkS7ehEDQibXJ7XvlmtbwuTclUiIyN+CyXQD4Vmko8fNm8w==}
@@ -1389,6 +1429,14 @@ snapshots:
       '@napi-rs/canvas-win32-arm64-msvc': 1.1.0
       '@napi-rs/canvas-win32-x64-msvc': 1.1.0
     optional: true
+
+  '@pdf-lib/standard-fonts@1.0.0':
+    dependencies:
+      pako: 1.0.11
+
+  '@pdf-lib/upng@1.0.1':
+    dependencies:
+      pako: 1.0.11
 
   '@rollup/rollup-android-arm-eabi@4.67.5':
     optional: true
@@ -1680,9 +1728,18 @@ snapshots:
 
   nanoid@3.3.20: {}
 
+  pako@1.0.11: {}
+
   pathe@2.0.3: {}
 
   pathval@2.0.1: {}
+
+  pdf-lib@1.17.1:
+    dependencies:
+      '@pdf-lib/standard-fonts': 1.0.0
+      '@pdf-lib/upng': 1.0.1
+      pako: 1.0.11
+      tslib: 1.14.1
 
   pdfjs-dist@6.5.438:
     optionalDependencies:
@@ -1780,6 +1837,8 @@ snapshots:
 
   tinyspy@4.0.6: {}
 
+  tslib@1.14.1: {}
+
   tweetnacl@0.14.5: {}
 
   typescript@5.9.3: {}
@@ -1861,6 +1920,11 @@ snapshots:
       - yaml
 
   w3c-keyname@2.2.8: {}
+
+  wasmtex@https://codeload.github.com/corca-ai/wasmtex/tar.gz/b2930ab196d17594eed3beefa0fd00e4f5fb5257(patch_hash=3ea74966d961e9152019d705f90987720a01ebeab258b3e20986c25d81f9ad06)(pdf-lib@1.17.1)(pdfjs-dist@6.5.438):
+    optionalDependencies:
+      pdf-lib: 1.17.1
+      pdfjs-dist: 6.5.438
 
   why-is-node-running@2.3.0:
     dependencies:

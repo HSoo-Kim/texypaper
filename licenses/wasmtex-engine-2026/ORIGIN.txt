@@ -1,0 +1,45 @@
+WASMTEX ENGINE DISTRIBUTION — TeX Live 2026
+==========================================
+Release: 2026-f5d94438a7c75a23 (upstream release-cleared)
+Engine assets: https://corca-ai.github.io/wasmtex/wasmtex/2026/
+Pinned local trust root: scripts/wasmtex-engine-2026.manifest.json
+Upstream immutable release:
+  https://github.com/corca-ai/wasmtex/releases/tag/engine-2026-f5d94438a7c75a23
+Release tag target commit: 3e4d679cbe7ec9b93944a8de46663af7b98a5254
+TeX Live engine source commit: fb6158926661cb7a7246b3a94a0cb170a9624d5a
+
+This directory preserves the release tag's unmodified LICENSE, LICENSES/,
+THIRD_PARTY_NOTICES.md, docs/licensing.md, docs/corresponding-source.md and
+scripts/engine-components-2026.json, retrieved at the exact target commit.
+The generic upstream third-party notice discusses the default 2025 line too;
+the adjacent 2026 component inventory and exact engine LICENSE-MANIFEST.json
+identify this distribution's actual source revision and component selections.
+No engine or linked component is relicensed by the host SDK's MIT license.
+
+Complete corresponding-source archive:
+  wasmtex-2026-f5d94438a7c75a23-source.tar.xz
+  https://github.com/corca-ai/wasmtex/releases/download/engine-2026-f5d94438a7c75a23/wasmtex-2026-f5d94438a7c75a23-source.tar.xz
+  Size: 154968364 bytes
+  SHA-256: e6a1f9b8ad84c7127368bb521217af381407fcc0d5c5518114345d55b470d637
+
+Run pnpm assets:wasmtex (Node 24+) to provision public/wasmtex/2026/.
+This validates every engine artifact, legal manifest and build receipt against
+the checked-in manifest's exact byte size and SHA-256; validates release-cleared
+status and no blockers; and validates the exact source archive's size and SHA-256.
+The setup is also mandatory before pnpm build and pnpm dev:web. Existing valid
+payloads require no network. pnpm assets:wasmtex:verify is read-only and fails
+closed on missing or changed files. Generated payloads are ignored, not vendored
+application code. Their worker/module/WASM/format files stay separate static
+assets and are not imported into TexyPaper's application bundle.
+
+The packaged application's /wasmtex/2026/index.html exposes local manifests,
+notices and the complete local source archive, including rebuild/relink material.
+The archive is included in frontend static assets for offline recipients.
+package:release also emits the exact archive as a companion release asset with
+its SHA-256 recorded in release-manifest.json and SHA256SUMS.txt. Publish and
+retain it beside every installer/portable binary, not merely an upstream link.
+Existing installer resources and portable archives retain this notice directory.
+
+No additional product restrictions override recipients' GPL/LGPL or other
+component rights. TeX packages/fonts come from the separately installed local
+TeX Live distribution, whose copying, package notices and source must be retained.

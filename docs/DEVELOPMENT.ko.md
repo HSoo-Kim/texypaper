@@ -9,7 +9,7 @@
 Windows PowerShell에서 저장소 루트를 작업 디렉터리로 사용합니다. Node.js(이 구현 환경의 기준은 24.x), `pnpm@12.16.1`, Rust edition 2024를 지원하는 MSVC 도구체인, Visual Studio C++ Build Tools/Windows SDK와 WebView2가 필요합니다. 정확한 JS/Rust 의존성은 두 lockfile이 기준입니다. 아래 명령은 도구가 이미 준비되었다는 전제이며 전역 설치 명령을 포함하지 않습니다.
 
 ```powershell
-pnpm install --frozen-lockfile
+pnpm install --frozen-lockfile --ignore-scripts
 pnpm dev -- -- --data-dir "$env:TEMP\texypaper-dev-isolated"
 ```
 
@@ -30,11 +30,15 @@ pnpm tauri build --ci --target x86_64-pc-windows-msvc --bundles nsis -- --locked
 
 `pnpm typecheck`는 타입 검사만 합니다. 전체 빌드 스크립트는 외부 명령마다 종료 코드를 확인하며 실패 시 중단합니다.
 
+Build/dev hook은 `scripts/setup-wasmtex.mjs`로 고정된 WasmTex 엔진·format·고지·완전한 대응 소스를 준비하고 검증합니다. 최초 준비에는 지정된 공개 release에 접근해야 하지만, 실행 중 컴파일·패키지 조회에는 해당 서버를 사용하지 않습니다. 별도 엔진 asset을 앱의 JS bundle에 합치지 마세요. 빠른 미리보기에는 호환되는 로컬 TeX Live 2026 설치도 필요하며, 정식 host 컴파일은 계속 유지됩니다.
+
+Unix 전용 Git `prepare` 빌드를 실행하지 않고 저장소에 포함된 SDK library를 사용하므로, 설치 명령에서 의존성 lifecycle script를 의도적으로 끕니다. `pnpm-workspace.yaml`은 `patches/wasmtex@0.1.0.patch`를 적용해 TeX 오류 진단이 있는 PDF가 첫 미리보기로 나가지 못하게 합니다. 앱도 최종 진단을 확인하며 경고만 있는 PDF는 표시합니다. 수정 대상은 MIT SDK이고, 별도로 고정한 엔진 바이너리·대응 소스 archive는 변경하지 않습니다.
+
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows-build.ps1
 ```
 
-실행 파일은 `src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.exe`, NSIS 패키지는 같은 release 아래 `bundle/nsis/TexyPaper_0.0.12_x64-setup.exe`에 생성하도록 구성되어 있습니다. `CARGO_TARGET_DIR`을 지정하면 그 경로를 사용합니다. 실제 생성 여부와 설치 결과는 별도로 확인해야 합니다.
+실행 파일은 `src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.exe`, NSIS 패키지는 같은 release 아래 `bundle/nsis/TexyPaper_0.0.13_x64-setup.exe`에 생성하도록 구성되어 있습니다. `CARGO_TARGET_DIR`을 지정하면 그 경로를 사용합니다. 실제 생성 여부와 설치 결과는 별도로 확인해야 합니다.
 
 ```powershell
 $app = (Resolve-Path 'src-tauri/target/x86_64-pc-windows-msvc/release/texypaper.exe').Path
@@ -80,6 +84,8 @@ pnpm package:release --version $version --release-dir $release --output "artifac
 
 ZIP은 `LICENSE`·`THIRD_PARTY_NOTICES.md`·`texypaper.exe` 뒤에 `licenses/`의 모든 파일을 전체 경로 ordinal 순으로 넣습니다. DOS host·0644 파일 모드, 고정 시각 2026-11-08 00:00:00, raw deflate level 9를 사용하며 디렉터리 항목은 없습니다. Node/zlib 버전이 달라지면 압축 바이트도 달라질 수 있으므로 배포 증거에 패키징 runtime 버전을 보관하세요. 스크립트는 완성 ZIP을 다시 열어 모든 파일을 압축 해제하고 CRC·크기·SHA-256을 확인하며, 설치 프로그램의 라이선스 파일 목록과 해시도 소스와 대조합니다. 미서명 빌드의 추출 exe는 일반 exe와 `__TAURI_BUNDLE_TYPE_VAR_UNK` → `__TAURI_BUNDLE_TYPE_VAR_NSS`의 세 바이트만 달라야 합니다.
 
+패키징은 상주 엔진 배포물도 검증하고, 대응 소스 archive를 release 파일 옆에 복사해 manifest와 체크섬 파일에 기록합니다. 배포할 때 이 동반 파일을 빼지 마세요. 앱의 설정 → 오픈소스에서도 고지와 소스 archive를 오프라인으로 열 수 있습니다.
+
 서명 배포는 내장 앱·설치 프로그램·독립 exe까지 서명을 마친 뒤에만 `--signed`를 추가합니다(Code signing 절 참고). 세 바이너리 모두 timestamp가 있는 `Valid` Authenticode 서명과 동일한 signer subject·issuer가 필요합니다. 단기 인증서에서는 달라질 수 있는 thumbprint도 각각 기록합니다. 서명 proof는 `signedExecutableVerification`에 세 서명 주체·상태를 저장하고 `installerExecutableDiffersOnlyByTauriBundleType`은 `null`로 둡니다. 이는 서명 검증이지 바이트 동등성 검증은 아닙니다.
 
 배포 체크리스트:
@@ -117,10 +123,10 @@ SSH 종료 smoke는 전용 loopback SSH 호스트를 사용하고 트레이의 �
 설치까지 검사하려면 생성한 NSIS 실행 파일을 정확히 지정합니다. 기존 TexyPaper 설치가 있으면 격리 설치 검사는 덮어쓰지 않고 거부합니다.
 
 ```powershell
-pnpm smoke:desktop --binary $app --installer 'C:\Builds\TexyPaper_0.0.12_x64-setup.exe' --output (Join-Path $run 'installer-desktop')
+pnpm smoke:desktop --binary $app --installer 'C:\Builds\TexyPaper_0.0.13_x64-setup.exe' --output (Join-Path $run 'installer-desktop')
 ```
 
-위 설치 파일 경로는 사용자가 실제 생성한 파일로 바꾸어야 하는 입력 예시입니다. 다음 통합 실행도 보이는 앱 창을 실행하므로 사용자 허가가 필요하며, 설치된 도구와 이름이 정확히 `TexyPaper_0.0.12_x64-setup.exe`인 NSIS 산출물을 요구합니다. 데스크톱 스위트는 `--native-dialogs`를 줄 때만 네이티브 PDF 저장 대화상자를 엽니다. 이 대화상자는 숨김 시험 앱이어도 화면에 나타나기 때문입니다.
+위 설치 파일 경로는 사용자가 실제 생성한 파일로 바꾸어야 하는 입력 예시입니다. 다음 통합 실행도 보이는 앱 창을 실행하므로 사용자 허가가 필요하며, 설치된 도구와 이름이 정확히 `TexyPaper_0.0.13_x64-setup.exe`인 NSIS 산출물을 요구합니다. 데스크톱 스위트는 `--native-dialogs`를 줄 때만 네이티브 PDF 저장 대화상자를 엽니다. 이 대화상자는 숨김 시험 앱이어도 화면에 나타나기 때문입니다.
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows-build.ps1 -RunSmoke -LiveAgents -MeasureMemory -OutputDirectory (Join-Path $env:TEMP ('texypaper-full-' + [guid]::NewGuid().ToString('N')))

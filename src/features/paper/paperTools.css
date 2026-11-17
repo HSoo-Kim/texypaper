@@ -1,0 +1,7 @@
+.paper-tools.modal { width:min(60rem,calc(100vw - 2rem)); max-height:calc(100vh - 2rem); display:flex; flex-direction:column; padding:0; overflow:hidden; }
+.paper-tools-heading { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem 1.25rem; border-bottom:1px solid var(--border); flex:none; }
+.paper-tools-heading h2 { margin:0; }
+.paper-tools-body { min-height:0; overflow:auto; padding:1.25rem; }
+.paper-tools-body p { max-width:75ch; }
+.paper-tools-stale { color:var(--warning); background:var(--amber); padding:.75rem; border:1px solid var(--border); border-radius:var(--control-radius); }
+@media(max-width:640px) { .paper-tools-heading { align-items:flex-start; flex-wrap:wrap; padding:.75rem; } .paper-tools-body { padding:.75rem; } }

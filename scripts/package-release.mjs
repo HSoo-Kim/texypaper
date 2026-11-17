@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { crc32, deflateRawSync, inflateRawSync } from 'node:zlib';
+import { assetDirectory, setupWasmtex, sourceName, sourceSha256, sourcePatchName, sourcePatchSha256 } from './setup-wasmtex.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const usage = 'Usage: pnpm package:release --version <version> --release-dir <release folder> --output <new folder> --hidden-sha <verified hidden exe SHA-256> [--sevenzip <7z.exe or WSL 7z path>] [--signed]';
@@ -201,7 +202,7 @@ function bundleTypeProof(normal, embedded, normalSha256) {
   };
 }
 
-function main() {
+async function main() {
   const { values } = parseArgs({ options: {
     version: { type: 'string' }, 'release-dir': { type: 'string' }, output: { type: 'string' },
     'hidden-sha': { type: 'string' }, sevenzip: { type: 'string' }, signed: { type: 'boolean', default: false },
@@ -222,6 +223,7 @@ function main() {
   const normalPath = path.join(release, 'texypaper.exe');
   const sourceInstaller = path.join(release, 'bundle', 'nsis', installerName);
   for (const file of [normalPath, sourceInstaller]) assert(lstatSync(file).isFile(), `Missing release binary: ${file}`);
+  const engines = await setupWasmtex({ verifyOnly: true });
   const normal = readFileSync(normalPath);
   const normalSha = sha256(normal);
   assert.notEqual(normalSha, hiddenSha, 'Refusing to distribute the hidden verification build');
@@ -238,6 +240,12 @@ function main() {
     const installer = path.join(output, installerName);
     const portable = path.join(output, portableName);
     copyFileSync(sourceInstaller, installer);
+    const sourceArchive = path.join(output, sourceName);
+    copyFileSync(path.join(assetDirectory, sourceName), sourceArchive);
+    assert.equal(fileHash(sourceArchive), sourceSha256, 'Engine corresponding-source hash mismatch');
+    const enginePatch = path.join(output, sourcePatchName);
+    copyFileSync(path.join(assetDirectory, sourcePatchName), enginePatch);
+    assert.equal(fileHash(enginePatch), sourcePatchSha256, 'Engine corresponding-source patch hash mismatch');
     assert.equal(fileHash(installer), fileHash(sourceInstaller), 'Installer copy hash mismatch');
     writeZip(portable, payload);
     verifyZip(portable, payload);
@@ -274,13 +282,16 @@ function main() {
         assert.equal(item.signature, 'NotSigned', `${item.name} is signed or has an invalid signature; use --signed for a signed release`);
       }
     }
-    const assets = [installerName, portableName].map(name => ({ name, sha256: fileHash(path.join(output, name)), bytes: statSync(path.join(output, name)).size }));
+    const assets = [installerName, portableName, sourceName, sourcePatchName].map(name => ({ name, sha256: fileHash(path.join(output, name)), bytes: statSync(path.join(output, name)).size }));
     const manifest = {
       version,
       productionStartup: 'normal visible/focused Tauri startup; no hidden override; production release feed baked in',
       exeSha256: normalSha,
       hiddenVerificationExeSha256: hiddenSha,
       assets,
+      engineReleaseId: engines.releaseId,
+      engineCorrespondingSource: sourceName,
+      engineCorrespondingSourcePatch: sourcePatchName,
     };
     const proof = {
       version,
@@ -291,6 +302,9 @@ function main() {
       installerExecutableDiffersOnlyByTauriBundleType: values.signed ? null : bundleTypeProof(normal, embedded, normalSha),
       windowsMetadata: metadata.slice(0, 2).map(({ signerSubject, signerThumbprint, signerIssuer, timestampSubject, ...item }) => values.signed ? { ...item, signerSubject, signerThumbprint, signerIssuer, timestampSubject } : item),
       hiddenBuildDistributed: false,
+      engineReleaseId: engines.releaseId,
+      engineCorrespondingSourceSha256: sourceSha256,
+      engineCorrespondingSourcePatchSha256: sourcePatchSha256,
     };
     if (values.signed) proof.signedExecutableVerification = {
       sameSigner: true,
@@ -310,4 +324,4 @@ function main() {
   }
 }
 
-try { main(); } catch (error) { console.error(`Package release failed: ${error.message}`); process.exitCode = 1; }
+try { await main(); } catch (error) { console.error(`Package release failed: ${error.message}`); process.exitCode = 1; }

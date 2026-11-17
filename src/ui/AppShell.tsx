@@ -12,10 +12,13 @@ import { upsertEntries } from '../features/explorer/paperIndex';
 import { CommentsPanel, type CommentSelection } from '../features/comments/CommentsPanel';
 import { AgentPanel } from '../features/ai/AgentPanel';
 const PdfPreview = lazy(() => import('../pdf/PdfPreview').then(module => ({ default: module.PdfPreview })));
+import { useLivePreview } from '../pdf/useLivePreview';
+import {canonicalSourcesAgree,compiledText,liveForward,liveInverse,liveSourcesAgree} from '../pdf/liveMapping';
 import { SelectionPopover } from '../features/pdf-edit/SelectionPopover';
 const SourceEditReview = lazy(() => import('../features/pdf-edit/SourceEditReview').then(module => ({ default: module.SourceEditReview })));
 import { defaultProject, findRoot, openWorkspace, type ProjectSettings } from '../state/workspace';
 import { WorkspaceStateWriter, readWorkspaceState, type WorkspaceLayout, type PdfReadingPosition } from '../state/readingPosition';
+import {AutomaticBuild} from '../state/automaticBuild';
 import type { ChatReadingPosition } from '../features/ai/chatTypes';
 import { Toolbar, type ViewMode } from './Toolbar';
 import { UpdateNotice, useUpdates } from './Updates';
@@ -41,6 +44,8 @@ import { StatusBar } from './StatusBar';
 import { importAssets } from '../features/assets/importAssets';
 const CheckpointsPanel = lazy(() => import('../features/history/CheckpointsPanel').then(module => ({ default: module.CheckpointsPanel })));
 import { SpellEngine, type SpellStatus } from '../editor/spelling';
+import type { PaperTool } from '../features/paper/types';
+const PaperTools = lazy(() => import('../features/paper/PaperTools').then(module => ({ default: module.PaperTools })));
 import productIcon from './assets/texypaper-icon.png';
 
 type Bootstrap={dataDir:string;openPath?:string;environments:Environment[];recents:RecentWorkspace[];settings:Partial<AppSettings>};
@@ -62,6 +67,7 @@ export default function AppShell(){
   const sourceDrag=useRef<{pointerId:number;x:number;value:number;width:number}|null>(null),switchInProgress=useRef(false),homeVisible=useRef(true),workspaceFocus=useRef<HTMLElement|null>(null);
   homeVisible.current=homeOpen;
   const [chatDetached,setChatDetached]=useState(false);
+  const [paperTool,setPaperTool]=useState<{tool:PaperTool;workspaceId:string;epoch:number;insert:((text:string)=>boolean)|null}|null>(null);
   const onChatDetachedChange=useCallback((detached:boolean)=>{setChatDetached(detached);setInspector(!detached);if(!detached)setTab('ai');},[]);
   // One map owns filenames per epoch; allEntries publishes immutable array snapshots for existing UI consumers.
   const filenameIndex=useRef<{workspaceId:string;epoch:number;entries:Map<string,Entry>}|null>(null);
@@ -75,6 +81,7 @@ export default function AppShell(){
   const texCandidates=useMemo(()=>{const paths=new Set<string>();for(const entry of allEntries){if(entry.kind!=='directory'&&texPathPattern.test(entry.path))paths.add(entry.path);for(const name of entry.evidence??[])if(texPathPattern.test(name))paths.add(entry.path?`${entry.path}/${name}`:name);}return [...paths].sort((left,right)=>left.localeCompare(right));},[allEntries]);
   const texCandidatesRef=useRef(texCandidates);texCandidatesRef.current=texCandidates;
   const compact=windowWidth/settings.zoom<1100,medium=windowWidth/settings.zoom<1280;
+  const livePreview=useLivePreview(workspace,store,manifest,project,!homeOpen&&view!=='source'&&!referencePath&&!logOpen&&!(compact&&view==='split'),buildPhase);
   // Failed builds keep the last good PDF on screen (marked stale); logs open automatically only when there is nothing to show.
   const hasBuiltPdf=useRef(false);hasBuiltPdf.current=manifest!==null;
   useEffect(()=>{const resize=()=>setWindowWidth(window.innerWidth);window.addEventListener('resize',resize);return()=>window.removeEventListener('resize',resize);},[]);
@@ -86,8 +93,15 @@ export default function AppShell(){
   useEffect(()=>{if(logOpen)setView(current=>current==='source'?'pdf':current);},[logOpen]);
   const updates=useUpdates(settings.updates);
   const sshPromptRef=useRef(sshPrompt);sshPromptRef.current=sshPrompt;
-  const fileOpenSequence=useRef(0),sshInput=useRef<HTMLInputElement>(null),editor=useRef<SourceEditorHandle|null>(null),active=useRef<WorkspaceRef|null>(null),storeRef=useRef<BufferStore|null>(null),projectRef=useRef(project),buildTimer=useRef<number|undefined>(undefined),buildActive=useRef(false),buildRequest=useRef<Promise<BuildResult>|null>(null),pendingBuild=useRef(false),runBuildRef=useRef<()=>Promise<void>>(async()=>{}),sourceVersion=useRef(0),choiceRef=useRef<Choice|null>(null);projectRef.current=project;choiceRef.current=choice;
+  const fileOpenSequence=useRef(0),sshInput=useRef<HTMLInputElement>(null),editor=useRef<SourceEditorHandle|null>(null),active=useRef<WorkspaceRef|null>(null),storeRef=useRef<BufferStore|null>(null),projectRef=useRef(project),buildActive=useRef(false),buildRequest=useRef<Promise<BuildResult>|null>(null),pendingBuild=useRef(false),runBuildRef=useRef<()=>Promise<void>>(async()=>{}),sourceVersion=useRef(0),choiceRef=useRef<Choice|null>(null);projectRef.current=project;choiceRef.current=choice;
   const quitInProgress=useRef(false),quitDiscardPaths=useRef<string[]>([]);
+  const automaticBuild=useRef<AutomaticBuild|null>(null);
+  if(!automaticBuild.current)automaticBuild.current=new AutomaticBuild(
+    ()=>{if(projectRef.current.autoBuild&&!quitInProgress.current&&!switchInProgress.current)void runBuildRef.current();},
+    ()=>buildActive.current||quitInProgress.current||switchInProgress.current,
+    ()=>hasBuiltPdf.current&&projectRef.current.profile==='basic'&&projectRef.current.engine==='pdflatex'?1000:0,
+  );
+  useEffect(()=>()=>automaticBuild.current?.cancel(),[]);
   const showError=useCallback((value:unknown)=>setError(normalizeError(value)),[]);
   const workspaceError=useCallback((value:unknown)=>{if(workspace&&active.current?.id===workspace.id&&active.current.epoch===workspace.epoch)showError(value);},[workspace,showError]);
   const flushWorkspaceState=useCallback(async()=>{editor.current?.captureReadingPosition();const writer=readingWriter.current,buffers=storeRef.current;if(!writer||!buffers||writer.workspace.id!==buffers.workspace.id||writer.workspace.epoch!==buffers.workspace.epoch)return;writer.update({...layoutSnapshot.current,openPaths:[...buffers.records.keys()],activePath:buffers.activePath});await writer.flush();},[]);
@@ -109,8 +123,8 @@ export default function AppShell(){
   const choose=useCallback((title:string,message:string,options:Choice['options'])=>new Promise<string>(resolve=>setChoice({title,message,options,resolve})),[]);
   const resolveChoice=useCallback((value:string)=>{const current=choiceRef.current;if(!current)return;choiceRef.current=null;setChoice(null);current.resolve(value);},[]);
   const bump=useCallback(()=>setRefreshKey(value=>value+1),[]);
-  const saved=useCallback(()=>{setStale(true);sourceVersion.current++;clearTimeout(buildTimer.current);if(projectRef.current.autoBuild&&!quitInProgress.current)buildTimer.current=window.setTimeout(()=>void runBuildRef.current(),800);},[]);
-  const dirty=useCallback(()=>{sourceVersion.current++;setStale(true);setSelection(null);},[]);
+  const saved=useCallback(()=>{setStale(true);sourceVersion.current++;if(projectRef.current.autoBuild&&!quitInProgress.current)automaticBuild.current?.saved();else automaticBuild.current?.cancel();},[]);
+  const dirty=useCallback(()=>{sourceVersion.current++;setStale(true);setSelection(null);automaticBuild.current?.changed();},[]);
   const updateSettings=useCallback((patch:Partial<AppSettings>)=>{setSettings(current=>{const next={...current,...patch};void native('app_settings',{settings:patch}).catch(showError);return next;});},[showError]);
   useEffect(()=>{
     const sync=(event:Event)=>{const patch=(event as CustomEvent<Pick<AppSettings,'ai'|'providerExecutables'>>).detail;setSettings(current=>({...current,...patch}));};
@@ -122,6 +136,7 @@ export default function AppShell(){
   const flush=useCallback(async()=>{try{await storeRef.current?.flush();return true;}catch(error){showError(error);return false;}},[showError]);
   const stopWork=useCallback(async(allowDisconnected=false)=>{
     const current=active.current;if(!current)return;
+    automaticBuild.current?.cancel();
     if(buildActive.current){
       pendingBuild.current=false;
       try{await request('build_cancel',current);}
@@ -155,7 +170,7 @@ export default function AppShell(){
         if(reason==='quit')quitDiscardPaths.current=paths;
         else{for(const path of paths)await request('recovery_clear',current.workspace,{path});current.discard();}
       }
-    }clearTimeout(buildTimer.current);pendingBuild.current=false;return true;
+    }automaticBuild.current?.cancel();pendingBuild.current=false;return true;
   },[agentBusy,choose,flush,stopWork]);
   const open=useCallback(async(environment:Environment,root:string)=>{
     if(quitInProgress.current||switchInProgress.current||choiceRef.current)return;
@@ -166,7 +181,7 @@ export default function AppShell(){
       // Reconnecting the same disconnected project keeps its edits through the recovery journal; asking to "save all" would be impossible offline.
       const reconnect=same&&!!storeRef.current?.disconnected;
       if(!reconnect&&!await guardSwitch())return;
-      clearTimeout(buildTimer.current);await storeRef.current?.persistRecovery();
+      automaticBuild.current?.cancel();await storeRef.current?.persistRecovery();
       await flushWorkspaceState();
       const previous=active.current;if(previous)await native('workspace_close',{workspaceId:previous.id,epoch:previous.epoch});readingWriter.current?.dispose();readingWriter.current=null;active.current=null;storeRef.current?.dispose();storeRef.current=null;filenameIndex.current=null;setStore(null);setWorkspace(null);setManifest(null);setDisplayedPdf(null);setSelection(null);setSourceSelection(null);setCommentSelection(null);setCommentFocus(undefined);setQuick(false);setQuery('');setQuickFiles([]);setSearchCursor(undefined);setAllEntries([]);setReferencePath(undefined);setAssetPath(undefined);setDiagnostics([]);setLogTail('');setLogOpen(false);setBuilding(false);setBuildPhase('idle');setBuildFailure(null);fileOpenSequence.current++;setSourceOpening(null);
       workspaceFocus.current=null;
@@ -227,7 +242,7 @@ export default function AppShell(){
         quitDiscardPaths.current=[];
         try{
           if(!await guardSwitch('quit',allowDisconnected))return;
-          setOpening(true);clearTimeout(buildTimer.current);pendingBuild.current=false;
+          setOpening(true);automaticBuild.current?.cancel();pendingBuild.current=false;
           await stopWork(allowDisconnected);await storeRef.current?.persistRecovery();
           await flushWorkspaceState();
           const current=active.current;
@@ -277,13 +292,17 @@ export default function AppShell(){
     }})();
   },[]);
   const settleStale=useCallback((current:WorkspaceRef,version:number)=>{
-    if(sourceVersion.current===version){setStale(false);return;}
+    if(sourceVersion.current===version&&![...(storeRef.current?.records.values()??[])].some(buffer=>buffer.dirty)){setStale(false);return;}
     setStale(true);recheckStale(current);
   },[recheckStale]);
   const runBuild=useCallback(async()=>{
     // An autosave finishing behind the switch dialogs must not start a build that then blocks closing the project.
     if(quitInProgress.current||switchInProgress.current)return;
     const current=active.current;if(!current)return;
+    if(buildActive.current){pendingBuild.current=true;setBuildPhase('queued');return;}
+    // Reserve the single flight before root discovery or saving can yield to another request.
+    buildActive.current=true;const epoch=current.epoch;
+    try{
     if(!projectRef.current.rootTex){
       // No main document yet: resolve it from the file being edited, like Overleaf compiling the open project.
       const buffers=storeRef.current,path=buffers?.activePath??undefined,buffer=path?buffers?.records.get(path):undefined;
@@ -292,40 +311,39 @@ export default function AppShell(){
       if(!rootTex){setError({code:'ROOT_TEX_REQUIRED',message:t('컴파일할 주 문서를 찾지 못했습니다.'),retryable:true});return;}
       projectRef.current={...projectRef.current,rootTex};setProject(value=>({...value,rootTex}));
     }
-    if(buildActive.current){pendingBuild.current=true;setBuildPhase('queued');return;}if(!await flush())return;
-    // Saves made by this flush (and any earlier autosave) are part of this build; don't queue a duplicate one.
-    clearTimeout(buildTimer.current);
-    buildActive.current=true;setBuilding(true);setBuildPhase('building');setBuildFailure(null);setError(null);const version=sourceVersion.current;const epoch=current.epoch;
-    try{
+    if(!await flush()||quitInProgress.current||switchInProgress.current||active.current?.id!==current.id||active.current.epoch!==epoch)return;
+    // Requests and saves received during this flush are included; do not compile them twice.
+    automaticBuild.current?.cancel();pendingBuild.current=false;
+    setBuilding(true);setBuildPhase('building');setBuildFailure(null);setError(null);const version=sourceVersion.current;
       const operation=request<BuildResult>('build_start',current,{...projectRef.current,rootTex:projectRef.current.rootTex});buildRequest.current=operation;const result=await operation;
       if(active.current?.id!==current.id||active.current.epoch!==epoch)return;
       if(result.manifest){setBuildPhase('published');setManifest(result.manifest);setLogOpen(false);setReferencePath(path=>path);setSelection(null);settleStale(current,version);}
       if(result.status==='failed'||result.status==='cancelled'||result.status==='timeout'){setBuildPhase(result.status);setBuildFailure({code:result.status==='timeout'?'BUILD_TIMEOUT':result.status==='cancelled'?'BUILD_CANCELLED':'BUILD_FAILED',message:t('빌드를 완료하지 못했습니다. 진단과 로그를 확인하세요.','The build did not complete. Check diagnostics and the log.'),retryable:true});setStale(true);setError({code:result.status==='timeout'?'BUILD_TIMEOUT':result.status==='cancelled'?'BUILD_CANCELLED':'BUILD_FAILED',message:t('빌드를 완료하지 못했습니다. 진단과 로그를 확인하세요.','The build did not complete. Check diagnostics and the log.'),retryable:true});setLogOpen(open=>open||!hasBuiltPdf.current);}
       if(result.diagnostics)setDiagnostics(result.diagnostics);if(result.logTail)setLogTail(result.logTail.slice(-262144));
-    }catch(error){const failure=normalizeError(error);setBuildFailure(failure);setBuildPhase(failure.code.includes('TIMEOUT')?'timeout':failure.code.includes('CANCEL')?'cancelled':'failed');showError(failure);setStale(true);setLogOpen(open=>open||!hasBuiltPdf.current);}finally{buildRequest.current=null;buildActive.current=false;if(active.current?.id===current.id&&active.current.epoch===epoch){setBuilding(false);setBuildSequence(value=>value+1);}if(pendingBuild.current){pendingBuild.current=false;void runBuildRef.current();}}
+    }catch(error){const failure=normalizeError(error);setBuildFailure(failure);setBuildPhase(failure.code.includes('TIMEOUT')?'timeout':failure.code.includes('CANCEL')?'cancelled':'failed');showError(failure);setStale(true);setLogOpen(open=>open||!hasBuiltPdf.current);}finally{buildRequest.current=null;buildActive.current=false;if(active.current?.id===current.id&&active.current.epoch===epoch){setBuilding(false);setBuildSequence(value=>value+1);}if(pendingBuild.current){pendingBuild.current=false;void runBuildRef.current();}else automaticBuild.current?.settled();}
   },[flush,showError]);runBuildRef.current=runBuild;
   // Ctrl+S saves and recompiles, like Overleaf (unless "build after save" is turned off).
   const saveAndBuild=useCallback(()=>{void flush().then(ok=>{if(ok&&projectRef.current.autoBuild)void runBuildRef.current();});},[flush]);
-  const cancelBuild=useCallback(()=>{const current=active.current;if(current){pendingBuild.current=false;void request('build_cancel',current).catch(showError);}},[showError]);
+  const cancelBuild=useCallback(()=>{automaticBuild.current?.cancel();const current=active.current;if(current){pendingBuild.current=false;void request('build_cancel',current).catch(showError);}},[showError]);
   const updateProject=useCallback(async(patch:Partial<ProjectSettings>)=>{if(!workspace)return;let next={...projectRef.current,...patch};if(next.profile==='project'&&projectRef.current.profile!=='project'){
     const consent=await choose(t('프로젝트 빌드 신뢰'),t('프로젝트 모드는 latexmk 설정 파일과 그 안의 명령을 실행할 수 있습니다. 신뢰하는 프로젝트에서만 허용하세요.'),[{label:t('이 프로젝트 신뢰'),value:'trust'},{label:t('기본 모드 유지'),value:'cancel'}]);if(consent!=='trust')return;
     await request('project_trust',workspace,{trusted:true});
   }try{next=await request<ProjectSettings>('project_update',workspace,{settings:next});if('rootTex'in patch)rootExplicit.current=!!next.rootTex;setProject(next);}catch(error){showError(error);}},[workspace,choose,showError]);
-  const openFile=useCallback(async(path:string,line?:number)=>{
-    const buffers=storeRef.current,current=active.current;if(!buffers||!current)return;const requestId=++fileOpenSequence.current;setError(null);
+  const openFile=useCallback(async(path:string,line?:number,guard?:()=>boolean)=>{
+    const buffers=storeRef.current,current=active.current;if(!buffers||!current)return;const requestId=++fileOpenSequence.current;if(guard&&!guard())return;setError(null);
     setSourceOpening(null);setAssetPath(undefined);if(/\.pdf$/i.test(path)){setReferencePath(path);setView('pdf');setSelection(null);return;}if(/\.(png|jpe?g|webp|svg|zip|gz|tar|exe|dll|so|woff2?|ttf|otf|mp4|bin)$/i.test(path)){setAssetPath(path);setView('source');return;}
     setSourceOpening(path);if(compact)setExplorer(false);
     try{
-      await buffers.open(path);
-      if(requestId!==fileOpenSequence.current||active.current?.id!==current.id||active.current.epoch!==current.epoch)return;
+      await buffers.open(path,false,guard);
+      if(requestId!==fileOpenSequence.current||active.current?.id!==current.id||active.current.epoch!==current.epoch||guard&&!guard())return;
       if(/\.(tex|ltx)$/i.test(path)){
         const record=buffers.records.get(path),root=await findRoot(current,path,projectRef.current.rootTex,rootExplicit.current,[...texCandidatesRef.current,...(filenameIndex.current?.entries.keys()??[])],record?buffers.text(record):undefined);
-        if(requestId!==fileOpenSequence.current||active.current?.id!==current.id||active.current.epoch!==current.epoch)return;
+        if(requestId!==fileOpenSequence.current||active.current?.id!==current.id||active.current.epoch!==current.epoch||guard&&!guard())return;
         if(root&&root!==projectRef.current.rootTex)setProject(value=>({...value,rootTex:root}));
       }
       setView(value=>value==='pdf'?'source':value);
-      if(line)requestAnimationFrame(()=>{if(requestId===fileOpenSequence.current&&active.current?.id===current.id&&active.current.epoch===current.epoch&&buffers.activePath===path)editor.current?.navigate(line);});
-    }catch(error){if(requestId!==fileOpenSequence.current||active.current?.id!==current.id||active.current.epoch!==current.epoch)return;const value=normalizeError(error);if(['BINARY_FILE','ENCODING_UNSUPPORTED','NOT_TEXT'].includes(value.code)){setAssetPath(path);setView('source');}else showError(value);}finally{if(requestId===fileOpenSequence.current)setSourceOpening(null);}
+      if(line)requestAnimationFrame(()=>{if(requestId===fileOpenSequence.current&&active.current?.id===current.id&&active.current.epoch===current.epoch&&buffers.activePath===path&&(!guard||guard()))editor.current?.navigate(line);});
+    }catch(error){if(requestId!==fileOpenSequence.current||active.current?.id!==current.id||active.current.epoch!==current.epoch||guard&&!guard())return;const value=normalizeError(error);if(['BINARY_FILE','ENCODING_UNSUPPORTED','NOT_TEXT'].includes(value.code)){setAssetPath(path);setView('source');}else showError(value);}finally{if(requestId===fileOpenSequence.current)setSourceOpening(null);}
   },[showError,compact]);
   const fileMutation=useCallback((change:FileMutation)=>{
     if(!workspace||active.current?.id!==workspace.id||active.current.epoch!==workspace.epoch)return;
@@ -406,6 +424,7 @@ export default function AppShell(){
   },[query,quick,workspace,allEntries,showError]);
   useEffect(()=>{if(!quick||!workspace)return;let cancelled=false;void(async()=>{let examined=0;while(!cancelled&&!document.hidden&&examined<20000){const batch=await request<{entries:Entry[];complete:boolean;scanned:number;paused?:boolean}>('scan_step',workspace,{limit:256});if(cancelled)break;entriesChanged(batch.entries);examined+=Math.max(1,batch.scanned);if(batch.complete||batch.paused||batch.scanned===0)break;await new Promise<void>(resolve=>setTimeout(resolve,250));}})().catch(showError);return()=>{cancelled=true;};},[quick,workspace,entriesChanged,showError]);
   const [compare,setCompare]=useState(false);const bufferVersion=useSyncExternalStore(store?.subscribe??(()=>()=>{}),store?.snapshot??(()=>0));
+  useEffect(()=>setPaperTool(null),[workspace?.id,workspace?.epoch,homeOpen]);
   const savedUiSignature=useRef('');useEffect(()=>{if(!store||opening)return;const writer=readingWriter.current;if(!writer||writer.workspace.id!==store.workspace.id||writer.workspace.epoch!==store.workspace.epoch)return;const state={...layoutSnapshot.current,openPaths:[...store.records.keys()],activePath:store.activePath};const signature=`${store.workspace.id}:${store.workspace.epoch}:${JSON.stringify(state)}`;if(signature===savedUiSignature.current)return;savedUiSignature.current=signature;writer.update(state);},[store,opening,bufferVersion,view,trashRows,sourceFraction,explorer,searchPanel,inspector,tab,panelWidths,referencePath]);
   const currentBuffer=store?.activePath?store.records.get(store.activePath):undefined;
   const [spellStatus,setSpellStatus]=useState<SpellStatus|null>(null),[wordCounts,setWordCounts]=useState<{words:number;characters:number;selectionWords:number}|null>(null);
@@ -449,53 +468,102 @@ export default function AppShell(){
   useEffect(()=>{setHistoryPanel(false);},[workspace?.id,workspace?.epoch]);
   const showPanelRef=useRef(showPanel);showPanelRef.current=showPanel;
   const viewRef=useRef(view);viewRef.current=view;
-  const syncLatest=useRef({manifest,stale,compact});syncLatest.current={manifest,stale,compact};
-  const inverseSequence=useRef(0);
-  // A PDF older than the source still maps through its build snapshot, but lines may have moved since then.
-  const approximateNotice=useCallback(()=>{if(syncLatest.current.stale)setError({code:'SYNC_APPROXIMATE',message:t('PDF가 현재 소스보다 오래되어 위치가 어긋날 수 있습니다. 다시 컴파일하면 정확해집니다.','The PDF is older than the source, so the location may be off. Recompile for an exact match.'),retryable:true});},[]);
-  const syncToPdf=useCallback(()=>{
-    if(homeVisible.current||document.querySelector('[aria-modal="true"]'))return;
-    const current=active.current,path=storeRef.current?.activePath,{manifest:built,compact:narrow}=syncLatest.current;
-    if(!current||!path)return;
-    if(!built){setError({code:'PDF_NOT_BUILT',message:t('먼저 컴파일하면 소스 위치를 PDF에서 찾을 수 있습니다.','Compile first to find this source position in the PDF.'),retryable:true});return;}
-    const line=editor.current?.position().line1??1;
-    void request('sync_forward',current,{buildId:built.buildId,file:path,line1:line}).then(result=>{
-      if(active.current?.id!==current.id||active.current.epoch!==current.epoch)return;
-      setView(value=>value==='source'?(narrow?'pdf':'split'):value);
-      setSyncStatus(value=>({direction:'forward',sequence:(value?.sequence??0)+1}));
-      window.dispatchEvent(new CustomEvent('texypaper:sync-forward',{detail:result}));
-      approximateNotice();
-    }).catch(showError);
-  },[showError,approximateNotice]);
+  const syncLatest=useRef({manifest,compact,live:livePreview.pdf,referencePath,logOpen});syncLatest.current={manifest,compact,live:livePreview.pdf,referencePath,logOpen};
+  const locationSequence=useRef(0),displayedFrame=useRef<{workspaceId:string;epoch:number;buildId:string;referencePath?:string}|null>(null);
   useEffect(()=>{
-    type InverseRecord={path?:string;line?:number;column?:number|null};
-    const located=(record:InverseRecord):record is {path:string;line:number;column?:number|null}=>typeof record.path==='string'&&typeof record.line==='number'&&Number.isInteger(record.line)&&record.line>=1;
+    const frame=(event:Event)=>{
+      const detail=(event as CustomEvent).detail,current=active.current;
+      if(!detail||!current||detail.workspaceId!==current.id||detail.epoch!==current.epoch)return;
+      if(detail.closed){if(displayedFrame.current?.buildId===detail.buildId){displayedFrame.current=null;locationSequence.current++;}}
+      else if(typeof detail.buildId==='string'){displayedFrame.current=detail;locationSequence.current++;}
+    };
+    const hit=(event:Event)=>{const detail=(event as CustomEvent).detail,current=active.current;if(current&&detail?.workspaceId===current.id&&detail.epoch===current.epoch)locationSequence.current++;};
+    window.addEventListener('texypaper:pdf-frame',frame);window.addEventListener('texypaper:sync-location-hit',hit);return()=>{window.removeEventListener('texypaper:pdf-frame',frame);window.removeEventListener('texypaper:sync-location-hit',hit);};
+  },[]);
+  const syncToPdf=useCallback((location?:{path?:string;line1?:number;automatic?:boolean})=>{
+    if(homeVisible.current||document.querySelector('[aria-modal="true"]'))return;
+    const current=active.current,buffers=storeRef.current,frame=displayedFrame.current,{manifest:built,compact:narrow,live,referencePath,logOpen}=syncLatest.current;
+    const path=location?.path??buffers?.activePath,automatic=location?.automatic===true;
+    if(!current||!buffers||!path||buffers.activePath!==path||automatic&&(viewRef.current!=='split'||narrow||logOpen))return;
+    const buildId=frame?.workspaceId===current.id&&frame.epoch===current.epoch?frame.buildId:undefined;
+    const status=(message:string)=>window.dispatchEvent(new CustomEvent('texypaper:sync-status',{detail:{workspaceId:current.id,epoch:current.epoch,buildId,message}}));
+    if(!buildId||referencePath||frame?.referencePath){status(t('이 PDF에는 소스 연결이 없습니다.','Source mapping is unavailable for this PDF.'));if(!automatic&&!buildId)setError({code:'PDF_NOT_BUILT',message:t('먼저 컴파일하면 소스 위치를 PDF에서 찾을 수 있습니다.','Compile first to find this source position in the PDF.'),retryable:true});return;}
+    const token=++locationSequence.current,version=sourceVersion.current,openSequence=fileOpenSequence.current;
+    const valid=()=>token===locationSequence.current&&active.current?.id===current.id&&active.current.epoch===current.epoch&&storeRef.current===buffers&&buffers.activePath===path&&fileOpenSequence.current===openSequence&&sourceVersion.current===version&&displayedFrame.current?.buildId===buildId;
+    const line=location?.line1??editor.current?.position().line1??1;
+    if(!Number.isInteger(line)||line<1)return;
+    status(t('PDF 위치 찾는 중…','Finding PDF location…'));
+    void (async()=>{
+      let records:unknown[];
+      if(buildId.startsWith('live:')){
+        if(!live||`live:${live.id}`!==buildId||!live.mapping){status(t('이 미리보기의 소스 연결을 준비 중입니다. 잠시 후 다시 클릭하세요.','Mapping for this preview is pending. Click again shortly.'));return;}
+        if(!live.mapping.synctex&&!live.mapping.synctexData){status(t('이 미리보기에는 소스 연결이 없습니다. 정식 빌드 후 다시 시도하세요.','This preview has no source mapping. Try after the verified build.'));return;}
+        if(!liveSourcesAgree(live.mapping,buffers)||compiledText(live.mapping,path)!==buffers.text(buffers.records.get(path)!)){status(t('PDF와 현재 소스가 다릅니다. 미리보기 갱신 후 다시 클릭하세요.','PDF and source differ. Click again after the preview updates.'));return;}
+        records=await liveForward(live.mapping,path,line);
+        if(!valid()||!liveSourcesAgree(live.mapping,buffers))return;
+      }else{
+        if(!built||built.buildId!==buildId||!built.mappingReady){status(t('이 PDF의 소스 연결을 사용할 수 없습니다. 다시 컴파일하세요.','Source mapping is unavailable. Recompile this PDF.'));return;}
+        if(!built.sources.some(source=>source.path===path)||!canonicalSourcesAgree(built,buffers)){status(t('PDF와 현재 소스가 다릅니다. 빌드가 끝난 뒤 다시 클릭하세요.','PDF and source differ. Click again after the build finishes.'));return;}
+        const result=await request<{records?:unknown[]}>('sync_forward',current,{buildId,file:path,line1:line});
+        if(!valid()||syncLatest.current.manifest?.buildId!==buildId||!canonicalSourcesAgree(built,buffers))return;
+        records=result.records??[];
+      }
+      if(!records.length){status(t('이 줄에 대응하는 PDF 위치가 없습니다. 본문 줄을 클릭하세요.','No PDF location for this line. Click a body-text line.'));return;}
+      if(!automatic)setView(value=>value==='source'?(narrow?'pdf':'split'):value);
+      setSyncStatus(value=>({direction:'forward',sequence:(value?.sequence??0)+1}));
+      window.dispatchEvent(new CustomEvent('texypaper:sync-forward',{detail:{workspaceId:current.id,epoch:current.epoch,buildId,records}}));
+      status(t(`소스 ${line}줄의 PDF 위치`,`PDF location for source line ${line}`));
+    })().catch(cause=>{if(valid())status(t('소스 연결을 확인하지 못했습니다. 다시 컴파일 후 시도하세요.','Could not resolve source mapping. Recompile and try again.'));if(valid()&&!automatic)showError(cause);});
+  },[showError]);
+  useEffect(()=>{
+    type InverseRecord={path?:string;line?:number;column?:number|null;nearby?:boolean};
+    const located=(record:InverseRecord):record is {path:string;line:number;column?:number|null;nearby?:boolean}=>typeof record.path==='string'&&typeof record.line==='number'&&Number.isInteger(record.line)&&record.line>=1;
     const idle=()=>homeVisible.current||!!document.querySelector('[aria-modal="true"]');
-    const forward=()=>syncToPdf();
+    const forward=(event:Event)=>syncToPdf((event as CustomEvent).detail);
     const compile=()=>{if(!idle())saveAndBuild();};
     const inverse=(event:Event)=>{
-      const detail=(event as CustomEvent<{workspaceId?:string;epoch?:number;buildId?:string;page?:number;x?:number;y?:number}>).detail;
-      const current=active.current,{manifest:built,compact:narrow}=syncLatest.current;
-      if(!detail||!current||!built||idle())return;
-      if(detail.workspaceId!==current.id||detail.epoch!==current.epoch||detail.buildId!==built.buildId)return;
-      const {page,x,y}=detail;
+      const detail=(event as CustomEvent<{workspaceId?:string;epoch?:number;buildId?:string;page?:number;x?:number;y?:number;automatic?:boolean}>).detail;
+      const current=active.current,buffers=storeRef.current,frame=displayedFrame.current,{manifest:built,compact:narrow,live,referencePath}=syncLatest.current;
+      if(!detail||!current||!buffers||!frame||idle()||referencePath||frame.referencePath)return;
+      if(detail.workspaceId!==current.id||detail.epoch!==current.epoch||detail.buildId!==frame.buildId||frame.workspaceId!==current.id||frame.epoch!==current.epoch)return;
+      const {page,x,y}=detail,buildId=frame.buildId,automatic=detail.automatic===true;
       if(typeof page!=='number'||!Number.isInteger(page)||page<1||typeof x!=='number'||!Number.isFinite(x)||typeof y!=='number'||!Number.isFinite(y))return;
-      const token=++inverseSequence.current,fromPdfOnly=viewRef.current==='pdf',valid=()=>token===inverseSequence.current&&active.current?.id===current.id&&active.current.epoch===current.epoch;
-      void request<{records?:InverseRecord[]}>('sync_inverse',current,{buildId:built.buildId,page1:page,xPt:x,yPt:y}).then(async result=>{
+      const token=++locationSequence.current,version=sourceVersion.current,fromPdfOnly=viewRef.current==='pdf';let openSequence=fileOpenSequence.current;
+      const valid=()=>token===locationSequence.current&&active.current?.id===current.id&&active.current.epoch===current.epoch&&storeRef.current===buffers&&fileOpenSequence.current===openSequence&&sourceVersion.current===version&&displayedFrame.current?.buildId===buildId;
+      const status=(message:string)=>{if(valid())window.dispatchEvent(new CustomEvent('texypaper:sync-status',{detail:{workspaceId:current.id,epoch:current.epoch,buildId,message}}));};
+      void (async()=>{
+        let hit:InverseRecord|undefined;
+        const mapping=buildId.startsWith('live:')&&live&&`live:${live.id}`===buildId?live.mapping:null;
+        if(buildId.startsWith('live:')){
+          if(!mapping){status(t('이 미리보기의 소스 연결을 준비 중입니다. 잠시 후 다시 클릭하세요.','Mapping for this preview is pending. Click again shortly.'));return;}
+          if(!mapping.synctex&&!mapping.synctexData){status(t('이 미리보기에는 소스 연결이 없습니다. 정식 빌드 후 다시 시도하세요.','This preview has no source mapping. Try after the verified build.'));return;}
+          if(!liveSourcesAgree(mapping,buffers)){status(t('PDF와 현재 소스가 다릅니다. 미리보기 갱신 후 다시 클릭하세요.','PDF and source differ. Click again after the preview updates.'));return;}
+          hit=await liveInverse(mapping,page,x,y)??undefined;
+        }else{
+          if(!built||built.buildId!==buildId||!built.mappingReady){status(t('이 PDF의 소스 연결을 사용할 수 없습니다. 다시 컴파일하세요.','Source mapping is unavailable. Recompile this PDF.'));return;}
+          if(!canonicalSourcesAgree(built,buffers)){status(t('PDF와 현재 소스가 다릅니다. 빌드가 끝난 뒤 다시 클릭하세요.','PDF and source differ. Click again after the build finishes.'));return;}
+          const result=await request<{records?:InverseRecord[]}>('sync_inverse',current,{buildId,page1:page,xPt:x,yPt:y});
+          hit=result.records?.find(record=>located(record)&&built.sources.some(source=>source.path===record.path));
+        }
         if(!valid())return;
-        const hit=result.records?.find(located);
-        if(!hit){setError({code:'SYNC_NO_MATCH',message:t('이 위치에 대응하는 프로젝트 소스를 찾지 못했습니다. 본문 글자 위에서 다시 시도하세요.','No project source matches this spot. Try again on body text.'),retryable:false});return;}
-        await openFile(hit.path,hit.line);
+        if(!hit||!located(hit)){status(t('이 위치에 대응하는 소스가 없습니다. 본문 글자 위에서 다시 클릭하세요.','No source at this spot. Click again on body text.'));return;}
+        const path=hit.path,line=hit.line,column=hit.column??1;
+        // Read without activating a tab. Verify the target before allowing navigation.
+        const cached=buffers.records.get(path),document=cached&&!cached.evicted?cached.document:await request<TextDocument>('file_read',current,{path});
         if(!valid())return;
+        const agrees=()=>mapping?liveSourcesAgree(mapping,buffers)&&compiledText(mapping,path)===(buffers.records.get(path)&&!buffers.records.get(path)!.evicted?buffers.text(buffers.records.get(path)!):document.text):!!built&&syncLatest.current.manifest?.buildId===buildId&&canonicalSourcesAgree(built,buffers)&&built.sources.some(source=>source.path===path&&source.sha256===document.revision.sha256);
+        if(!agrees()){status(t('소스가 이 PDF의 입력과 다릅니다. 갱신 후 다시 클릭하세요.','Source differs from this PDF’s inputs. Update and click again.'));return;}
+        if(buffers.activePath!==path){openSequence=fileOpenSequence.current+1;await openFile(path,undefined,valid);}
+        if(!valid()||!agrees()||buffers.activePath!==path)return;
         setSyncStatus(value=>({direction:'inverse',sequence:(value?.sequence??0)+1}));
         if(fromPdfOnly&&!narrow)setView('split');
-        requestAnimationFrame(()=>{if(valid()&&storeRef.current?.activePath===hit.path)editor.current?.navigate(hit.line,hit.column??1);});
-        approximateNotice();
-      }).catch(showError);
+        requestAnimationFrame(()=>{if(valid()&&agrees()&&buffers.activePath===path)editor.current?.navigate(line,column,{focus:!automatic});});
+        status(hit.nearby?t(`${path}:${line} · 근처 소스 줄`,`${path}:${line} · nearby source line`):`${path}:${line}`);
+      })().catch(cause=>{status(t('소스 연결을 확인하지 못했습니다. 다시 컴파일 후 시도하세요.','Could not resolve source mapping. Recompile and try again.'));if(valid()&&!automatic)showError(cause);});
     };
     window.addEventListener('texypaper:sync-source-requested',forward);window.addEventListener('texypaper:sync-pdf-requested',inverse);window.addEventListener('texypaper:compile-requested',compile);
     return()=>{window.removeEventListener('texypaper:sync-source-requested',forward);window.removeEventListener('texypaper:sync-pdf-requested',inverse);window.removeEventListener('texypaper:compile-requested',compile);};
-  },[syncToPdf,saveAndBuild,openFile,showError,approximateNotice]);
+  },[syncToPdf,saveAndBuild,openFile,showError]);
   // Overleaf-compatible app shortcuts. Editor-local ones (Ctrl+Enter, Ctrl+.) arrive from CodeMirror as 'texypaper:compile-requested'.
   useEffect(()=>{
     const key=(event:KeyboardEvent)=>{
@@ -513,6 +581,18 @@ export default function AppShell(){
   const createItem=async(kind:'file'|'directory')=>{if(!workspace||!await flush())return;const parent=currentBuffer?.path.split('/').slice(0,-1).join('/');const path=window.prompt(kind==='file'?t('새 파일 경로'):t('새 폴더 경로'),parent?`${parent}/`:'');if(!path)return;try{await request('file_create',workspace,{path,kind,content:''});fileMutation({kind:'create',path});if(kind==='file')await openFile(path);}catch(error){showError(error);}};
   const logsPanel=<BuildDiagnostics buildFailure={buildFailure} diagnostics={diagnostics} logTail={logTail} onClose={()=>setLogOpen(false)} onAskAi={()=>void askAiAboutError()} onOpen={(path,line)=>void openFile(path,line)}/>;
   const buildControls=<BuildControls canBuild={canBuild} building={building} project={project} texCandidates={texCandidates} logOpen={logOpen} diagnostics={diagnostics} onBuild={()=>void runBuild()} onProject={patch=>void updateProject(patch)} onCancel={cancelBuild} onSettings={()=>setSettingsOpen(true)} onToggleLogs={()=>setLogOpen(value=>!value)}/>;
+  const openPaperTool=(tool:PaperTool)=>{
+    const current=active.current;if(!current||opening||quitInProgress.current||document.querySelector('[aria-modal="true"]'))return;
+    if(tool!=='preflight')setView(value=>value==='pdf'?(compact?'source':'split'):value);
+    requestAnimationFrame(()=>{
+      if(active.current?.id!==current.id||active.current.epoch!==current.epoch||homeVisible.current)return;
+      setPaperTool({tool,workspaceId:current.id,epoch:current.epoch,insert:editor.current?.prepareInsertion()??null});
+    });
+  };
+  const insertPaperText=(text:string)=>{
+    if(!paperTool||active.current?.id!==paperTool.workspaceId||active.current.epoch!==paperTool.epoch||!paperTool.insert?.(text))throw {code:'SOURCE_CHANGED',message:t('소스가 바뀌었거나 편집할 수 없습니다. 도구를 닫고 편집할 TeX 파일과 위치를 선택한 뒤 다시 여세요.','The source changed or is not editable. Close this tool, select an editable TeX file and position, then reopen it.'),retryable:true};
+    setPaperTool(null);
+  };
   const [contextMenu,setContextMenu]=useState<{x:number;y:number;kind:'source'|'pdf'}|null>(null);
   const pdfSelectionRef=useRef<unknown>(null);pdfSelectionRef.current=selection;
   const openAiPanel=()=>{if(chatDetached)return;setTab('ai');setInspector(true);if(medium){setExplorer(false);setSearchPanel(false);}};
@@ -607,7 +687,7 @@ export default function AppShell(){
   return <div className={`app-shell ${compact?'compact-layout':''} ${medium?'medium-layout':''}`} style={shellStyle}>
     <div className="project-dashboard" hidden={!homeOpen&&!!workspace} data-testid="project-home"><header className="dashboard-appbar"><div className="product-mark"><img className="product-icon" src={productIcon} width={24} height={24} alt=""/><strong>TexyPaper</strong><span>{t('홈 · 프로젝트','Home · Projects')}</span></div>{(homeOpen||!workspace)&&<div className="button-row"><AppMenu label={t('파일','File')}><button role="menuitem" data-testid="app-exit" onClick={()=>void quitRef.current()}>{t('TexyPaper 완전 종료','Exit TexyPaper')}<kbd>Ctrl+Shift+Q</kbd></button></AppMenu><ShortcutHelpButton onClick={()=>setHelpOpen(true)}/><button data-testid="settings-button" aria-label={t('설정')} onClick={()=>setSettingsOpen(true)}><Icon name="settings" size={17}/><span>{t('설정')}</span></button></div>}</header><main className="welcome">{bootstrap?<WorkspacePicker environments={environments} recents={recents} busy={opening} onOpen={open} onCreateFromTemplate={createPaperFromTemplate} currentWorkspace={workspace} disconnected={!!store?.disconnected} onResume={resumeWorkspace} onEnvironments={value=>{setEnvironments(value);updateSettings({environments:value});}}/>:<p role="status">{t("작업 공간 준비 중…")}</p>}{error&&(homeOpen||!workspace)&&<div className="home-error inline-error" role="alert"><strong>{error.code}</strong><p>{errorText(error)}</p><div className="button-row">{workspace&&<button disabled={opening} onClick={resumeWorkspace}>{t('현재 프로젝트로 돌아가기','Return to current project')}</button>}<button onClick={()=>setError(null)}>{t('알림 닫기','Dismiss')}</button></div></div>}</main></div>
     {workspace&&<div className="workspace-session" hidden={homeOpen} onFocusCapture={event=>{if((event.target as HTMLElement).closest('.workbench'))workspaceFocus.current=event.target as HTMLElement;}}>
-      <Toolbar workspace={workspace} compact={compact} buildPhase={buildPhase} connection={store?.disconnected?'disconnected':environments.find(value=>value.id===workspace.environmentId)?.kind==='ssh'?'connected':'local'} environmentLabel={environments.find(environment=>environment.id===workspace.environmentId)?.label??workspace.environmentId} rootTex={project.rootTex} canBuild={canBuild} candidates={texCandidates} building={building} stale={stale} view={view} onProject={showHome} onRoot={path=>void updateProject({rootTex:path||null})} onBuild={()=>void runBuild()} onCancel={cancelBuild} onView={setView} onExplorer={()=>showPanel('files')} onInspector={()=>showPanel('ai')} onSettings={()=>setSettingsOpen(true)} onSave={saveAndBuild} onNewFile={()=>void createItem('file')} onNewFolder={()=>void createItem('directory')} onQuickOpen={()=>setQuick(true)} onEdit={command=>{setView(current=>current==='pdf'?'source':current);requestAnimationFrame(()=>{if(!homeVisible.current&&!document.querySelector('[aria-modal="true"]'))editor.current?.command(command);});}} onHelp={()=>setHelpOpen(true)} onQuit={()=>void quitRef.current()}/>
+      <Toolbar workspace={workspace} compact={compact} buildPhase={buildPhase} connection={store?.disconnected?'disconnected':environments.find(value=>value.id===workspace.environmentId)?.kind==='ssh'?'connected':'local'} environmentLabel={environments.find(environment=>environment.id===workspace.environmentId)?.label??workspace.environmentId} rootTex={project.rootTex} canBuild={canBuild} candidates={texCandidates} building={building} stale={stale} view={view} onProject={showHome} onRoot={path=>void updateProject({rootTex:path||null})} onBuild={()=>void runBuild()} onCancel={cancelBuild} onView={setView} onExplorer={()=>showPanel('files')} onInspector={()=>showPanel('ai')} onSettings={()=>setSettingsOpen(true)} onSave={saveAndBuild} onNewFile={()=>void createItem('file')} onNewFolder={()=>void createItem('directory')} onQuickOpen={()=>setQuick(true)} onEdit={command=>{setView(current=>current==='pdf'?'source':current);requestAnimationFrame(()=>{if(!homeVisible.current&&!document.querySelector('[aria-modal="true"]'))editor.current?.command(command);});}} onPaperTool={openPaperTool} onHelp={()=>setHelpOpen(true)} onQuit={()=>void quitRef.current()}/>
       {error&&<div className="global-notice" role="alert"><div><strong>{error.code}</strong> {errorText(error)}</div><div className="button-row">{error.code==='PDF_STALE'&&<button onClick={()=>void runBuild()}>{t('다시 빌드')}</button>}{error.code==='SSH_DISCONNECTED'&&<button onClick={showHome}>{t("다시 연결")}</button>}{error.code==='LARGE_FILE'&&currentBuffer&&<><button onClick={()=>{if(window.confirm(t('큰 파일을 편집하면 메모리 사용량이 늘어납니다. 허용할까요?')))void store?.allowLarge(currentBuffer.path).then(()=>setError(null)).catch(showError);}}>{t("이 파일 편집 허용")}</button><button onClick={()=>void request('open_external',workspace,{path:currentBuffer.path}).catch(showError)}>{environments.find(value=>value.id===workspace.environmentId)?.kind==='ssh'?t('다운로드한 복사본으로 외부에서 열기','Open a downloaded copy externally'):t("외부에서 열기")}</button></>}{error.code==='ENCODING_UNSUPPORTED'&&currentBuffer&&<button onClick={()=>{const path=window.prompt(t('변환한 UTF-8 복사본 경로'),`${currentBuffer.path}.utf8.tex`);if(path&&window.confirm(t('UTF-8로 읽을 수 없는 바이트는 대체 문자로 변환됩니다. 원본은 바꾸지 않습니다. 계속할까요?','Undecodable bytes will become replacement characters. The original stays unchanged. Continue?')))void store?.saveCopy(currentBuffer.path,path).catch(showError);}}>{t("변환한 복사본 저장")}</button>}<button aria-label={t("알림 닫기")} onClick={()=>setError(null)}>×</button></div></div>}
       <div className={`workbench ${sideOpen?'explorer-open':''} ${rightOpen?'inspector-open':''} view-${view}`}>
         <ActivityRail explorer={explorer} searchPanel={searchPanel} historyPanel={historyPanel} chatDetached={chatDetached} rightOpen={rightOpen} tab={tab} onPanel={showPanel} onHelp={()=>setHelpOpen(true)} onSettings={()=>setSettingsOpen(true)}/>
@@ -624,7 +704,7 @@ export default function AppShell(){
           onPointerCancel={event=>{sourceDrag.current=null;delete event.currentTarget.dataset.dragging;if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);}}
           onLostPointerCapture={event=>{sourceDrag.current=null;delete event.currentTarget.dataset.dragging;}}
           onDoubleClick={()=>setSourceFraction(50)}
-          onKeyDown={event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();setSourceFraction(value=>event.key==='Home'?25:event.key==='End'?75:Math.max(25,Math.min(75,value+(event.key==='ArrowLeft'?-2:2))));}}}></div><div className="pane-collapse-group">{view==='split'&&!compact?<><button className="pane-collapse" aria-label={t('소스 접기','Collapse source')} onClick={()=>setView('pdf')}><Icon name="chevronLeft" size={12}/></button><button className="pane-collapse" aria-label={t('PDF 접기','Collapse PDF')} onClick={()=>setView('source')}><Icon name="chevronRight" size={12}/></button></>:view==='pdf'?<button className="pane-collapse" data-testid="restore-source" aria-label={t('소스 다시 펼치기','Restore source pane')} onClick={()=>setView(compact?'source':'split')}><Icon name="chevronRight" size={12}/></button>:<button className="pane-collapse" data-testid="restore-pdf" aria-label={t('PDF 다시 펼치기','Restore PDF pane')} onClick={()=>setView(compact?'pdf':'split')}><Icon name="chevronLeft" size={12}/></button>}</div></div><section className="pdf-pane" aria-label={t("PDF 미리 보기")}><Suspense fallback={null}><PdfPreview key={`${workspace.id}:${workspace.epoch}`} workspace={workspace} manifest={manifest} referencePath={referencePath} visible={!homeOpen&&view!=='source'&&!(compact&&view==='split')} readingPositions={readingWriter.current?.state.pdfs} onReadingPositionChange={onPdfReadingPosition} onSelection={setSelection} onError={workspaceError} onNavigate={location=>void openFile(location.path,location.line1)} onManifest={setManifest} onReturnToBuild={()=>setReferencePath(undefined)} buildControls={buildControls} logs={logsPanel} logsOpen={logOpen}/></Suspense>{stale&&manifest&&<div className="pdf-stale">{t("이전 빌드 PDF · 소스가 변경되었습니다")}<button disabled={building} onClick={()=>void runBuild()}>{t("다시 빌드")}</button></div>}</section></main>
+          onKeyDown={event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();setSourceFraction(value=>event.key==='Home'?25:event.key==='End'?75:Math.max(25,Math.min(75,value+(event.key==='ArrowLeft'?-2:2))));}}}></div><div className="pane-collapse-group">{view==='split'&&!compact?<><button className="pane-collapse" aria-label={t('소스 접기','Collapse source')} onClick={()=>setView('pdf')}><Icon name="chevronLeft" size={12}/></button><button className="pane-collapse" aria-label={t('PDF 접기','Collapse PDF')} onClick={()=>setView('source')}><Icon name="chevronRight" size={12}/></button></>:view==='pdf'?<button className="pane-collapse" data-testid="restore-source" aria-label={t('소스 다시 펼치기','Restore source pane')} onClick={()=>setView(compact?'source':'split')}><Icon name="chevronRight" size={12}/></button>:<button className="pane-collapse" data-testid="restore-pdf" aria-label={t('PDF 다시 펼치기','Restore PDF pane')} onClick={()=>setView(compact?'pdf':'split')}><Icon name="chevronLeft" size={12}/></button>}</div></div><section className="pdf-pane" aria-label={t("PDF 미리 보기")}><Suspense fallback={null}><PdfPreview key={`${workspace.id}:${workspace.epoch}`} workspace={workspace} manifest={manifest} livePreview={livePreview.pdf} liveReady={livePreview.ready} referencePath={referencePath} visible={!homeOpen&&view!=='source'&&!(compact&&view==='split')} readingPositions={readingWriter.current?.state.pdfs} onReadingPositionChange={onPdfReadingPosition} onSelection={setSelection} onError={workspaceError} onNavigate={location=>void openFile(location.path,location.line1)} onManifest={setManifest} onReturnToBuild={()=>setReferencePath(undefined)} buildControls={buildControls} logs={logsPanel} logsOpen={logOpen} onViewportChange={livePreview.setViewport} /></Suspense>{stale&&manifest&&!livePreview.pdf&&<div className="pdf-stale">{t("이전 빌드 PDF · 소스가 변경되었습니다")}<button disabled={building} onClick={()=>void runBuild()}>{t("다시 빌드")}</button></div>}</section></main>
         <div className="inspector-divider" hidden={!rightOpen}><Splitter label={t('작업 패널 너비')} min={360} max={720} value={inspectorWidth} reverse onChange={width=>setPanelWidths(current=>({...current,inspectorWidth:width}))} onCommit={width=>updateSettings({inspectorWidth:width})}/></div>
         <div className="inspector-host" hidden={!rightOpen}>
           <Inspector tab={tab} onTab={next=>{if(next==='ai'&&chatDetached)window.dispatchEvent(new Event('texypaper:chat-focus'));else setTab(next);}} onClose={()=>setInspector(false)}
@@ -638,6 +718,7 @@ export default function AppShell(){
       {review&&!!selection&&<Suspense fallback={null}><SourceEditReview workspace={workspace} selection={selection} onClose={()=>{setReview(false);setSelection(null);}} onApplied={()=>{setReview(false);setSelection(null);void store?.poll();saved();}} onNavigate={location=>void openFile(location.path,location.line1)}/></Suspense>}
     </div>}
     <UpdateNotice updates={updates} onConfigure={()=>setSettingsOpen(true)}/>
+    {paperTool&&workspace&&paperTool.workspaceId===workspace.id&&paperTool.epoch===workspace.epoch&&!homeOpen&&<Suspense fallback={null}><PaperTools key={`${workspace.id}:${workspace.epoch}:${paperTool.tool}`} workspace={workspace} tool={paperTool.tool} rootTex={project.rootTex} sourceVersion={sourceVersion.current} getUnsaved={()=>new Map([...storeRef.current?.records.values()??[]].filter(record=>record.dirty).map(record=>[record.path,storeRef.current!.text(record)]))} buildState={!manifest?'missing':stale||building||buildPhase!=='published'?'stale':'current'} canInsert={!!paperTool.insert} onInsert={insertPaperText} onClose={()=>setPaperTool(null)} onNavigate={(path,line)=>{setPaperTool(null);void openFile(path,line);}}/></Suspense>}
     {contextMenu&&<ContextMenu x={contextMenu.x} y={contextMenu.y} label={contextMenu.kind==='pdf'?t('PDF 선택 메뉴','PDF selection menu'):t('소스 선택 메뉴','Source selection menu')} items={contextItems} onClose={()=>setContextMenu(null)}/>}
     {helpOpen&&<Suspense fallback={null}><ShortcutHelp open={helpOpen} onClose={()=>setHelpOpen(false)} onOpenSettings={()=>setSettingsOpen(true)}/></Suspense>}
     {trashOpen&&workspace&&<div className="modal-scrim"><section className="modal" role="dialog" aria-modal="true" aria-label={t('프로젝트 휴지통','Project trash')}><h2>{t('프로젝트 휴지통','Project trash')}</h2>{trashRows.map(row=><div className="field-row" key={row.transactionId}><span className="grow">{row.path}</span><button data-testid="trash-restore" onClick={()=>void request('file_restore',workspace,{transactionId:row.transactionId}).then(()=>{fileMutation({kind:'restore',path:row.path,transactionId:row.transactionId});}).catch(showError)}>{t('복원','Restore')}</button></div>)}<button onClick={()=>setTrashOpen(false)}>{t('닫기')}</button></section></div>}

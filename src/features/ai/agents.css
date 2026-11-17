@@ -60,6 +60,12 @@
 .agent-disclosure input { margin:.125rem 0 0; flex:none; min-width:1rem; min-height:1rem; }
 .agent-panel .agent-prompt-label { position:absolute; width:1px; height:1px; clip-path:inset(50%); overflow:hidden; margin:0; }
 .agent-panel .agent-composer textarea { display:block; width:100%; min-height:3.5rem; max-height:14rem; resize:vertical; background:var(--subtle); font-size:var(--chat-font-size,.8125rem); line-height:1.55; }
+.agent-writing-tasks { display:flex; align-items:flex-end; flex-wrap:wrap; gap:.375rem; min-width:0; }
+.agent-writing-tasks>.agent-quick-control { flex:1 1 11rem; }
+.agent-writing-tasks>button { flex:0 1 auto; min-width:0; }
+.agent-panel .agent-writing-task-note,.agent-panel .agent-writing-task-error { margin:0; font-size:calc(var(--chat-font-size,.8125rem) * .846154); line-height:1.5; overflow-wrap:anywhere; }
+.agent-writing-task-note { color:var(--secondary); }
+.agent-writing-task-error { color:var(--error); }
 .agent-composer-footer { display:flex; flex-wrap:wrap; align-items:flex-end; gap:.375rem; min-height:1.875rem; flex-shrink:0; position:sticky; bottom:0; z-index:1; padding-top:.375rem; background:var(--surface); }
 .agent-composer-footer>button { display:inline-flex; align-items:center; justify-content:center; gap:.375rem; flex:none; margin-left:auto; }
 .agent-panel .agent-quick-control { display:flex; flex-direction:column; gap:.1875rem; min-width:0; margin:0; font-size:calc(var(--chat-font-size,.8125rem) * .846154); color:var(--secondary); }

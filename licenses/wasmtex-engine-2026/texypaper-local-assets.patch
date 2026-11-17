@@ -1,0 +1,29 @@
+--- a/source/wasmtex/a97db8a62ed86b118bcfcc8784b7752aa8e988ac/wasm-build/pdftex-worker.js
++++ b/source/wasmtex/a97db8a62ed86b118bcfcc8784b7752aa8e988ac/wasm-build/pdftex-worker.js
+@@ -555,6 +555,8 @@
+ // Ensures standard extensions for known formats so same-named files of
+ // different formats (TFM vs VF, BibTeX .bib vs .bst) never share a path.
+ function cacheFileName(format, name) {
++    // Keep a relative resource in one cache file; preserve its final extension.
++    if (name.includes("/")) name = encodeURIComponent(name);
+     if (format === 3 && !name.endsWith(".tfm")) return name + ".tfm";
+     if (format === 6 && !name.endsWith(".bib")) return name + ".bib";
+     if (format === 7 && !name.endsWith(".bst")) return name + ".bst";
+@@ -577,9 +579,14 @@
+         reqname = reqname.substring(1);
+     }
+ 
+-    // Only fetch bare filenames, not paths
+-    if (reqname.includes("/")) {
+-        return 0;
++    // TexyPaper: relative package assets are local-only. Never send project paths
++    // to a CDN, or allow traversal/absolute paths into the installed-tree provider.
++    if (reqname.includes("/") || reqname.includes("\\")) {
++        var local = /^(?:https?:\/\/texmf\.localhost|texmf:\/\/localhost)\/2026\/$/.test(self.texlive_endpoint);
++        if (!local || reqname.length > 512 || /[\x00-\x1f\x7f\\:%?#{}$~]/.test(reqname) ||
++            reqname.split("/").some(function(part) { return !part || /^[.-]/.test(part); })) {
++            return 0;
++        }
+     }
+ 
+     var cacheKey = format + "/" + reqname;

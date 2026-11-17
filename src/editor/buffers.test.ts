@@ -70,6 +70,28 @@ describe('buffer generation interleavings',()=>{
   function document(text:string,sha256='outside') {const value=buffer(text,'lf').document;value.revision.sha256=sha256;return value;}
   function edit(value:BufferRecord,text:string,generation=value.generation) {const state=value.state??EditorState.create({doc:value.document.text});const transaction=state.update({changes:{from:0,to:state.doc.length,insert:text}});store.update(value.path,transaction.state,transaction.changes,generation);return transaction.state;}
 
+  it('does not activate a cached target after its PDF lookup loses ownership',async()=>{
+    const current=install(),target=buffer('target\n','lf');target.path='target.tex';store.records.set(target.path,target);
+    await store.open(target.path,false,()=>false);
+    expect(store.activePath).toBe(current.path);expect(target.lastUsed).toBe(0);
+  });
+  it.each(['read','recovery'] as const)('does not activate a target invalidated while awaiting %s',async stage=>{
+    const current=install(),read=deferred<BufferRecord['document']>(),recovery=deferred<null>(),recovering=deferred<void>();
+    let valid=true;
+    vi.mocked(request).mockImplementation(((command:string)=>{
+      if(command==='file_read')return read.promise;
+      if(command==='recovery_read'){recovering.resolve();return recovery.promise;}
+      return Promise.reject(new Error('unexpected request'));
+    }) as typeof request);
+    const opening=store.open('target.tex',false,()=>valid);
+    if(stage==='read')valid=false;
+    read.resolve({...document('target\n'),file:{workspaceId:'workspace',path:'target.tex'}});
+    await recovering.promise;
+    if(stage==='recovery')valid=false;
+    recovery.resolve(null);await opening;
+    expect(store.activePath).toBe(current.path);expect(store.text(current)).toBe('original\n');
+  });
+
   it('keeps typing when a poll read finishes after the editor update',async()=>{
     const value=install(),read=deferred<BufferRecord['document']>();
     vi.mocked(request).mockImplementation(((command:string)=>command==='file_metadata'?Promise.resolve({revision:{sha256:'outside'}}):read.promise) as typeof request);
@@ -144,5 +166,52 @@ describe('buffer generation interleavings',()=>{
     expect(vi.mocked(request).mock.calls.some(call=>call[0]==='file_save')).toBe(false);
     stat.resolve({revision:{sha256:'base'}});await Promise.all([poll,save]);
     expect(vi.mocked(request).mock.calls.filter(call=>call[0]==='file_metadata')).toHaveLength(1);expect(value.document.revision.sha256).toBe('saved');expect(value.dirty).toBe(false);
+  });
+  it('coalesces a typing burst and does not resurrect recovery after the fast save',async()=>{
+    const value=install();let disk='original\n',journal:string|null=null;
+    vi.mocked(request).mockImplementation((async(command:string,_workspace:unknown,args:unknown)=>{
+      const input=args as {text?:string};
+      if(command==='recovery_write')journal=input.text!;
+      if(command==='recovery_clear')journal=null;
+      if(command==='file_save'){disk=input.text!;return document(disk,'saved');}
+      return null;
+    }) as typeof request);
+    edit(value,'first draft\n');await vi.advanceTimersByTimeAsync(100);
+    edit(value,'latest draft\n');await vi.advanceTimersByTimeAsync(100);
+    expect(disk).toBe('original\n');
+    await vi.advanceTimersByTimeAsync(500);
+    expect(disk).toBe('latest draft\n');expect(value.dirty).toBe(false);expect(journal).toBeNull();
+    await vi.advanceTimersByTimeAsync(1000);expect(journal).toBeNull();
+  });
+  it('keeps unfinished IME input recoverable without saving or reporting an error',async()=>{
+    const value=install();let disk='original\n',journal:string|null=null;
+    vi.mocked(request).mockImplementation((async(command:string,_workspace:unknown,args:unknown)=>{
+      const input=args as {text?:string};
+      if(command==='recovery_write')journal=input.text!;
+      if(command==='recovery_clear')journal=null;
+      if(command==='file_save'){disk=input.text!;return document(disk,'saved');}
+      return null;
+    }) as typeof request);
+    edit(value,'before composition\n');await vi.advanceTimersByTimeAsync(100);
+    store.composition(value.path,true,value.generation);edit(value,'한글 조합 중\n');
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(disk).toBe('original\n');expect(journal).toBe('한글 조합 중\n');expect(value.error).toBeUndefined();
+    store.composition(value.path,false,value.generation);await vi.advanceTimersByTimeAsync(500);
+    expect(disk).toBe('한글 조합 중\n');expect(value.dirty).toBe(false);expect(journal).toBeNull();
+  });
+  it('saves the latest edit after an older automatic save completes late',async()=>{
+    const value=install(),first=deferred<BufferRecord['document']>();let disk='original\n',journal:string|null=null,saves=0;
+    vi.mocked(request).mockImplementation(((command:string,_workspace:unknown,args:unknown)=>{
+      const input=args as {text?:string};
+      if(command==='recovery_write')journal=input.text!;
+      if(command==='recovery_clear')journal=null;
+      if(command==='file_save'){disk=input.text!;return ++saves===1?first.promise:Promise.resolve(document(disk,'latest'));}
+      return Promise.resolve(null);
+    }) as typeof request);
+    edit(value,'first draft\n');await vi.advanceTimersByTimeAsync(200);
+    edit(value,'newer draft\n');await vi.advanceTimersByTimeAsync(200);
+    expect(disk).toBe('first draft\n');expect(value.dirty).toBe(true);
+    first.resolve(document('first draft\n','first'));await vi.advanceTimersByTimeAsync(500);
+    expect(disk).toBe('newer draft\n');expect(value.document.revision.sha256).toBe('latest');expect(value.dirty).toBe(false);expect(journal).toBeNull();
   });
 });

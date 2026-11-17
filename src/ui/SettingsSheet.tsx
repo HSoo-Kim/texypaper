@@ -32,6 +32,9 @@ export function SettingsSheet({settings,onChange,updates,project,onProject,onClo
         <p className="settings-note">{t('자동 검색 제외: .git, .texypaper, node_modules, .venv, venv, __pycache__. 탐색기에서 직접 열 수 있습니다.')}</p>
         {project&&<div className="settings-project-build"><h3>{t('프로젝트 빌드')}</h3><label>{t('엔진')}<select value={project.engine} onChange={event=>onProject({engine:event.target.value as ProjectSettings['engine']})}><option value="pdflatex">pdfLaTeX</option><option value="xelatex">XeLaTeX</option><option value="lualatex">LuaLaTeX</option></select></label><label>{t('빌드 프로필')}<select value={project.profile} onChange={event=>onProject({profile:event.target.value as ProjectSettings['profile']})}><option value="basic">{t('기본 · 설정 파일 무시 / shell escape 금지')}</option><option value="project">{t('프로젝트 · 신뢰 필요')}</option></select></label><label className="check"><input type="checkbox" checked={project.autoBuild} onChange={event=>onProject({autoBuild:event.target.checked})}/>{t('저장 후 자동 빌드')}</label></div>}
       </SettingsGroup>
+      <SettingsGroup title={t('오픈 소스','Open source')} description={t('상주 TeX 엔진의 라이선스와 정확한 대응 소스를 앱에 함께 제공합니다.','The resident TeX engine licenses and exact corresponding source are included with the app.')}>
+        <details><summary>{t('라이선스 및 소스 보기','View licenses and source')}</summary><iframe title={t('WasmTex 라이선스 및 대응 소스','WasmTex licenses and corresponding source')} src="/wasmtex/2026/index.html" sandbox="allow-downloads" loading="lazy" style={{width:'100%',height:360,border:0}}/></details>
+      </SettingsGroup>
     </div>
   </section>;
 }

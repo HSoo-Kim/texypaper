@@ -1,5 +1,45 @@
 # Changelog
 
+## Unreleased
+
+## 0.0.13 — 2026-11-18
+
+### Paper workflow
+
+- Added **Paper → Find references**: project-wide BibTeX metadata search, source navigation and guarded citation insertion.
+- Added a CSV/TSV/semicolon table builder with strict parsing, data/LaTeX previews, escaped text, optional headers/captions/labels and single-step undo.
+- Added static pre-submission checks for root-reachable citations, labels, duplicate definitions, unfinished markers and PDF freshness, with source navigation and explicit incomplete/dynamic-analysis notices.
+- Added Markdown export of saved comments, replies, statuses and source/PDF anchors, with exact preview and exclusive creation on the current local or SSH host.
+- Added four academic writing presets that append to the existing AI draft without changing attachments or automatically sending.
+
+### Build and preview latency
+
+- Keep durable autosave coalescing at 150 ms locally and 250 ms over SSH, independently of preview and native-build scheduling. IME input still waits for composition end; a completed save cannot leave a late recovery journal behind.
+- Reserve the single active build before asynchronous root discovery and saving; merge overlapping edits into the latest pending build and keep unsaved buffers marked stale.
+- Reuse a secured direct pdfLaTeX pass only when the warm work state, exact recorder inputs/outputs, reference controls and skipped-generator dependencies are verified. Changes or missing proof force the complete latexmk path on both local and SSH hosts.
+- Reuse PDF.js parser workers, prioritize the visible page and preserve page, zoom, rotation and scroll fraction only within the same workspace, epoch and root document.
+- Add an offline, resident WasmTex engine to the existing source/PDF split. Coalesce same-turn edits and show a real first-pass PDF without a debounce, disk-save wait or new native TeX process. Keep the verified host build authoritative for export and PDF anchors; incompatible inputs retain the native path.
+- Pin the WasmTex SDK and engine release, verify distributed assets and include engine notices and complete corresponding source. Read TeX packages only from an authorized local TeX Live 2026 installation; no cloud package or compilation service is required.
+- Reject error-bearing SDK progress and final PDFs even when its success flag is true; warnings alone remain valid. Preserve the last verified PDF on failed or cancelled builds.
+- Normalize Windows TeX executable paths for package discovery and validate SSH snapshots using the worker's existing 32-character hexadecimal build-ID format.
+- Keep the SDK error-policy correction as a reproducible pnpm patch. Frozen CI, Windows build and development installs use the committed SDK library without running its upstream Unix-only preparation script.
+- Keep completed immutable preview snapshots visible during continuous typing instead of rejecting every result when a newer edit exists. Fence old native generations and attach final SyncTeX to the PDF that produced it.
+- Resolve installed packages through a bounded filename database instead of starting a native lookup process for every unambiguous resource. Preserve kpathsea fallback and canonical installed-root checks.
+- Fix relative package images such as CAS template thumbnails in both the local provider and worker. Relative paths never reach a cloud mirror; the exact worker source patch ships with the upstream source archive and derived asset hashes.
+- Clear only the PDF pane's own selection during PDF replacement, rotation and disposal; preserve the source editor's caret and the exact order of uninterrupted typing.
+- Prefer checkpoint-backed compilation through the current physical page plus one. Retain the last full PDF behind the refreshed span, label old remainder pages and prohibit their stale click mappings; scrolling can request more coverage without another source edit.
+- Wait for 1,000 ms of typing idle before automatic native basic/pdfLaTeX rebuilds with an existing PDF. Durable saves and page previews remain immediate; explicit builds, first builds and other profiles keep their existing behavior.
+- Reconcile with the complete native document after idle; unsafe or unsupported page previews fall back to full compilation. Partial output never gains export or comment authority.
+- Preserve compatible resident checkpoints across native publications. Accept hash-verified immutable source bundles independently of native SyncTeX readiness on both local and SSH hosts; unverified or foreign inputs remain rejected.
+- Keep already authorized partial frames visible while a newer native backdrop loads. Dispose only that backdrop's page work, reject newly completed obsolete previews, and prevent an older full build from replacing newer visible text during irregular typing.
+
+### Click locations
+
+- Plain source/PDF clicks show corresponding markers and source-line highlights without moving focus to the other pane. Drag selection, double-click selection and explicit SyncTeX shortcuts remain available.
+- Use the displayed frame's own mapping and matching compiled inputs, including live frames. Show pending/unavailable/source-changed feedback rather than silently doing nothing or using stale coordinates; invalidate late navigation before it can activate another tab.
+
+
+
 ## 0.0.12 — 2026-11-09
 
 ### Fixes

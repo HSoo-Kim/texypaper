@@ -21,7 +21,7 @@ Push-Location $repository
 try {
     $pnpm = (Get-Command pnpm.cmd -ErrorAction Stop).Source
     $cargo = (Get-Command cargo.exe -ErrorAction Stop).Source
-    Invoke-Checked $pnpm @('install', '--frozen-lockfile')
+    Invoke-Checked $pnpm @('install', '--frozen-lockfile', '--ignore-scripts')
     Invoke-Checked $pnpm @('build')
     Invoke-Checked $pnpm @('test')
     Invoke-Checked $cargo @('fmt', '--manifest-path', 'src-tauri/Cargo.toml', '--check')
@@ -32,8 +32,8 @@ try {
     if (-not (Test-Path -LiteralPath $app -PathType Leaf)) { throw "Build did not produce $app" }
     if ($OutputDirectory) { $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory) }
     if ($RunSmoke) {
-        $installers = @(Get-ChildItem -LiteralPath (Join-Path $repository 'src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis') -Filter 'TexyPaper_0.0.12_x64-setup.exe' -File)
-        if ($installers.Count -ne 1) { throw 'Expected exactly one TexyPaper_0.0.12_x64-setup.exe NSIS installer; never select a stale or differently branded bundle.' }
+        $installers = @(Get-ChildItem -LiteralPath (Join-Path $repository 'src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis') -Filter 'TexyPaper_0.0.13_x64-setup.exe' -File)
+        if ($installers.Count -ne 1) { throw 'Expected exactly one TexyPaper_0.0.13_x64-setup.exe NSIS installer; never select a stale or differently branded bundle.' }
         Invoke-Checked $pnpm @('smoke:desktop', '--binary', $app, '--installer', $installers[0].FullName, '--output', (Join-Path $OutputDirectory 'desktop'))
         Invoke-Checked $pnpm @('smoke:usability', '--binary', $app, '--output', (Join-Path $OutputDirectory 'usability'))
         Invoke-Checked $pnpm @('smoke:features', '--binary', $app, '--output', (Join-Path $OutputDirectory 'features'))
